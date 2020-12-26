@@ -1,28 +1,8 @@
 ----------
 
-Sat Dec 26 2020 05:50:27 GMT-0500 (Eastern Standard Time)
+Sat Dec 26 2020 05:51:43 GMT-0500 (Eastern Standard Time)
 
-/Users/nbudaiev/export.sh: line 3: 1: command not found
-
-
-----------
-
-Sat Dec 26 2020 05:50:27 GMT-0500 (Eastern Standard Time)
-
-fatal: not a git repository (or any of the parent directories): .git
-
-
-----------
-
-Sat Dec 26 2020 05:50:27 GMT-0500 (Eastern Standard Time)
-
-fatal: not a git repository (or any of the parent directories): .git
-
-
-----------
-
-Sat Dec 26 2020 05:50:27 GMT-0500 (Eastern Standard Time)
-
-fatal: not a git repository (or any of the parent directories): .git
+To https://github.com/bazarsen/bazarsen.github.io
+   8512038..671aa5a  master -> master
 
 
