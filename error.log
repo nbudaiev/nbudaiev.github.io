@@ -54,3 +54,10 @@ remote: Invalid username or password.
 fatal: Authentication failed for 'https://github.com/bazarsen/bazarsen.github.io/'
 
 
+----------
+
+Mon Dec 28 2020 02:27:04 GMT-0500 (Eastern Standard Time)
+
+fatal: could not read Username for 'https://github.com': Device not configured
+
+
