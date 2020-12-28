@@ -46,3 +46,11 @@ To https://github.com/bazarsen/bazarsen.github.io
    fdae57a..0678e9f  master -> master
 
 
+----------
+
+Mon Dec 28 2020 01:42:46 GMT-0500 (Eastern Standard Time)
+
+remote: Invalid username or password.
+fatal: Authentication failed for 'https://github.com/bazarsen/bazarsen.github.io/'
+
+
