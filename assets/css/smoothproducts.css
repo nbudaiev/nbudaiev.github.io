@@ -45,6 +45,7 @@ html, body {
   display: inline-block;
   background-size: cover;
   background-position: center;
+  -webkit-transition: all .2s ease-out;
   -moz-transition: all .2s ease-out;
   -ms-transition: all .2s ease-out;
   -o-transition: all .2s ease-out;
