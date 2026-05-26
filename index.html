@@ -1,96 +1,961 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
-    <title>Nazar Budaiev's Homepage</title>
-    <meta name="description" content="Nazar Budaiev - astronomy graduate student University of Florida">
-    <meta name="keywords" content="Nazar, Budaiev, Nazar Budaiev, nbudaiev, Назар, Будаєв, Назар Будаєв, Назар Будаєв Петрович">
-    <meta name="google-site-verification" content="aTBWU8B8XtR1LQ7Ogbc34Z0O9paX25qyE1vJgLTebe0">
-    <link rel="stylesheet" href="assets/bootstrap/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat:400,400i,700,700i,600,600i&amp;display=swap">
-    <link rel="stylesheet" href="assets/fonts/ionicons.min.css">
-    <link rel="stylesheet" href="assets/css/bss-overrides.css">
-    <link rel="stylesheet" href="assets/css/Footer-Dark.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/baguettebox.js/1.10.0/baguetteBox.min.css">
-    <link rel="stylesheet" href="assets/css/MyStyle.css">
-    <link rel="stylesheet" href="assets/css/smoothproducts.css">
-<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
-<link rel="manifest" href="/site.webmanifest">
-<meta name="theme-color" content="#ffffff">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+  <meta name="description" content="Nazar Budaiev - astronomy graduate student University of Florida">
+  <meta name="keywords" content="Nazar, Budaiev, Nazar Budaiev, nbudaiev, Назар, Будаєв, Назар Будаєв, Назар Будаєв Петрович">
+  <meta name="theme-color" content="#0d1b2a">
+  <title>Nazar Budaiev's Homepage</title>
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="shortcut icon" href="/favicon.ico">
+  <meta name="msapplication-TileImage" content="/mstile-150x150.png">
+  <meta name="msapplication-TileColor" content="#0d1b2a">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg: #0d1b2a;
+      --bg2: #112236;
+      --bg3: #162d44;
+      --border: rgba(80, 160, 255, 0.18);
+      --accent: #3d9bff;
+      --accent2: #82c8ff;
+      --text: #c8dff5;
+      --text-dim: #6a90b8;
+      --text-bright: #eaf4ff;
+      --ukraine-blue: #005bbb;
+      --ukraine-yellow: #ffd700;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: linear-gradient(160deg, #0d1b2a 0%, #0a1628 40%, #091220 100%);
+      background-attachment: fixed;
+      color: var(--text);
+      font-family: 'Roboto', sans-serif;
+      font-size: 16px;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem 2.5rem;
+      background: rgba(10, 14, 26, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    nav .logo {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--accent2);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+
+    nav ul {
+      list-style: none;
+      display: flex;
+      gap: 2rem;
+    }
+
+    nav ul li a {
+      font-family: 'Roboto', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    nav ul li a:hover { color: var(--accent2); }
+
+    /* hamburger for mobile */
+    .nav-toggle {
+      display: none;
+      flex-direction: column;
+      gap: 5px;
+      cursor: pointer;
+      background: none;
+      border: none;
+      padding: 4px;
+    }
+    .nav-toggle span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: var(--text-dim);
+      transition: all 0.3s;
+    }
+
+    @media (max-width: 680px) {
+      nav ul {
+        display: none;
+        position: absolute;
+        top: 100%; left: 0; right: 0;
+        flex-direction: column;
+        gap: 0;
+        background: rgba(10,14,26,0.97);
+        border-bottom: 1px solid var(--border);
+        padding: 1rem 0;
+      }
+      nav ul.open { display: flex; }
+      nav ul li a { display: block; padding: 0.6rem 2.5rem; font-size: 0.75rem; }
+      .nav-toggle { display: flex; }
+    }
+
+    /* ── SECTIONS ── */
+    section {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+    }
+
+    section + section {
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── HERO ── */
+    #home {
+      min-height: calc(100vh - 60px);
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 3rem;
+      align-items: center;
+      padding-top: 5rem;
+      padding-bottom: 3rem;
+    }
+
+    .hero-text h1 {
+      font-family: 'Roboto', sans-serif;
+      font-size: clamp(2.8rem, 6vw, 4.5rem);
+      font-weight: 300;
+      color: var(--text-bright);
+      line-height: 1.1;
+      margin-bottom: 1.5rem;
+      letter-spacing: -0.01em;
+    }
+
+    .hero-text h1 em {
+      font-style: normal;
+      color: var(--accent2);
+    }
+
+    .hero-text p {
+      color: var(--text);
+      font-size: 1.1rem;
+      max-width: 520px;
+      margin-bottom: 1rem;
+    }
+
+    .hero-text p a, section a {
+      color: var(--accent2);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(126,184,247,0.3);
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .hero-text p a:hover, section a:hover {
+      color: #fff;
+      border-bottom-color: rgba(255,255,255,0.6);
+    }
+
+    .ukraine-banner {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 1.2rem;
+      padding: 0.45rem 0.9rem;
+      border-left: 3px solid var(--ukraine-yellow);
+      background: rgba(0, 91, 187, 0.15);
+      font-size: 0.95rem;
+      border-radius: 0 4px 4px 0;
+      white-space: nowrap;
+    }
+
+    .ukraine-banner a {
+      color: var(--ukraine-yellow) !important;
+      border-bottom-color: rgba(255,215,0,0.4) !important;
+    }
+
+    .hero-photo {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .hero-photo img {
+      width: 260px;
+      height: 260px;
+      object-fit: cover;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      box-shadow: 0 0 40px rgba(74,125,255,0.2);
+    }
+
+    @media (max-width: 680px) {
+      #home { grid-template-columns: 1fr; padding-top: 5rem; }
+      .hero-photo { flex-direction: row; justify-content: center; flex-wrap: wrap; }
+    }
+
+    /* ── SECTION HEADERS ── */
+    .section-label {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 0.5rem;
+    }
+
+    h2 {
+      font-family: 'Roboto', sans-serif;
+      font-weight: 300;
+      font-size: clamp(2rem, 4vw, 2.8rem);
+      color: var(--text-bright);
+      margin-bottom: 2.5rem;
+      line-height: 1.2;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    h2::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(to right, var(--accent2), transparent);
+      opacity: 0.4;
+    }
+
+    /* ── RESEARCH ── */
+    .research-item {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 2rem;
+      margin-bottom: 3.5rem;
+      padding-bottom: 3.5rem;
+      border-bottom: 1px solid var(--border);
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+
+    .research-item.visible { opacity: 1; transform: translateY(0); }
+    .research-item:last-child { border-bottom: none; margin-bottom: 0; }
+
+    .research-item h3 {
+      font-family: 'Roboto', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 500;
+      color: var(--text-bright);
+      margin-bottom: 0.7rem;
+    }
+
+    .research-item p { font-size: 1rem; color: var(--text); margin-bottom: 0.8rem; }
+
+    .research-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .research-links a {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.62rem;
+      letter-spacing: 0.06em;
+      padding: 0.3rem 0.7rem;
+      border: 1px solid var(--border) !important;
+      border-radius: 4px;
+      color: var(--accent2) !important;
+      text-decoration: none;
+      transition: all 0.2s;
+      border-bottom: none !important;
+    }
+    .research-links a:hover {
+      background: rgba(74,125,255,0.12);
+      border-color: var(--accent2) !important;
+      color: #fff !important;
+    }
+
+    .research-item img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid rgba(100,160,255,0.25);
+      opacity: 0.9;
+      box-shadow:
+        0 4px 20px rgba(0,0,0,0.5),
+        0 0 0 1px rgba(100,160,255,0.08),
+        inset 0 1px 0 rgba(255,255,255,0.05);
+      transition: transform 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease;
+    }
+
+    .research-item img:hover {
+      transform: translateY(-3px) scale(1.01);
+      opacity: 1;
+      box-shadow:
+        0 8px 30px rgba(74,125,255,0.2),
+        0 0 0 1px rgba(100,160,255,0.2),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    @media (max-width: 680px) {
+      .research-item { grid-template-columns: 1fr; }
+      .research-item img { height: 140px; }
+    }
+
+    /* ── TEACHING ACCORDION ── */
+    .teaching-group {
+      margin-bottom: 0.6rem;
+    }
+    .teaching-group details {
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .teaching-group summary {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      padding: 0.9rem 1.2rem;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+      list-style: none;
+      transition: background 0.2s;
+    }
+    .teaching-group summary::-webkit-details-marker { display: none; }
+    .teaching-group summary::after {
+      content: '+';
+      font-size: 1.1rem;
+      font-weight: 300;
+      color: var(--text-dim);
+      transition: transform 0.25s ease;
+    }
+    .teaching-group details[open] summary {
+      background: rgba(61, 155, 255, 0.07);
+      border-bottom: 1px solid var(--border);
+    }
+    .teaching-group details[open] summary::after {
+      transform: rotate(45deg);
+    }
+    .teaching-group summary:hover {
+      background: rgba(61, 155, 255, 0.05);
+    }
+    .teaching-group ul {
+      list-style: none;
+      padding: 1rem 1.2rem 1.2rem;
+      background: var(--bg2);
+    }
+    .teaching-group ul li {
+      padding: 0.45rem 0 0.45rem 1rem;
+      border-left: 2px solid var(--border);
+      margin-bottom: 0.5rem;
+      font-size: 0.95rem;
+      line-height: 1.6;
+    }
+    .teaching-group ul li:last-child { margin-bottom: 0; }
+
+    .webinars {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .webinars h3 {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.72rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--accent2);
+      margin-bottom: 1rem;
+    }
+    .webinars p { font-size: 1rem; }
+    .webinar-links { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .webinar-links a {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.62rem;
+      padding: 0.3rem 0.7rem;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--accent2);
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .webinar-links a:hover { background: rgba(74,125,255,0.12); border-color: var(--accent2); color: #fff; }
+
+    /* ── INTERESTS (map) ── */
+    #interests {
+      padding-bottom: 6rem;
+    }
+    #interests .map-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 1rem;
+      /* let the iframe determine its own height */
+      height: 600px;
+    }
+    #interests iframe {
+      width: 100%;
+      height: 100%;
+      display: block;
+      border: none;
+      filter: invert(0.9) hue-rotate(180deg) saturate(0.7) brightness(0.85);
+    }
+
+    /* ── PIZZA CAROUSEL ── */
+    .interest-block {
+      margin-top: 3.5rem;
+      padding-top: 3rem;
+      border-top: 1px solid var(--border);
+    }
+    .interest-block h3 {
+      font-family: 'Roboto', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 300;
+      color: var(--text-bright);
+      margin-bottom: 0.5rem;
+    }
+    .interest-block > p {
+      font-size: 0.95rem;
+      color: var(--text-dim);
+      margin-bottom: 1.5rem;
+    }
+    .pizza-carousel {
+      position: relative;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      background: var(--bg2);
+    }
+    .pizza-track-wrap { overflow: hidden; }
+    .pizza-track {
+      display: flex;
+      transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .pizza-slide {
+      flex: 0 0 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .pizza-slide img {
+      width: 100%;
+      aspect-ratio: 1 / 1;  
+      object-fit: cover;
+      display: block;
+      filter: brightness(0.95);
+      transition: filter 0.3s;
+    }
+    .pizza-slide img:hover { filter: brightness(1); }
+    .pizza-caption {
+      padding: 0.8rem 1.2rem;
+      font-size: 0.88rem;
+      color: var(--text-dim);
+      font-style: italic;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+      min-height: 2.8rem;
+      display: flex;
+      align-items: center;
+    }
+    .pizza-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      padding: 0.8rem;
+      background: var(--bg2);
+      border-top: 1px solid var(--border);
+    }
+    .pizza-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      width: 32px;
+      height: 32px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .pizza-btn:hover { border-color: var(--accent2); color: var(--accent2); }
+    .pizza-dots { display: flex; gap: 0.4rem; }
+    .pizza-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--border);
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    .pizza-dot.active { background: var(--accent2); transform: scale(1.3); }
+    .pizza-counter {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      min-width: 3rem;
+      text-align: center;
+    }
+
+    /* ── CV embed ── */
+    .cv-embed-wrap {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .cv-embed-wrap iframe {
+      width: 100%;
+      height: 780px;
+      display: block;
+      border: none;
+    }
+
+    /* ── NAV SOCIAL ICONS ── */
+    .nav-icons {
+      display: flex;
+      align-items: center;
+      gap: 0.8rem;
+      margin-left: 1.5rem;
+    }
+    .nav-icons a {
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      transition: color 0.2s;
+    }
+    .nav-icons a:hover { color: var(--accent2); }
+    .nav-icons svg { width: 17px; height: 17px; fill: currentColor; }
+
+    /* ── FOOTER ── */
+    footer {
+      position: relative;
+      z-index: 1;
+      border-top: 1px solid var(--border);
+      padding: 2rem 2rem;
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .copyright {
+      font-family: 'Roboto Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--text-dim);
+    }
+
+    /* ── SCROLL ANIMATIONS ── */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-text {
+      animation: fadeUp 0.9s ease both;
+    }
+    .hero-photo {
+      animation: fadeUp 0.9s 0.2s ease both;
+    }
+
+    /* active nav link */
+    nav ul li a.active {
+      color: var(--text-bright);
+    }
+  </style>
 </head>
+<body>
 
-<body style="background: var(--dark);">
-    <nav class="navbar navbar-dark navbar-expand-lg fixed-top bg-info clean-navbar">
-        <div class="container"><a class="navbar-brand logo" href="#"></a><button data-toggle="collapse" class="navbar-toggler" data-target="#navcol-1"><span class="sr-only">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
-            <div class="collapse navbar-collapse" id="navcol-1">
-                <ul class="navbar-nav ml-auto">
-                    <li class="nav-item"><a class="nav-link active" href="index.html">Home</a></li>
-                    <li class="nav-item"><a class="nav-link" href="research.html">Research</a></li>
-                    <li class="nav-item"><a class="nav-link" href="teaching.html">Teaching</a></li>
-                    <li class="nav-item"><a class="nav-link" href="https://nbudaiev.github.io/files/BudaievCV.pdf" target="_blank">CV</a></li>
-                    <li class="nav-item"><a class="nav-link" href="interests.html">Interests</a></li>
-                </ul>
-            </div>
-        </div>
-    </nav>
-    <main class="page landing-page" style="background: var(--dark);border-style: none;">
-        <section style="background: var(--gray-dark);padding: 20px;margin: 0px;">
-            <p class="text-center"><img class="img-fluid border rounded float-none" src="assets/img/research/GalacticMap6GHz.png" style="background: var(--gray);text-align: center;border-style: none;"></p>
-        </section>
-        <section class="clean-block clean-info dark" style="background: var(--gray-dark);color: var(--gray-dark);">
-            <div class="container"><div class="row">
-    <div class="col-sm-6 order-sm-1">
-        <div style="margin: 0px;padding: 15px;">
-            <h1 class="text-light" style="color: var(--light);">Nazar Budaiev</h1>
-            <p class="text-white-50" style="color: var(--light);">I am an astronomy graduate student at University of Florida in my final year. My research interests lie broadly in star formation and radio astronomy. </p>
-            <p class="text-white-50" style="color: var(--light);">I currently work with <a class=norm href="http://www.adamgginsburg.com?raw=true" target="_blank">Prof. Adam Ginsburg</a> on star formation in Sagittarius B2, most massive molecular cloud in our Galaxy.</p>
-            <p class="text-white-50" style="color: var(--light);">
-            You can learn more about me by exploring this website or taking a look at my <a class=norm href="https://nbudaiev.github.io/files/BudaievCV.pdf" target="_blank">CV</a>.</p>
-            <p class="text-white-50" style="color: var(--light);">
-                My home country, Ukraine, is under full-scale attack by Russia. Please consider <a class=norm href="https://linktr.ee/razomforukraine" target="_blank">supporting Ukraine</a>. 
-            </p>
-        </div>
+  <!-- NAVIGATION -->
+  <nav>
+    <a href="#home" class="logo">NB</a>
+    <button class="nav-toggle" aria-label="Toggle navigation" onclick="document.querySelector('nav ul').classList.toggle('open')">
+      <span></span><span></span><span></span>
+    </button>
+    <ul>
+      <li><a href="#home">Home</a></li>
+      <li><a href="#research">Research</a></li>
+      <li><a href="#teaching">Teaching</a></li>
+      <li><a href="#interests">Interests</a></li>
+      <li><a href="#cv">CV</a></li>
+    </ul>
+    <div class="nav-icons">
+      <!-- GitHub -->
+      <a href="https://github.com/nbudaiev" target="_blank" rel="noopener" aria-label="GitHub">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+      </a>
+      <!-- LinkedIn -->
+      <a href="https://www.linkedin.com/in/nbudaiev/" target="_blank" rel="noopener" aria-label="LinkedIn">
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 0 1-2.063-2.065 2.064 2.064 0 1 1 2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      </a>
     </div>
-    <div class="col-sm-6 order-sm-12"><img class="rounded img-fluid" src="assets/img/avatars/Budaiev_web.jpg" /></div>
-</div></div>
-        </section>
-        <section>
-            <div class="container">
-                <div class="carousel slide" data-ride="carousel" id="carousel-1">
-                    <div class="carousel-inner">
-                        <div class="carousel-item active"><img class="rounded w-100 d-block border" src="assets/img/avatars/BudaievColider.png" alt="Slide Image"></div>
-                        <div class="carousel-item"><img class="rounded w-100 d-block border" src="assets/img/avatars/BudaievPhoton.png" alt="Slide Image"></div>
-                        <div class="carousel-item"><img class="rounded w-100 d-block border" src="assets/img/avatars/BudaievGeneva.jpeg" alt="Slide Image" style="background: var(--dark);"></div>
-                    </div>
-                    <div><a class="carousel-control-prev" href="#carousel-1" role="button" data-slide="prev"><span class="carousel-control-prev-icon"></span><span class="sr-only">Previous</span></a><a class="carousel-control-next" href="#carousel-1" role="button" data-slide="next"><span class="carousel-control-next-icon"></span><span class="sr-only">Next</span></a></div>
-                    <ol class="carousel-indicators">
-                        <li data-target="#carousel-1" data-slide-to="0" class="active"></li>
-                        <li data-target="#carousel-1" data-slide-to="1"></li>
-                        <li data-target="#carousel-1" data-slide-to="2"></li>
-                    </ol>
-                </div>
-            </div>
-        </section>
-    </main>
-    <div class="bg-dark footer-dark">
-        <footer>
-            <div class="container">
-                <div class="row">
-                    <div class="col item social"><a href="https://www.facebook.com/nazar.budaiev/" target="_blank"><i class="icon ion-social-facebook"></i></a><a href="https://twitter.com/nbudaiev" target="_blank"><i class="icon ion-social-twitter"></i></a><a href="https://github.com/nbudaiev" target="_blank"><i class="icon ion-social-github"></i></a><a href="https://www.linkedin.com/in/nbudaiev/" target="_blank"><i class="icon ion-social-linkedin"></i></a></div>
-                </div>
-                <p class="copyright">Nazar Budaiev © 2025</p>
-            </div>
-        </footer>
+  </nav>
+
+  <!-- ══ HOME ══ -->
+  <section id="home">
+
+    <div class="hero-text">
+      <p class="section-label">Astronomy &middot; University of Florida</p>
+      <h1>Nazar<br><em>Budaiev</em></h1>
+      <p>
+        I am Postdoctoral Associate at the University of Florida.
+        My research interests lie broadly in star formation on all scales. I utilize radio and infrared telescopes that excell in peering into the center of our Galaxy.
+      </p>
+      <p>
+        I currently work with <a href="http://www.adamgginsburg.com" target="_blank">Prof. Adam Ginsburg</a>
+        on star formation in Sagittarius B2, the most massive molecular cloud in our Galaxy.
+      </p>
+      <div class="ukraine-banner">
+        🇺🇦 My home country is under attack. Please consider supporting Ukraine. <a href="https://oneunited.now/en" target="_blank">Protect Ukrainian sky</a> | <a href="https://www.razomforukraine.org/donate-to-ukraine/" target="_blank">Lifesaving aid</a>
+      </div>
     </div>
-    <script src="assets/js/jquery.min.js"></script>
-    <script src="assets/bootstrap/js/bootstrap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/baguettebox.js/1.10.0/baguetteBox.min.js"></script>
-    <script src="assets/js/smoothproducts.min.js"></script>
-    <script src="assets/js/theme.js"></script>
+
+    <div class="hero-photo">
+      <img src="https://nbudaiev.github.io/assets/img/avatars/Budaiev_web.jpg" alt="Nazar Budaiev" />
+    </div>
+  </section>
+
+  <!-- ══ RESEARCH ══ -->
+  <section id="research">
+    <p class="section-label">Publications &amp; Projects</p>
+    <h2>Research</h2>
+    <p style="margin-bottom:2.5rem; color:var(--text-dim); font-size:0.95rem;">Highlighted in reversed chronological order.</p>
+
+    <div class="research-item">
+      <div>
+        <h3>Peering into Sgr B2 with JWST</h3>
+        <p>
+          Despite the high extinction towards the center of the Galaxy, JWST can probe deep inside massive
+          star-forming clouds. Our JWST program 5365 observed Sagittarius B2 with NIRCam and MIRI. The striking
+          cloud morphology, absence of YSOs, and leaking radiation raised more questions than they answered.
+        </p>
+        <div class="research-links">
+          <a href="https://science.nasa.gov/missions/webb/nasas-webb-explores-largest-star-forming-cloud-in-milky-way/" target="_blank">NASA Press Release</a>
+          <a href="https://ui.adsabs.harvard.edu/abs/2025arXiv250911771B/abstract" target="_blank">Budaiev et al. 2026</a>
+        </div>
+      </div>
+      <img src="https://nbudaiev.github.io/assets/img/research/JWST.jpg" alt="JWST image of Sgr B2">
+    </div>
+
+    <div class="research-item">
+      <div>
+        <h3>Cataloging H₂O Masers in Sgr B2</h3>
+        <p>
+          Sagittarius B2 is the most massive molecular cloud with the highest star formation rate in the
+          Galactic center. We found 500 water masers in the cloud and for the first time determined their
+          nature based on high-resolution multiwavelength observations.
+        </p>
+        <div class="research-links">
+          <a href="https://ui.adsabs.harvard.edu/abs/2025ApJ...989...52B/abstract" target="_blank">Budaiev et al. 2025</a>
+        </div>
+      </div>
+      <img src="https://nbudaiev.github.io/assets/img/research/Maser.png" alt="H2O Maser map">
+    </div>
+
+    <div class="research-item">
+      <div>
+        <h3>ACES: The ALMA CMZ Exploration Survey</h3>
+        <p>
+          ACES is a large program mapping the inner 100 parsecs of the CMZ, designed to fill gaps in
+          current maps of Galactic center star formation. I am part of the data reduction and
+          fundamental measurements teams for the largest ALMA mosaic so far. In early 2026, the survey
+          released its first series of five papers covering the survey overview, continuum images, and
+          three sets of spectral line data products.
+        </p>
+        <div class="research-links">
+          <a href="https://arxiv.org/abs/2602.20340" target="_blank">Longmore et al. 2026 (I)</a>
+          <a href="https://arxiv.org/abs/2602.20240" target="_blank">Ginsburg et al. 2026 (II)</a>
+          <a href="https://arxiv.org/abs/2602.20276" target="_blank">Walker et al. 2026 (III)</a>
+          <a href="https://arxiv.org/abs/2602.20445" target="_blank">Lu et al. 2026 (IV)</a>
+          <a href="https://arxiv.org/abs/2603.00863" target="_blank">Hsieh et al. 2026 (V)</a>
+          <a href="https://www.eso.org/public/news/eso2603/" target="_blank">ESO Press Release</a>
+        </div>
+      </div>
+      <img src="https://nbudaiev.github.io/assets/img/research/12m_continuum_reimaged_mosaic_hires.jpg" alt="ACES mosaic">
+    </div>
+
+    <div class="research-item">
+      <div>
+        <h3>High Mass Star Formation in Sgr B2</h3>
+        <p>
+          Using 500 AU resolution ALMA 1 mm and 3 mm continuum data, we surveyed protostellar cores
+          in Sgr B2. We detected 410 individual sources, most consistent with Stage 0/I YSOs that are
+          warmer, larger, and denser than in the rest of the Galaxy.
+        </p>
+        <div class="research-links">
+          <a href="https://ui.adsabs.harvard.edu/abs/2024ApJ...961....4B/abstract" target="_blank">Budaiev et al. 2024</a>
+          <a href="https://nbudaiev.github.io/files/Masters_presentation.pdf" target="_blank">Master's Presentation</a>
+          <a href="https://nbudaiev.github.io/nbudaiev.github.io/files/Poster_PPVII.pdf" target="_blank">Poster</a>
+        </div>
+      </div>
+      <img src="https://nbudaiev.github.io/assets/img/research/SgrB2N.png" alt="SgrB2N map">
+    </div>
+
+    <div class="research-item">
+      <div>
+        <h3>A 6 GHz Continuum Map of the Inner Galactic Plane</h3>
+        <p>
+          I spent a summer at the Green Bank Observatory working on a 4–8 GHz continuum map of the
+          inner Galactic plane using data from the GBT Diffuse Ionized Gas Survey (GDIGS), studying
+          the relationship between diffuse ionized gas and HII regions.
+        </p>
+        <div class="research-links">
+          <a href="https://nbudaiev.github.io/nbudaiev.github.io/files/NB_GBO_Poster.pdf" target="_blank">AAS Poster</a>
+          <a href="https://nbudaiev.github.io/files/NB_GBO_Project_Report.pdf" target="_blank">Project Report</a>
+          <a href="https://nbudaiev.github.io/files/NB_GBO_Lunch_Talk.pdf" target="_blank">GBO Lunch Talk</a>
+        </div>
+      </div>
+      <img src="https://nbudaiev.github.io/assets/img/research/Website%20cut.png" alt="Galactic plane map">
+    </div>
+
+    <div class="research-item">
+      <div>
+        <h3>Characterizing the GBT Autocorrelation Spectrometer</h3>
+        <p>
+          Using Radio Recombination Lines of four Galactic HII regions I estimated the intensity level
+          at which RRL measurements become unreliable (~2 mK). Some code contributed to figures in
+          observations of ³He⁺ in Planetary Nebulae
+          (<a href="https://ui.adsabs.harvard.edu/abs/2020arXiv201211707B/abstract" target="_blank">Bania &amp; Balser, 2020</a>).
+        </p>
+      </div>
+      <img src="https://nbudaiev.github.io/assets/img/research/LTEyfwhmN7538.png" alt="ACS performance plot">
+    </div>
+  </section>
+
+  <!-- ══ TEACHING ══ -->
+  <section id="teaching">
+    <p class="section-label">Education &amp; Outreach</p>
+    <h2>Teaching</h2>
+    <p style="margin-bottom:2rem; font-size:1rem;">In Spring 2021 I taught AST 1022L: Astronomy Laboratory, a one-credit undergraduate lab course.</p>
+
+    <div class="teaching-group">
+      <details>
+        <summary>University of Florida</summary>
+        <ul>
+          <li>Spring 2021: Graduate Student Instructor for AST1022: Astronomy Laboratory.</li>
+          <li>Fall 2020: Graduate Student Instructor for AST1022: Astronomy Laboratory.</li>
+        </ul>
+      </details>
+    </div>
+
+    <div class="teaching-group">
+      <details>
+        <summary>Boston University</summary>
+        <ul>
+          <li>
+            Spring 2020: Teaching Assistant for
+            <a href="https://www.bu.edu/astronomy/files/2017/02/AS312-Syllabus-Bania-Spring2017.pdf" target="_blank">AS312: Stellar and Galactic Astrophysics</a>
+            (IDL-heavy course).
+          </li>
+          <li>
+            Fall 2018 – Spring 2020: Teaching Assistant for
+            <a href="http://physics.bu.edu/sites/project-accelerate/" target="_blank">Project Accelerate</a>,
+            teaching the lab section of AP Physics for underserved minorities.
+            I created <a href="https://github.com/nbudaiev/Project_Accelerate" target="_blank">review sheets</a>
+            to help students prepare for the exam.
+          </li>
+          <li>Fall 2017 – Spring 2018: <a href="https://en.wikipedia.org/wiki/Learning_Assistant_Model" target="_blank">Learning Assistant</a> for Introductory Physics courses.</li>
+          <li>Summer 2016: Designed and led an olympiad mathematics course for 8th graders.</li>
+        </ul>
+      </details>
+    </div>
+
+    <div class="webinars">
+      <h3>AstroSandbox &amp; Ukrainian Outreach</h3>
+      <p>
+        I write and conduct webinars for
+        <a href="https://www.astrosandbox.com/mainenglish" target="_blank">AstroSandbox</a>,
+        an organization preparing Ukrainian students for astronomy olympiads. Check out our <a href="https://www.youtube.com/@astrosandbox" target="_blank">YouTube channel</a>.
+      </p>
+      <div class="webinar-links">
+        <a href="https://www.youtube.com/watch?v=ZqjvgTI7fbE" target="_blank">Python in Astronomy</a>
+        <a href="https://www.youtube.com/watch?v=125nKd3aFCc" target="_blank">Astronomical Image Processing</a>
+        <a href="https://www.youtube.com/watch?v=xO6tN9AZsqA" target="_blank">Multiwavelength Astronomy</a>
+        <a href="https://www.youtube.com/watch?v=Zf5niARrGJA" target="_blank">Radio Astronomy</a>
+        <a href="https://2.astrosandbox.com/webinars/telescope-proposal" target="_blank">Telescope Proposals</a>
+        <a href="https://2.astrosandbox.com/webinars/imposter-syndrome" target="_blank">Imposter Syndrome</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ INTERESTS ══ -->
+  <section id="interests">
+    <p class="section-label">Beyond Research</p>
+    <h2>Interests</h2>
+    <div class="map-wrap">
+      <iframe
+        src="https://www.google.com/maps/d/embed?mid=1R3NhAnQqMV8T_6BTKT_CYQodlvaDL8kt"
+        title="Nazar's travel map"
+        allowfullscreen
+        loading="lazy">
+      </iframe>
+    </div>
+
+    <!-- Pizza making & eating -->
+    <div class="interest-block">
+      <h3>Pizza Making (and Eating)</h3>
+      <p>I love any combination of bread and melted cheese. </p>
+      <div class="pizza-carousel" id="pizzaCarousel">
+        <div class="pizza-track-wrap">
+          <div class="pizza-track" id="pizzaTrack">
+
+            <div class="pizza-slide">
+              <img src="https://nbudaiev.github.io/assets/img/pizza/thin_1.jpeg" alt="Pizza 1">
+              <div class="pizza-caption">Thin crust pizza, one of my favorites</div>
+            </div>
+
+            <div class="pizza-slide">
+              <img src="https://nbudaiev.github.io/assets/img/pizza/deep_dish_1.jpeg" alt="Pizza 2">
+              <div class="pizza-caption">Deep dish pizza, a Chicago classic</div>
+            </div>
+
+            <div class="pizza-slide">
+              <img src="https://nbudaiev.github.io/assets/img/pizza/trigo_1.jpeg" alt="Pizza 3">
+              <div class="pizza-caption">Pizza at <a href="https://www.trigokitchen.com" target="_blank"> Trigo restaurant in Wilimantic, CT</a>. A 10/10 place, no kidding</div>
+            </div>
+
+            <div class="pizza-slide">
+              <img src="https://nbudaiev.github.io/assets/img/pizza/pickles_1.jpeg" alt="Pizza 4">
+              <div class="pizza-caption">Pickles on pizza, an underrated topping. I also love pickled onions on pizza</div>
+            </div>
+
+            <div class="pizza-slide">
+              <img src="https://nbudaiev.github.io/assets/img/pizza/pepperoni_1.JPG" alt="Pizza 5">
+              <div class="pizza-caption">One of the early ones</div>
+            </div>
+
+          </div>
+        </div>
+        <div class="pizza-controls">
+          <button class="pizza-btn" id="pizzaPrev">&#8592;</button>
+          <div class="pizza-dots" id="pizzaDots"></div>
+          <span class="pizza-counter" id="pizzaCounter">1 / 5</span>
+          <button class="pizza-btn" id="pizzaNext">&#8594;</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ CV ══ -->
+  <section id="cv">
+    <p class="section-label">Curriculum Vitae</p>
+    <h2>CV</h2>
+    <p style="margin-bottom:1.5rem; font-size:1rem;">
+      You can also <a href="https://nbudaiev.github.io/files/BudaievCV.pdf" target="_blank">download the PDF directly</a>.
+    </p>
+    <div class="cv-embed-wrap">
+      <iframe
+        src="https://nbudaiev.github.io/files/BudaievCV.pdf"
+        title="Nazar Budaiev CV">
+      </iframe>
+    </div>
+  </section>
+
+  <!-- ══ FOOTER ══ -->
+  <footer>
+    <p class="copyright">Nazar Budaiev &copy; 2026</p>
+  </footer>
+
+  <script>
+    // ── Scroll reveal for research items ─────────────────────────
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.research-item').forEach(el => observer.observe(el));
+
+    // ── Active nav link on scroll ─────────────────────────────────
+    const sections = document.querySelectorAll('section[id]');
+    const navLinks = document.querySelectorAll('nav ul li a');
+
+    const scrollObserver = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          navLinks.forEach(a => a.classList.remove('active'));
+          const active = document.querySelector(`nav ul li a[href="#${e.target.id}"]`);
+          if (active) active.classList.add('active');
+        }
+      });
+    }, { rootMargin: '-40% 0px -55% 0px' });
+
+    sections.forEach(s => scrollObserver.observe(s));
+
+    // close mobile nav on link click
+    document.querySelectorAll('nav ul li a').forEach(a => {
+      a.addEventListener('click', () => document.querySelector('nav ul').classList.remove('open'));
+    });
+    // ── Pizza carousel ────────────────────────────────────────────
+    (function () {
+      const track   = document.getElementById('pizzaTrack');
+      const dotsWrap = document.getElementById('pizzaDots');
+      const counter = document.getElementById('pizzaCounter');
+      const slides  = track.querySelectorAll('.pizza-slide');
+      const total   = slides.length;
+      let cur = 0;
+
+      // build dots
+      slides.forEach((_, i) => {
+        const d = document.createElement('button');
+        d.className = 'pizza-dot' + (i === 0 ? ' active' : '');
+        d.setAttribute('aria-label', 'Go to slide ' + (i + 1));
+        d.addEventListener('click', () => goTo(i));
+        dotsWrap.appendChild(d);
+      });
+
+      function goTo(n) {
+        cur = (n + total) % total;
+        track.style.transform = `translateX(-${cur * 100}%)`;
+        dotsWrap.querySelectorAll('.pizza-dot').forEach((d, i) =>
+          d.classList.toggle('active', i === cur));
+        counter.textContent = `${cur + 1} / ${total}`;
+      }
+
+      document.getElementById('pizzaPrev').addEventListener('click', () => goTo(cur - 1));
+      document.getElementById('pizzaNext').addEventListener('click', () => goTo(cur + 1));
+
+      // swipe support
+      let startX = 0;
+      track.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+      track.addEventListener('touchend',   e => {
+        const dx = e.changedTouches[0].clientX - startX;
+        if (Math.abs(dx) > 40) goTo(dx < 0 ? cur + 1 : cur - 1);
+      });
+    })();
+
+  </script>
 </body>
-
 </html>
