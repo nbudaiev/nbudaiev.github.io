@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Self-Calibration</title>
+<meta name="deck-title" content="Self-calibration · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+  table.rounds td, table.rounds th { padding: .25em .45em; }
+  table.rounds tr.cur td { background: var(--accent-soft); }
+  table.rounds thead th { position: sticky; top: 0; background: var(--slide); }
+  .ptab { margin: 0; }
+  .ptab button { font-family: var(--f-mono); font-size: .74em; }
+  canvas.plot.ph2 { aspect-ratio: 3.25; }
+  .key { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0 .8em; }
+  .key i { display: inline-block; width: .75em; height: .75em; border-radius: 50%; margin-right: .3em; vertical-align: -.05em; }
+  .key .x { font-weight: 700; margin-right: .25em; }
+  .key i.ln { width: 1.3em; height: .18em; border-radius: 0; vertical-align: .22em; }
+  #solint canvas.plot { aspect-ratio: 3.3; }
+  .call-row.scen:not(.live) { border: 0; }
+  .call-row.scen:not(.live) code { white-space: pre-wrap; }
+  pre.code.recipe { font-size: .8em; line-height: 1.42; }
+  table.sctab th { text-transform: none; }
+  table.sctab td.ok { color: var(--good); font-weight: 700; }
+  table.sctab td.no { color: var(--bad); font-weight: 700; }
+  #checksol canvas.plot { aspect-ratio: 2.5; }
+  pre.cs-log { white-space: pre-wrap; }
+
+  #model canvas.plot { aspect-ratio: 1.3; }
+  #recipe pre.code.recipe { font-size: .72em; line-height: 1.14; }
+  #recipe1 pre.code.recipe { font-size: .76em; }
+  #plan .card h3 { display: flex; flex-wrap: wrap; gap: .35em; }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="A disk image before and after self-calibration"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 6 of 8 · 2:30–2:45</p>
+  <h1>Self-<br>calibration</h1>
+  <p class="sub">How to boost your signal-to-noise: the target as its own calibrator, the pipeline stage hif_selfcal, and when to self-calibrate manually.</p>
+  <div class="meta"><span>15 min</span><span>CASA 6 · tclean(savemodel) · gaincal · applycal · hif_selfcal</span><span>All figures are simulated live</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part · 2:30–2:45</p><h2>Outline</h2></header>
+  <div class="grid4">
+    <div class="card"><h3><span class="tag fixed">Concept</span></h3><p><b>1 · Why it works</b>: any source can be a calibrator if you have a model of it. Phase referencing leaves residual errors.</p></div>
+    <div class="card"><h3><span class="tag check">Check</span> <span class="tag choice">Your choice</span></h3><p><b>2 · How it works</b>: how much S/N one solution needs (Check), then the loop round by round (Your choice).</p></div>
+    <div class="card"><h3><span class="tag check">Check</span></h3><p><b>3 · Automated or manual</b>: what <code>hif_selfcal</code> did for your target, and when to go manual.</p></div>
+    <div class="card"><h3><span class="tag check">Takeaway</span></h3><p><b>A recipe</b> to copy, with a value for every parameter.</p></div>
+  </div>
+  <p class="lede">All demos use one fixed observation: 12-m array, configuration C-6, Band 6, 40 minutes, a phase calibrator every 8 minutes, and a 48 mJy disk as the target (the S/N slide adds a fainter one). You start from a good continuum image (Part 4, continuum imaging). Colour scales and axes are fixed.</p>
+  <p class="small muted">Backup at the end: every gaincal parameter, choosing <code>solint</code>, inspecting the solutions, two common issues, a detailed recipe and questions.</p>
+</section>
+<section class="slide section" id="part-why">
+  <p class="num">1</p>
+  <h2>Why it works</h2>
+  <p>Any source can be a calibrator if you have a good model of it.</p>
+</section>
+<section class="slide" id="model" data-demo="model">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>a quick review of calibration · tclean(savemodel)</p><h2>Models: calibrator and target</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>The calibrator is flat, with zero phase. Your target's amplitude falls with uv distance. With <code>'none'</code> gaincal compares it to a flat 1 Jy point (an amplitude solution would scale the data up 20×). With <code>'modelcolumn'</code> the model follows the data. Self-cal removes the remaining phase scatter. This disk is centred and symmetric, so its phases look the same either way. An off-centre or asymmetric source would also show phase structure against a point.</p>
+    </div>
+    <div class="stack">
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Amplitude vs uv distance</b><span>dots: data per baseline and scan · line: model</span></figcaption><canvas class="plot" data-k="amp"></canvas></figure>
+      <figure class="panel"><figcaption><b>Phase vs uv distance</b><span>data − model, per baseline and scan</span></figcaption><canvas class="plot" data-k="ph"></canvas></figure>
+    </div>
+    <ul class="small">
+      <li>gaincal finds the antenna gains that make the data match a model.</li>
+      <li>A calibrator is bright, point-like and steady. Its model is one number, its flux.</li>
+      <li>tclean creates a model from the clean components. <code>savemodel='modelcolumn'</code> writes it for gaincal.</li>
+      <li>Clean only real emission. Fake sources in the model can appear in the data, more so with few antennas (7-m array).</li>
+      <li>Not circular: 903 baselines constrain 43 antenna gains, so a rough model is enough.</li>
+    </ul>
+    </div>
+  </div>
+</section>
+<section class="slide" id="why" data-demo="why">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>errors left after phase referencing</p><h2>Why self-calibration?</h2></header>
+  <div class="bench">
+    <div class="side">
+      <ul class="small">
+        <li><b>Time</b>: the calibrator brackets the target. In between, the atmosphere changes.</li>
+        <li><b>Direction</b>: the calibrator is in another direction (different air, antenna position errors).</li>
+        <li><b>Signal</b>: the calibrator may be weaker than your target.</li>
+      </ul>
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Between calibrator scans (dots) the correction (dashed) is a straight line. The true phase varies. Even at the dots it is up to 25° off (Direction). Perfect calibration gives about 10% more peak and no artifacts.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Restored image</b><span>±5% of the true peak, fixed scale</span></figcaption><canvas class="img cb" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>One antenna’s phase</b><span>solid: truth · dashed: applied · dots: calibrator · shaded: on target</span></figcaption><canvas class="plot sq" data-k="ph"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-how">
+  <p class="num">2</p>
+  <h2>How it works</h2>
+  <p>How much signal one solution needs, then the loop: clean, solve, apply, repeat with a shorter solint.</p>
+</section>
+<section class="slide" id="snr" data-demo="snrcalc">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>S/N per solution, before you start</p><h2>S/N for self-calibration</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="small"><b>Resolved target?</b> Long baselines see less than the peak (first demo: about 15 of the 48 mJy beyond 500 kλ, 12 beyond 1000 kλ). Use that flux (amplitude vs uv distance). If most baselines see S/N < 3, self-cal fails.</p>
+    </div>
+    <div class="stack">
+      <div class="eq">S/N<sub>solint</sub> ≈ (peak S/N of the image) × √(t<sub>solint</sub> / t<sub>on source</sub>) / √(N<sub>ant</sub> − 3)</div>
+      <figure class="panel"><figcaption><b>Expected S/N per solution vs solint</b><span>rule of thumb of ALMA's self-cal heuristics · fixed axes</span></figcaption><canvas class="plot wide"></canvas></figure>
+      <p class="try"><b>Try</b>Phase-only needs S/N ≥ 3 per solution (5 to be safe), amplitude ≥ 10 (a 10% gain error). Only solint, combine and gaintype move the dot. <code>combine='spw'</code> (×2 with 4 spws) assumes the source is the same across the band, <code>gaintype='T'</code> (×√2) that it is unpolarized. <code>'scan,spw'</code> with <code>'inf'</code> gives one solution per execution (last resort for a faint target).</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="loop" data-demo="loop">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>the loop, live · tclean → gaincal → applycal → tclean</p><h2>The self-calibration loop</h2></header>
+  <div class="bench wide-call">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="row"><button class="btn primary" data-a="run">Run this round</button><button class="btn" data-a="reset">Start over</button></div>
+      <div class="tscroll" style="max-height:7.6em; overflow-y:auto"><table class="t rounds"><thead><tr><th>Round</th><th>solint</th><th>Peak</th><th>rms</th><th>S/N</th><th>Phase err</th></tr></thead><tbody></tbody></table></div>
+      <p class="try"><b>Try</b>Run 'inf' → '60s' → '30s' → 'int', then one 'ap' round with solint 'inf'. Artifacts fade and the rms goes down, with diminishing returns. "Phase err" is the true remaining error (known only in a simulation).</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b class="lt">Restored image</b><span class="pix">±3% of the true peak, fixed</span></figcaption><canvas class="img cb" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Gain solutions, two antennas</b><span>dots: this round · line: the true error</span></figcaption><canvas class="plot" data-k="sol"></canvas></figure>
+      <figure class="panel"><figcaption><b>Residual</b><span>±5σ, fixed</span></figcaption><canvas class="img short" data-k="res"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-auto">
+  <p class="num">3</p>
+  <h2>Automated or manual</h2>
+  <p>Since Cycle 10 the ALMA pipeline self-calibrates continuum targets. Check what it did before you redo it.</p>
+</section>
+<section class="slide" id="auto">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>the weblog · hif_selfcal (auto-selfcal)</p><h2>Did the pipeline self-calibrate your target?</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+      <div class="tscroll"><table class="t sctab">
+        <tr><th>solint</th><th><code>inf_EB</code></th><th><code>inf</code></th><th><code>30s</code></th><th><code>int</code></th></tr>
+        <tr><td>gaincal</td><td><code>combine='scan'</code>, per spw and polarization</td><td colspan="3"><code>combine='spw'</code>, both polarizations together</td></tr>
+        <tr><td>S/N</td><td>85 → 120</td><td>160</td><td>190</td><td>183</td></tr>
+        <tr><td>rms (μJy/beam)</td><td>41 → 30</td><td>24</td><td>19</td><td>20</td></tr>
+        <tr><td>beam change</td><td>0.1%</td><td>0.2%</td><td>0.4%</td><td>0.5%</td></tr>
+        <tr><td>result</td><td class="ok">Pass</td><td class="ok">Pass</td><td class="ok">Pass</td><td class="no">Fail: stop</td></tr>
+      </table></div>
+      <p class="small">Final solint <code>'30s'</code>: S/N 85 → 190, rms 41 → 19 μJy/beam, beam almost unchanged. The solutions were applied. Each solint links to QA plots of the phase solutions per antenna (see Backup).</p>
+      <p class="small muted">Sketch of the per-target summary on the hif_selfcal page (made-up numbers). Runs on ALMA continuum targets since Cycle 10, mosaics and spectral scans since pipeline 2025.1.</p>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>How it works</h3><ol class="small">
+        <li>Plan solints from long to short (<code>inf_EB</code>, <code>inf</code>, …, <code>int</code>), cleaning deeper at each step.</li>
+        <li>Each step: image and model, <code>gaincal</code>, <code>applycal</code>, image again.</li>
+        <li><b>Pass</b>: S/N up (also near the source), rms up by less than 5%, beam area up by less than 5%. <b>Fail</b>: apply the last successful table and stop.</li>
+      </ol></div>
+      <div class="card"><h3>Output</h3><ul class="small">
+        <li><code>*_targets.ms</code>: DATA has the regular calibration, CORRECTED_DATA the self-calibrated data, applied to all spws.</li>
+        <li>Archive images both with and without self-cal.</li>
+        <li>If applied, image CORRECTED_DATA. To redo it, start from DATA. Failed or not tried: see next slide.</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="manual">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>limits of automated self-cal</p><h2>When to go manual</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>Not supported</h3><ul>
+      <li>Line self-cal (a maser or CO line brighter than the continuum).</li>
+      <li>Archive data processed before Cycle 10 were not self-calibrated. Rerun the imaging pipeline with a current version (<code>hif_selfcal</code>, Cycle 3 and later), or do it by hand.</li>
+      <li>Full polarization with a target polarized by more than a few %.</li>
+      <li>Ephemeris targets (planets, comets) and sources that change during the observation.</li>
+      <li>Mosaics whose faint fields need solutions from bright ones (<code>combine='field'</code>: use only fields with strong signal).</li>
+    </ul></div>
+    <div class="card"><h3>Possible improvements</h3><ul>
+      <li>Amplitude self-cal is off by default: <code>amplitude_selfcal=True</code> (uses <code>solnorm=True</code>).</li>
+      <li>Large phase errors put artifacts in the first model, which then end up in the data. Lower <code>dividing_factor</code> (default 15) for a shallower first clean.</li>
+      <li>Not tried, S/N too low: lower <code>minsnr_to_proceed</code> (default 3), at the risk of fitting noise.</li>
+      <li>Too faint on long baselines: those antennas stay uncalibrated, short baselines still improve.</li>
+    </ul></div>
+    <div class="card"><h3>Notes</h3><ul>
+      <li>Manual self-cal is rarely much better. Use it for the cases on the left, or to learn the process.</li>
+      <li>Improvement: ~10× in dynamic range for a bright source, little for a faint one.</li>
+      <li>Read more: the CASA guide <i>First Look at Self Calibration</i> (TW Hya, its output <code>twhya_selfcal.ms</code> is the start of the Part 5 follow-along), ALMA Memo 620 (Brogan et al. 2018), github.com/jjtobin/auto_selfcal.</li>
+    </ul></div>
+  </div>
+</section>
+<section class="slide" id="recipe">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>reference starting point</p><h2>A self-calibration recipe to copy</h2></header>
+<pre class="code recipe"><span class="c"># 0. check: hif_selfcal has not done it, and peak S/N × √(t_solint / t_on source) / √(N_ant − 3) ≥ 3</span>
+<span class="c"># 1. a continuum copy of the target: flag the lines, average, unflag (detailed recipe: Backup)</span>
+<span class="c">#    4 spws here (25, 27, 29, 31; split makes them 0–3): one width, one spwmap entry each; refant: the pipeline's</span>
+<span class="c">#    several executions (one _targets.ms each): split each the same way, then concat(vis=[…], concatvis='sc.ms')</span>
+ms = <span class="s">'uid___A002_X…_targets.ms'</span>                                         <span class="c"># yours, from the pipeline</span>
+<span class="f">split</span>(<span class="k">vis</span>=ms, <span class="k">outputvis</span>=<span class="s">'sc.ms'</span>, <span class="k">field</span>=<span class="em">'&lt;your target&gt;'</span>, <span class="k">spw</span>=<span class="em">'25,27,29,31'</span>, <span class="k">datacolumn</span>=<span class="em">'data'</span>, <span class="k">width</span>=[<span class="s">128</span>,<span class="s">128</span>,<span class="s">8</span>,<span class="s">8</span>])
+
+<span class="c"># 2. model: clean conservatively and write MODEL_DATA</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">imagename</span>=<span class="s">'sc_p0'</span>, <span class="k">imsize</span>=<span class="s">640</span>, <span class="k">cell</span>=<span class="s">'0.06arcsec'</span>,   <span class="c"># your Part 4 values</span>
+       <span class="k">specmode</span>=<span class="s">'mfs'</span>, <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=<span class="s">0.5</span>, <span class="k">niter</span>=<span class="s">100000</span>, <span class="k">nsigma</span>=<span class="em">5.0</span>,
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>, <span class="k">savemodel</span>=<span class="em">'modelcolumn'</span>)
+
+<span class="c"># 3. phase round: one solution per scan, all spws and both polarizations together</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">caltable</span>=<span class="s">'sc_p1.g'</span>, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">calmode</span>=<span class="em">'p'</span>, <span class="k">combine</span>=<span class="s">'spw'</span>,
+        <span class="k">gaintype</span>=<span class="s">'T'</span>, <span class="k">refant</span>=<span class="s">'DA41,DA55'</span>, <span class="k">minsnr</span>=<span class="s">3.0</span>)
+<span class="f">applycal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p1.g'</span>], <span class="k">spwmap</span>=[<span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>])
+
+<span class="c"># 4. repeat 2-3: imagename 'sc_p1', 'sc_p2' …, nsigma 3.0 → 2.5, solint '60s' → '30s' → 'int';</span>
+<span class="c">#    apply only the newest table; stop when peak S/N gains &lt; a few % or many solutions flag</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'sc_p1.g'</span>, <span class="k">xaxis</span>=<span class="s">'time'</span>, <span class="k">yaxis</span>=<span class="s">'phase'</span>, <span class="k">iteraxis</span>=<span class="s">'antenna'</span>)    <span class="c"># every table: smooth in time, not noise</span>
+
+<span class="c"># 5. optional, once: amplitude on top of the last good phase table (here sc_p3.g)</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">caltable</span>=<span class="s">'sc_ap.g'</span>, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">calmode</span>=<span class="em">'ap'</span>, <span class="k">solnorm</span>=<span class="em">True</span>,
+        <span class="k">combine</span>=<span class="s">'spw'</span>, <span class="k">gaintype</span>=<span class="s">'T'</span>, <span class="k">refant</span>=<span class="s">'DA41,DA55'</span>, <span class="k">minsnr</span>=<span class="s">3.0</span>,
+        <span class="k">gaintable</span>=[<span class="s">'sc_p3.g'</span>], <span class="k">spwmap</span>=[<span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>])
+<span class="f">applycal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p3.g'</span>, <span class="s">'sc_ap.g'</span>], <span class="k">spwmap</span>=[[<span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>], [<span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>, <span class="s">0</span>]])
+<span class="c">#    keep it only if the image improves and the total flux changes by &lt; a few %</span>
+
+<span class="c"># 6. lines (Part 5): the final tables on the full-resolution data of every _targets.ms, before uvcontsub</span>
+<span class="f">applycal</span>(<span class="k">vis</span>=ms, <span class="k">field</span>=<span class="em">'&lt;your target&gt;'</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p3.g'</span>, <span class="s">'sc_ap.g'</span>], <span class="k">spwmap</span>=<span class="em">[[0]*32, [0]*32]</span>)  <span class="c"># 25–31 → 0</span></pre>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">B</p>
+  <h2>Backup</h2>
+  <p>Extra material if there is time, or for later reading.</p>
+</section>
+<section class="slide" id="idea">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>overview</p><h2>Outline of self-calibration</h2></header>
+  <div class="cols">
+    <svg class="diagram" viewBox="0 0 520 330" role="img" aria-label="Self-calibration loop: image, model, solve antenna gains against the model, apply, image again with a shorter solution interval.">
+      <defs><marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+      <g font-size="15">
+        <rect class="box hot" x="180" y="10" width="170" height="64" rx="10"/><text x="265" y="38" text-anchor="middle" font-weight="700">tclean</text><text x="265" y="58" text-anchor="middle" class="muted" font-size="12">clean deep, inside a mask</text>
+        <rect class="box" x="360" y="130" width="150" height="64" rx="10"/><text x="435" y="158" text-anchor="middle" font-weight="700">MODEL_DATA</text><text x="435" y="178" text-anchor="middle" class="muted" font-size="10.5">savemodel='modelcolumn'</text>
+        <rect class="box hot" x="180" y="250" width="170" height="64" rx="10"/><text x="265" y="278" text-anchor="middle" font-weight="700">gaincal</text><text x="265" y="298" text-anchor="middle" class="muted" font-size="12">data vs model → gains</text>
+        <rect class="box" x="10" y="130" width="150" height="64" rx="10"/><text x="85" y="158" text-anchor="middle" font-weight="700">applycal</text><text x="85" y="178" text-anchor="middle" class="muted" font-size="12">→ CORRECTED_DATA</text>
+        <path class="wire" d="M350 50 Q420 60 432 122" marker-end="url(#a3)"/><path class="wire" d="M432 194 Q420 262 358 276" marker-end="url(#a3)"/>
+        <path class="wire" d="M180 276 Q100 262 90 202" marker-end="url(#a3)"/><path class="wire" d="M90 130 Q100 60 172 48" marker-end="url(#a3)"/>
+        <text x="265" y="150" text-anchor="middle" font-weight="700" fill="var(--accent)">shorter solint</text><text x="265" y="172" text-anchor="middle" class="muted" font-size="13">each round</text>
+      </g>
+    </svg>
+    <div class="stack">
+      <p class="lede">Self-cal is ordinary gain calibration with the target's own model in place of a calibrator's.</p>
+      <ul>
+        <li>The errors are antenna-based: 903 baselines constrain 43 gains, so an approximate model is enough.</li>
+        <li>Start with long solution intervals (per scan), then shorten as the model and the S/N allow.</li>
+        <li>Phase first. Amplitude only at the end, with a long solint, if it still helps.</li>
+        <li>Since Cycle 10 the ALMA pipeline runs continuum self-cal (<code>hif_selfcal</code>). Check its weblog page first.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+<section class="slide" id="limits">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>scope</p><h2>What self-calibration can and cannot fix</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>Fixes</h3><ul><li>Residual atmospheric phase errors on the target, down to seconds if S/N allows.</li><li>Slow antenna amplitude errors (amplitude self-cal).</li><li>Phase-transfer errors because the calibrator lies in another direction (e.g. antenna-position errors), as long as they are the same over your field.</li></ul></div>
+    <div class="card"><h3>Does not fix</h3><ul><li>Missing short spacings (add ACA or Total Power data). Bandpass errors and bad data (flag and recalibrate).</li><li>Errors that vary across the field (primary beam, pointing) for wide mosaics.</li><li>Targets with S/N &lt; 3 per solution (self-cal fits the noise).</li></ul></div>
+    <div class="card"><h3>Costs</h3><ul><li>Phase self-cal ties the absolute position to the starting model. Measure positions on the phase-referenced image.</li><li>Amplitude self-cal can change the flux scale. Use <code>solnorm=True</code>, check fluxes before and after.</li></ul></div>
+    <div class="card"><h3>Prerequisites</h3><ul><li>A good initial image and mask. Clean deep enough that the model holds most of the flux.</li><li>Peak S/N of the starting image ≥ 3√(N<sub>ant</sub>−3) (≈ 20 with 43 antennas) for one solution per execution. About √(number of scans) times more for one per scan (≈ 45 here, 5 scans). See the S/N slide.</li></ul></div>
+  </div>
+</section>
+<section class="slide" id="setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>gaincal · applycal</p><h2>gaincal and applycal parameters set once</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td><code>'sc.ms'</code></td><td>an averaged continuum copy of the target (recipe step 1), never the delivered MS</td></tr>
+      <tr><td><code>caltable</code></td><td>a new name each round: <code>'sc_p1.g'</code>, <code>'sc_p2.g'</code> …</td><td>keep every table, so you can go back one round</td></tr>
+      <tr><td><code>field</code></td><td><code>''</code></td><td>the copy holds only your target</td></tr>
+      <tr><td><code>refant</code></td><td>the pipeline's list, e.g. <code>'DA41,DA55'</code></td><td>weblog <code>hif_refant</code>: central antennas present in every scan</td></tr>
+      <tr><td><code>gaintype</code></td><td><code>'T'</code></td><td>averages both polarizations, if the target is unpolarized (default <code>'G'</code>)</td></tr>
+      <tr><td><code>gaintable</code> (applycal)</td><td>the newest phase table (+ the <code>'ap'</code> table)</td><td>each is solved from DATA with the newest model and replaces the one before</td></tr>
+      <tr><td><code>spwmap</code> (applycal)</td><td><code>[0, 0, 0, 0]</code></td><td>with <code>combine='spw'</code> the solution is stored under spw 0 only. One 0 per spw</td></tr>
+      <tr><td><code>interp</code> (applycal)</td><td><code>'linear'</code></td><td>default, interpolates between solutions</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Set once</h3><p>They follow from the data and the pipeline. Write them into the first call and copy them into every later one (as in the recipe).</p></div>
+      <div class="card"><h3>Changed each round</h3><p><code>solint</code>, <code>combine</code>, <code>minsnr</code>, <code>calmode</code> and the model (next slides).</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="phys1" data-demo="phys1">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>gaincal · solint, combine, gaintype, minsnr</p><h2>What gaincal averages into one solution</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="seg ptab" role="group" aria-label="parameter to explain"></div>
+      <div class="ctl"></div>
+      <p class="try"><b>What it does</b><span class="ph-t"></span></p>
+      <p class="try"><b>Try</b><span class="tr-t"></span></p>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Phase of antenna DV07 and its solutions</b><span class="key k1"></span></figcaption><canvas class="plot ph2" data-k="a"></canvas></figure>
+      <figure class="panel"><figcaption><b>S/N of each solution</b><span class="k2"></span></figcaption><canvas class="plot ph2" data-k="b"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="phys2" data-demo="phys2">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>gaincal · calmode, refant, solnorm · applycal · applymode</p><h2>gaincal and applycal options</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="seg ptab" role="group" aria-label="parameter to explain"></div>
+      <div class="ctl"></div>
+      <p class="try"><b>What it does</b><span class="ph-t"></span></p>
+      <p class="try"><b>Try</b><span class="tr-t"></span></p>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b class="c1"></b><span class="key k1"></span></figcaption><canvas class="plot ph2" data-k="a"></canvas></figure>
+      <figure class="panel"><figcaption><b class="c2"></b><span class="k2"></span></figcaption><canvas class="plot ph2" data-k="b"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="change">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span><span class="tag fixed">Leave at default</span>gaincal · applycal</p><h2>What changes between rounds</h2></header>
+  <div class="cols">
+    <div class="tscroll"><table class="t">
+      <tr><th>Change</th><th>Start with</th><th>Then</th></tr>
+      <tr><td><code>solint</code></td><td><code>'inf'</code>: one per scan</td><td>shorter each round, while S/N per solution stays ≥ 3–5 and few solutions are flagged</td></tr>
+      <tr><td><code>calmode</code></td><td><code>'p'</code></td><td>at most one <code>'ap'</code> round at the end, <code>solint='inf'</code>, only if the image improves</td></tr>
+      <tr><td><code>combine</code></td><td><code>'spw'</code> (as in the S/N estimate; <code>spwmap</code> in applycal)</td><td><code>'scan,spw'</code> with <code>'inf'</code>: one per execution, for a faint target. <code>''</code> (per spw) only if the S/N estimate ÷ √N<sub>spw</sub> gives ≥ 3–5</td></tr>
+      <tr><td><code>minsnr</code></td><td><code>3.0</code></td><td>4–5 if the solutions look noisy; never 0</td></tr>
+      <tr><td>the model</td><td>tclean <code>nsigma=5</code></td><td>deeper each round, down to 2.5–3; always <code>savemodel='modelcolumn'</code></td></tr>
+    </table></div>
+    <div class="tscroll"><table class="t">
+      <tr><th>Leave</th><th>Default</th><th>When it matters</th></tr>
+      <tr><td><code>solnorm</code></td><td><code>False</code></td><td><code>True</code> in <code>'ap'</code> rounds (keeps the flux scale); no effect for <code>'p'</code></td></tr>
+      <tr><td><code>applymode</code></td><td><code>'calflag'</code></td><td>leave it; check in the log how much it flagged</td></tr>
+      <tr><td><code>refantmode</code></td><td><code>'flex'</code></td><td>moves to the next refant in your list when the first drops out</td></tr>
+      <tr><td><code>minblperant</code></td><td><code>4</code></td><td>few antennas (7-m array): fewer baselines per solution</td></tr>
+      <tr><td><code>uvrange</code></td><td><code>''</code></td><td><code>'ap'</code> round, model misses extended flux: exclude short baselines (common issue 2)</td></tr>
+    </table></div>
+  </div>
+  <div class="card"><h3>Each round</h3><p>A new model from tclean, then one shorter <code>solint</code>. Keep every table. If a round makes the image worse, apply the previous table.</p></div>
+</section>
+<section class="slide" id="solint" data-demo="solint">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>gaincal · solint</p><h2>Choosing solint</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>One fixed 3 mJy target. Short solints track fast variations but each solution is noisy (dashed: noise). Long ones are precise but average them out (dashed: tracking). Find the solint with the lowest total. For a brighter target the best solint is shorter.</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Residual phase of one antenna and its solutions</b><span>grey: what needs correcting · fixed axes</span></figcaption><canvas class="plot" style="aspect-ratio:3.3" data-k="ts"></canvas></figure>
+      <figure class="panel"><figcaption><b>Phase error left after correction vs solint</b><span>dot: this solint</span></figcaption><canvas class="plot" style="aspect-ratio:3.3" data-k="bud"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="checksol" data-demo="checksol">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>after every gaincal</p><h2>Inspecting the solutions</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Look for</b><span class="cs-t"></span></p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Phase solutions of three antennas</b><span class="key cs-k"></span></figcaption><canvas class="plot cs-plot"></canvas></figure>
+      <pre class="code tight cs-log"></pre>
+    </div>
+  </div>
+</section>
+<section class="slide" id="noise" data-demo="noisecal">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>minsnr</p><h2>Common issue 1: self-calibrating on noise</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>The data hold only noise. With <code>minsnr=0</code> every solution fits the noise to the 1 mJy model, and a "source" appears at the model position (between the marks). <code>minsnr=3</code> rejects most solutions (left uncalibrated, <code>applymode='calonly'</code>), but the few that pass by chance leave a spurious source of about 6σ at <code>'int'</code>.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Before self-cal</b><span>the true sky is empty</span></figcaption><canvas class="img cb" data-k="before"></canvas></figure>
+      <figure class="panel"><figcaption><b>After self-cal</b><span>fixed scale, saturates at 15σ</span></figcaption><canvas class="img cb" data-k="after"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="ampcal" data-demo="ampcal">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>calmode='ap'</p><h2>Common issue 2: amplitude self-cal</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>MODEL_DATA holds only the core (cleaned too shallow). With <code>'p'</code> both fluxes stay at 100%. With <code>'ap'</code> the gains fit the data to the model and remove much of the halo. A longer solint cannot fix a wrong model. Clean deeply before any amplitude round. If the model still misses extended flux, leave the short baselines out of the <code>'ap'</code> solve (<code>uvrange='&gt;…klambda'</code>, the cut read off amp vs uvdist in plotms).</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Image after self-cal</b><span>√ stretch, fixed; core saturated</span></figcaption><canvas class="img cb" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Flux after self-cal</b><span>relative to before</span></figcaption><canvas class="plot sq" data-k="bars"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="stop">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>stopping · line data</p><h2>When to stop, and line data</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>Stop when</h3><ul><li>Peak S/N improves by less than a few percent per round.</li><li>Solutions become noisy or many fall below <code>minsnr</code>.</li><li>The rms reaches the thermal noise. Remaining artifacts have another cause.</li><li>An amplitude round changes total flux by more than a few percent.</li></ul></div>
+    <div class="card"><h3>Watch for</h3><ul><li>Fluxes or structure that change with each round (model bias).</li><li>Large phase corrections on one antenna: likely bad data to flag.</li><li>New sources only at mask positions (common issue 1).</li></ul></div>
+    <div class="card"><h3>Line data</h3><ul><li>Derive solutions on the continuum (most S/N), apply them to the full-resolution MS with the same spws (or <code>spwmap</code>).</li><li>Apply self-cal before <code>uvcontsub</code>, then image the cube.</li><li>A bright line (maser, CO) can self-calibrate a cube itself.</li></ul></div>
+    <div class="card"><h3>Report</h3><ul><li>The final rounds, solints and the S/N gain in your paper or notes.</li><li>Keep the tables (valid for these executions only).</li></ul></div>
+  </div>
+</section>
+<section class="slide" id="recipe1">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>detailed recipe · 1 of 2</p><h2>A self-calibration recipe: prepare, model, first round</h2></header>
+<pre class="code recipe"><span class="c"># 0. check: S/N per solution (S/N slide) = peak S/N × √(t_solint / t_on source) / √(N_ant − 3)</span>
+<span class="c">#    ≥ 3 with t_solint = one scan: go on; only with all of t_on source: combine='scan,spw'; else stop</span>
+
+<span class="c"># 1. a continuum copy of the target: flag the lines, average, unflag</span>
+<span class="c">#    several executions (one _targets.ms each): split each the same way, then concat(vis=[…], concatvis='sc.ms')</span>
+<span class="c">#    and check listobs: spwmap needs one entry per spw of the result</span>
+ms = <span class="s">'uid___A002_X…_targets.ms'</span>                                             <span class="c"># from the pipeline (calibrated)</span>
+<span class="f">flagmanager</span>(<span class="k">vis</span>=ms, <span class="k">mode</span>=<span class="s">'save'</span>, <span class="k">versionname</span>=<span class="s">'before_cont'</span>)
+<span class="f">flagdata</span>(<span class="k">vis</span>=ms, <span class="k">mode</span>=<span class="s">'manual'</span>, <span class="k">spw</span>=<span class="em">'25:600~800'</span>)                           <span class="c"># the line channels</span>
+<span class="f">split</span>(<span class="k">vis</span>=ms, <span class="k">outputvis</span>=<span class="s">'sc.ms'</span>, <span class="k">field</span>=<span class="em">'&lt;your target&gt;'</span>, <span class="k">datacolumn</span>=<span class="em">'data'</span>,  <span class="c"># regular calibration</span>
+      <span class="k">spw</span>=<span class="em">'25,27,29,31'</span>,                                                    <span class="c"># science spws (listobs); become 0–3</span>
+      <span class="k">width</span>=<span class="em">[128, 128, 8, 8]</span>)                                               <span class="c"># 4 spws here: one per spw, ≤ 125 MHz</span>
+<span class="f">flagmanager</span>(<span class="k">vis</span>=ms, <span class="k">mode</span>=<span class="s">'restore'</span>, <span class="k">versionname</span>=<span class="s">'before_cont'</span>)              <span class="c"># lines back for Part 5</span>
+
+<span class="c"># 2. round 0: clean conservatively and write the model into sc.ms</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">imagename</span>=<span class="s">'sc_p0'</span>, <span class="k">imsize</span>=<span class="s">640</span>, <span class="k">cell</span>=<span class="s">'0.06arcsec'</span>,       <span class="c"># your Part 4 values</span>
+       <span class="k">specmode</span>=<span class="s">'mfs'</span>, <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>, <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=<span class="s">0.5</span>,
+       <span class="k">niter</span>=<span class="em">100000</span>, <span class="k">nsigma</span>=<span class="em">5.0</span>, <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,                <span class="c"># nsigma stops it</span>
+       <span class="k">interactive</span>=<span class="s">False</span>, <span class="k">savemodel</span>=<span class="em">'modelcolumn'</span>)                          <span class="c"># gaincal needs MODEL_DATA</span>
+
+<span class="c"># 3. round 1: phase only, one solution per scan, all spws together</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">caltable</span>=<span class="s">'sc_p1.g'</span>, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">calmode</span>=<span class="em">'p'</span>,
+        <span class="k">combine</span>=<span class="s">'spw'</span>, <span class="k">gaintype</span>=<span class="s">'T'</span>, <span class="k">refant</span>=<span class="s">'DA41,DA55'</span>, <span class="k">minsnr</span>=<span class="s">3.0</span>)
+<span class="f">applycal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p1.g'</span>], <span class="k">spwmap</span>=<span class="em">[0, 0, 0, 0]</span>)           <span class="c"># one entry per spw</span></pre>
+</section>
+<section class="slide" id="recipe2">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>detailed recipe · 2 of 2</p><h2>A self-calibration recipe: more rounds, then one amplitude round</h2></header>
+<pre class="code recipe"><span class="c"># 4. more rounds: the tclean call of step 2 (it now images CORRECTED_DATA) with</span>
+<span class="c">#    imagename='sc_p1', 'sc_p2' …, nsigma=3.0, later 2.5; then a shorter solint:</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">caltable</span>=<span class="s">'sc_p2.g'</span>, <span class="k">solint</span>=<span class="em">'60s'</span>, <span class="k">calmode</span>=<span class="s">'p'</span>,
+        <span class="k">combine</span>=<span class="s">'spw'</span>, <span class="k">gaintype</span>=<span class="s">'T'</span>, <span class="k">refant</span>=<span class="s">'DA41,DA55'</span>, <span class="k">minsnr</span>=<span class="s">3.0</span>)
+<span class="f">applycal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p2.g'</span>], <span class="k">spwmap</span>=<span class="s">[0, 0, 0, 0]</span>)           <span class="c"># newest phase table only</span>
+<span class="c">#    then '30s' (sc_p3.g), 'int' …, while S/N per solution ≥ 3 and few are flagged</span>
+
+<span class="c"># after every gaincal: look at the table (Backup: solution tables)</span>
+<span class="c"># a round made the image worse? apply the table before it instead</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'sc_p2.g'</span>, <span class="k">xaxis</span>=<span class="s">'time'</span>, <span class="k">yaxis</span>=<span class="s">'phase'</span>, <span class="k">iteraxis</span>=<span class="s">'antenna'</span>,
+       <span class="k">plotrange</span>=<span class="s">[0, 0, -180, 180]</span>)                                         <span class="c"># fixed phase axis</span>
+
+<span class="c"># 5. optional, once: amplitude and phase, long solint, last phase table applied first</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">caltable</span>=<span class="s">'sc_ap.g'</span>, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">calmode</span>=<span class="em">'ap'</span>,
+        <span class="k">combine</span>=<span class="s">'spw'</span>, <span class="k">gaintype</span>=<span class="s">'T'</span>, <span class="k">refant</span>=<span class="s">'DA41,DA55'</span>, <span class="k">minsnr</span>=<span class="s">3.0</span>,
+        <span class="k">solnorm</span>=<span class="em">True</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p3.g'</span>], <span class="k">spwmap</span>=<span class="s">[0, 0, 0, 0]</span>)           <span class="c"># keeps the flux scale</span>
+<span class="f">applycal</span>(<span class="k">vis</span>=<span class="s">'sc.ms'</span>, <span class="k">gaintable</span>=[<span class="s">'sc_p3.g'</span>, <span class="s">'sc_ap.g'</span>],
+         <span class="k">spwmap</span>=<span class="s">[[0, 0, 0, 0], [0, 0, 0, 0]]</span>)                               <span class="c"># one map per table</span>
+<span class="c">#    keep it only if the image improves and the total flux changes by less than a few %</span></pre>
+  <p class="small muted">No model in the MS? gaincal then assumes a 1 Jy point source at the phase centre. To write the model of an image you already have: tclean with the same <code>imagename</code>, <code>niter=0</code>, <code>calcres=False</code>, <code>calcpsf=False</code>, <code>savemodel='modelcolumn'</code>.</p>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>discussion</p><h2>Four questions</h2></header>
+  <ol class="quiz">
+    <li>Your continuum peak S/N is 15, with 43 antennas and 36 min on source (7-min scans). Can you self-calibrate with 60 s solutions?<details><summary>Answer</summary>No. S/N per solution ≈ 15 × √(60/2150) / √40 ≈ 0.4, per 7-min scan ≈ 1.1, and for the whole execution ≈ 2.4, all below minsnr = 3. The estimate assumes all spws and both polarizations, so combining cannot help. Keep the phase-referenced image, which is noise-limited.</details></li>
+    <li>After round 1 (<code>solint='inf'</code>) the S/N went from 80 to 200. Round 2 (<code>'30s'</code>) gives 205. Next step?<details><summary>Answer</summary>Stop the phase rounds (diminishing returns). Possibly one amplitude round with <code>solint='inf'</code> and <code>solnorm=True</code>. Compare fluxes before and after.</details></li>
+    <li>You solved with <code>combine='spw'</code>. After applycal the image hardly improves, and plotms shows the phases of spws 1–3 unchanged. What did you forget?<details><summary>Answer</summary><code>spwmap=[0,0,0,0]</code> in applycal. A combined solution is stored under the lowest spw id only. Without the map, the default <code>applymode='calflag'</code> passes spws 1–3 through uncorrected and unflagged (only <code>'calflagstrict'</code> would flag them). Three quarters of the data are not self-calibrated, and no error is raised.</details></li>
+    <li>Why might a weak source "appear" at the phase centre after self-calibrating a blank field?<details><summary>Answer</summary>The solutions fitted the noise to the model, and the corrected data took on the model's phases. It happens when <code>minsnr</code> is too low or the target is too faint for any solint. Estimate the S/N per solution before you start, keep <code>minsnr</code> ≥ 3, and compare with the image made without self-cal.</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const wrap = x => Math.atan2(Math.sin(x), Math.cos(x));
+
+/* the self-cal scene: a bright disk observed in C-6 at Band 6, phase-referenced with an 8-min cycle */
+const SCENE = { cfg: 'C-6', band: 6, rms1km: 160, wvr: true, dur: 40, dt: 10, cycle: 8, calScan: 30, sep: 6, seed: 11 };
+const SRC = (() => { const r = Math.cos(40 * S.DEG), pa = 120;
+  return [{ type: 'gauss', flux: 0.020, fwhm: 0.06, ratio: r, pa }, { type: 'ring', flux: 0.016, r: 0.33, width: 0.08, ratio: r, pa }, { type: 'ring', flux: 0.012, r: 0.68, width: 0.12, ratio: r, pa }]; })();
+const scene = () => K.memo('sc-scene', () => K.atmScene(SCENE));
+const ampErr = K.memo('sc-amp', () => { const r = S.rng(4); return Array.from({ length: 43 }, () => 1 + 0.06 * r.normal()); });
+const data = () => K.memo('sc-data', () => K.targetData(scene(), SRC, { amp: a => ampErr[a], seed: 9 }));
+const N = 256, CELL = 0.022, MASK = S.circleMask(N, CELL, 0.95);
+const imgOf = d => S.image(d, { N, cell: CELL, weighting: 'briggs', robust: 0.5 });
+const cleanOf = (im, thr) => K.clean(im, { niter: 2500, threshold: thr || 3 * im.sigma, mask: MASK, gain: 0.15 });
+const off = S.circleMask(N, CELL, 1.4).map(x => 1 - x);
+const stats = c => { const pk = S.max(c.restored).v, rms = S.madRms(c.restored, off); return { pk, rms, snr: pk / rms }; };
+// solve against the clean model, apply to the original data
+const selfcal = (d, model, o, pre) => {
+  const m = S.predict(model, N, CELL, d.u, d.v), base = pre ? S.applyGains(d, pre, 'calonly') : d;
+  const sol = S.solveGains(base, m.re, m.im, { solint: o.solint, mode: o.mode, refant: 0, minsnr: 3, solnorm: true });
+  return { sol, corrected: S.applyGains(base, sol, 'calflag') };
+};
+const solintVal = v => (v === 'inf' ? 'inf' : v === 'int' ? 'int' : parseInt(v));
+const perfectData = () => K.memo('sc-perfect', () => K.targetData(scene(), SRC, { perfect: true, seed: 9 }));
+const REFPK = () => K.memo('sc-refpk', () => stats(cleanOf(imgOf(perfectData()))).pk);   // the true peak: fixes every colour scale of the disk
+const wrapD = x => ((x + 180) % 360 + 360) % 360 - 180;
+/* the parameter demos: one antenna's phase solutions simulated directly from the scene, for a 3 mJy compact target.
+   SIG_INT: phase noise (rad) of one 10-s solution that uses all 42 baselines of the antenna, all 4 spws and both polarizations */
+const PSRC = 3e-3, SIG_INT = S.sigmaVis(6, 7.5e9, 10) / (PSRC * Math.sqrt(42));
+const tgt = () => K.memo('sc-tgt', () => { const A = scene(), o = []; A.times.forEach((t, k) => { if (!A.isCal[k]) o.push({ k, t, sc: A.scans.findIndex(q => t >= q.t0 && t < q.t1) }); }); return o; });
+// o: {solint: 'int'|'30s'|...|'inf', ng: independent solutions per interval (spws x polarizations), minsnr, tmax (min), seed}
+const solve1 = (a, o) => {
+  const A = scene(), na = A.na, dt = A.o.dt, ivs = [];
+  let key = null;
+  tgt().filter(q => q.t < o.tmax * 60).forEach(q => {
+    const kk = o.solint === 'inf' ? q.sc : q.sc * 1e4 + Math.floor((q.t - A.scans[q.sc].t0) / (o.solint === 'int' ? dt : parseInt(o.solint)));
+    if (kk !== key) { ivs.push([]); key = kk; }
+    ivs[ivs.length - 1].push(q);
+  });
+  const r = S.rng(o.seed || 5), out = [];
+  ivs.forEach(iv => {
+    let cr = 0, ci = 0, t = 0;
+    iv.forEach(q => { const p = A.resid[q.k * na + a]; cr += Math.cos(p); ci += Math.sin(p); t += q.t; });
+    const sd = SIG_INT * Math.sqrt(o.ng / iv.length);
+    for (let g = 0; g < o.ng; g++) {
+      const ph = wrap(Math.atan2(ci, cr) + sd * r.normal()), snr = Math.exp(0.35 * r.normal()) / sd;
+      out.push({ g, t: t / iv.length / 60, n: iv.length, ph: ph / S.DEG, snr, flag: snr < o.minsnr });
+    }
+  });
+  return out;
+};
+// phase correction at time t (min) from unflagged solutions, linear in time (applycal interp='linear')
+const interpSol = (sol, t) => {
+  const ok = sol.filter(q => !q.flag);
+  if (!ok.length) return 0;
+  if (t <= ok[0].t) return ok[0].ph;
+  for (let i = 1; i < ok.length; i++) if (t <= ok[i].t) { const w = (t - ok[i - 1].t) / (ok[i].t - ok[i - 1].t); return ok[i - 1].ph + w * wrapD(ok[i].ph - ok[i - 1].ph); }
+  return ok[ok.length - 1].ph;
+};
+const swatch = (c, t, line) => (line === 'x' ? `<span><b class="x" style="color:var(${c})">×</b>${t}</span>` : `<span><i class="${line ? 'ln' : ''}" style="background:var(${c})"></i>${t}</span>`);
+// flagged solutions as crosses in ink (a shape and a neutral colour, so they never read as one of the categorical series); dy is a factor on a log axis
+const xmarks = (xs, ys, dx, dy, logy) => { const x = [], y = []; xs.forEach((u, i) => { const v = ys[i], lo = logy ? v / dy : v - dy, hi = logy ? v * dy : v + dy; x.push(u - dx, u + dx, NaN, u - dx, u + dx, NaN); y.push(lo, hi, NaN, hi, lo, NaN); }); return { type: 'line', x, y, color: '--ink', width: 1.5 }; };
+// the S/N of each solution as gaincal measures it from the data: |raw gain estimate| / its noise, using the solved gains
+// of the other antennas. With a correct model this equals the model's promise; on pure noise it stays near 2.
+const dataFlag = (d, mre, mim, sol, minsnr) => {
+  const na = sol.na, nr = new Float64Array(sol.ns * na), ni = new Float64Array(sol.ns * na), dn = new Float64Array(sol.ns * na);
+  for (let k = 0; k < d.n; k++) {
+    if (d.flag[k]) continue;
+    const q = sol.iv[k] * na, i = q + d.a1[k], j = q + d.a2[k], w = d.wt[k], vr = d.re[k], vi = d.im[k], mr = mre[k], mi = mim[k];
+    let ar = sol.gre[j] * mr + sol.gim[j] * mi, ai = sol.gim[j] * mr - sol.gre[j] * mi;      // antenna a1: V g_j conj(M)
+    nr[i] += w * (vr * ar - vi * ai); ni[i] += w * (vr * ai + vi * ar); dn[i] += w * (ar * ar + ai * ai);
+    ar = sol.gre[i] * mr - sol.gim[i] * mi; ai = sol.gre[i] * mi + sol.gim[i] * mr;          // antenna a2: conj(V) g_i M
+    nr[j] += w * (vr * ar + vi * ai); ni[j] += w * (vr * ai - vi * ar); dn[j] += w * (ar * ar + ai * ai);
+  }
+  for (let q = 0; q < sol.ns * na; q++) { sol.snr[q] = dn[q] > 0 ? Math.hypot(nr[q], ni[q]) / Math.sqrt(dn[q]) : 0; sol.flag[q] = sol.snr[q] < minsnr ? 1 : 0; }
+};
+// parameter tabs: one parameter at a time; rebuilds the call each time
+const paramTabs = (s, names, onPick) => {
+  const el = $(s, '.ptab');
+  names.forEach((n, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = n; b.setAttribute('aria-pressed', String(i === 0));
+    b.addEventListener('click', () => { $$(el, 'button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); onPick(n); });
+    el.appendChild(b);
+  });
+  onPick(names[0]);
+};
+
+window.DEMOS = {
+  titleArt(s) {
+    const d = data(), c0 = cleanOf(imgOf(d));
+    const pk = S.max(c0.restored).v;
+    V.image($(s, 'canvas'), c0.restored.map(v => Math.sign(v) * Math.sqrt(Math.abs(v))), N, { cell: CELL, crop: 120, axes: false, frame: false, vmin: -Math.sqrt(0.03 * pk), vmax: Math.sqrt(pk) * 0.95, smooth: true });
+  },
+
+  model(s) {
+    const cv = canv(s), A = scene(), d = data(), CAL = A.o.calFlux;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'mod', label: 'Model gaincal uses' }, { k: 'ph', label: 'Phase scatter, data − model' }]);
+    // per baseline and scan averages (like plotms with avgtime per scan) of the data and of the tclean model
+    const U = K.memo('sc-uvavg', () => {
+      const c = K.memo('sc-c0', () => cleanOf(imgOf(d))), m = S.predict(c.model, N, CELL, d.u, d.v), nb = d.nb, idx = new Map(), acc = [];
+      for (let k = 0; k < d.n; k++) {
+        if (d.flag[k]) continue;
+        const key = d.scan[k] * nb + (k % nb);
+        if (!idx.has(key)) { idx.set(key, acc.length); acc.push([0, 0, 0, 0, 0, 0]); }
+        const o = acc[idx.get(key)];
+        o[0] += Math.hypot(d.u[k], d.v[k]) / 1e3; o[1]++; o[2] += d.re[k]; o[3] += d.im[k]; o[4] += m.re[k]; o[5] += m.im[k];
+      }
+      const r = S.rng(3), sc = S.sigmaVis(A.o.band, 7.5e9, A.o.calScan), o = { uv: [], amp: [], ph: [], ph0: [], cal: [], calph: [], bx: [], bm: [] };
+      const nbin = 38, bs = new Float64Array(nbin), bn = new Float64Array(nbin);
+      acc.forEach(q => {
+        const uv = q[0] / q[1], ma = Math.hypot(q[4], q[5]) / q[1];
+        o.uv.push(uv); o.amp.push(Math.hypot(q[2], q[3]) / q[1]);
+        o.ph0.push(Math.atan2(q[3], q[2]) / S.DEG); o.ph.push(wrap(Math.atan2(q[3], q[2]) - Math.atan2(q[5], q[4])) / S.DEG);
+        o.cal.push(CAL + sc * r.normal()); o.calph.push(Math.atan2(sc * r.normal(), CAL) / S.DEG);   // after calibration: noise only
+        const b = Math.min(nbin - 1, Math.floor(uv / 50)); bs[b] += ma; bn[b]++;
+      });
+      for (let b = 0; b < nbin; b++) if (bn[b]) { o.bx.push(50 * b + 25); o.bm.push(bs[b] / bn[b]); }
+      o.mflux = c.model.reduce((x, y) => x + y, 0);
+      return o;
+    });
+    const rms = a => Math.sqrt(a.reduce((x, y) => x + y * y, 0) / a.length);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'source', type: 'choice', options: ['cal', 'target'], labels: ['phase calibrator', 'your target'], value: 'cal', scenario: true },
+      { k: 'savemodel', type: 'choice', options: ['none', 'modelcolumn'], value: 'modelcolumn', show: v => v.source === 'target' }
+    ], v => {
+      const cal = v.source === 'cal', none = !cal && v.savemodel === 'none';
+      const flat = y => ({ x: [0, 1900], y: [y, y] }), ml = cal ? flat(CAL) : none ? flat(1) : { x: U.bx, y: U.bm };
+      const ph = cal ? U.calph : none ? U.ph0 : U.ph;
+      V.plot(cv.amp, { x: { min: 0, max: 1900, label: 'uv distance (kλ)' }, y: { min: 0.004, max: 2, log: true, ticks: [0.01, 0.1, 1], fmt: y => (y < 0.1 ? y * 1e3 + ' mJy' : y + ' Jy'), label: 'amplitude' }, legend: false,
+        series: [{ type: 'scatter', x: U.uv, y: cal ? U.cal : U.amp, size: 2.2, alpha: 0.4, color: '--s1' }, { type: 'line', x: ml.x, y: ml.y, color: '--s2', width: 2.5 }] });
+      V.plot(cv.ph, { x: { min: 0, max: 1900, label: 'uv distance (kλ)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, legend: false,
+        series: [{ type: 'scatter', x: U.uv, y: ph, size: 2.2, alpha: 0.4, color: '--s1' }, { type: 'line', x: [0, 1900], y: [0, 0], color: '--s2', width: 2.5 }] });
+      ro.set('mod', cal ? CAL.toFixed(1) + ' Jy point (catalogue)' : none ? '1 Jy point (no model)' : 'clean components, ' + K.mJy(U.mflux));
+      const e = rms(ph); ro.set('ph', e.toFixed(0) + '°', e < 5 ? 'good' : 'warn');
+    });
+  },
+
+  why(s) {
+    const cv = canv(s), A = scene(), na = A.na, AN = 40;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'pk', label: 'Peak' }, { k: 'snr', label: 'Peak / rms' }, { k: 'th', label: 'Thermal limit' }, { k: 'ph', label: 'Phase error left' }]);
+    const perfect = perfectData(), PK = REFPK();
+    // one antenna's phase toward the target, centred on its circular mean so it fits the fixed axis
+    const T = K.memo('sc-why-t', () => {
+      let cr = 0, ci = 0; A.times.forEach((_, k) => { cr += Math.cos(A.truth[k * na + AN]); ci += Math.sin(A.truth[k * na + AN]); });
+      const m = Math.atan2(ci, cr), x = [], y = [], yi = [];
+      A.times.forEach((t, k) => { x.push(t / 60); y.push(wrap(A.truth[k * na + AN] - m) / S.DEG); yi.push(wrap(A.interp(t, AN) - m) / S.DEG); });
+      let s2 = 0, n = 0; A.times.forEach((_, k) => { if (!A.isCal[k]) for (let a = 1; a < na; a++) { s2 += A.resid[k * na + a] ** 2; n++; } });
+      return { x, y, yi, cx: A.sol.map(q => q.t / 60), cy: A.sol.map(q => wrap(q.ph[AN] - m) / S.DEG), rms: Math.sqrt(s2 / n) / S.DEG,
+        spans: A.scans.filter(q => q.kind === 'tgt').map(q => ({ x0: q.t0 / 60, x1: q.t1 / 60 })) };
+    });
+    V.call($(s, '.ctl'), 'calibration', [
+      { k: 'case', label: 'calibration', type: 'choice', options: ['perfect', 'phase-referenced'], value: 'phase-referenced', scenario: true }
+    ], v => {
+      const pc = v.case === 'perfect', d = pc ? perfect : data(), im = imgOf(d), c = cleanOf(im), st = stats(c);
+      V.image(cv.img, c.restored, N, { cell: CELL, crop: 140, vmin: -0.05 * PK, vmax: 0.05 * PK, beam: im.beam, cbar: { label: 'mJy/beam', scale: 1e3 } });
+      V.plot(cv.ph, { x: { min: 0, max: SCENE.dur + 1, label: 'time (min)' }, y: { min: -120, max: 120, ticks: [-90, -45, 0, 45, 90], label: 'phase (deg)' }, spans: T.spans, legend: false,
+        series: [{ type: 'line', x: T.x, y: T.y, color: '--s1', width: 1.6, label: 'true phase' },
+          { type: 'line', x: T.x, y: pc ? T.y : T.yi, color: '--ink', width: 1.6, dash: [5, 4], label: 'correction applied' },
+          { type: 'scatter', x: pc ? [] : T.cx, y: pc ? [] : T.cy, size: 8, color: '--s2', label: 'calibrator solutions' }] });
+      ro.set('pk', K.mJy(st.pk)); ro.set('snr', st.snr.toFixed(0), st.snr > 0.5 * PK / im.sigma ? 'good' : 'bad'); ro.set('th', (PK / im.sigma).toFixed(0));   // true peak / thermal noise: the same for both cases
+      ro.set('ph', pc ? '0°' : T.rms.toFixed(0) + '°', pc ? 'good' : 'warn');
+    });
+  },
+
+  snrcalc(s) {
+    const cv = $(s, 'canvas'), ro = V.readouts($(s, '.ro'), [{ k: 'sn', label: 'S/N per solution' }, { k: 'min', label: 'Shortest solint with S/N ≥ 5' }]);
+    const PK = 100, NA = 43, T = 2150, SCAN = 430, SL = { int: 10, '30s': 30, '60s': 60, '120s': 120, inf: SCAN };
+    V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'solint', type: 'choice', options: ['int', '30s', '60s', '120s', 'inf'], value: 'inf', note: 'inf = 7-min scan' },
+      { k: 'combine', type: 'choice', options: ['', 'spw', 'scan,spw'], labels: ["''", "'spw'", "'scan,spw'"], value: 'spw' },
+      { k: 'gaintype', type: 'choice', options: ['T', 'G'], value: 'T' },
+      { k: 'pk', label: 'peak S/N of your first image', v: '100 (a fainter target)', scenario: true },
+      { k: 'obs', label: 'the data', v: '43 antennas, 36 min on source, 4 spws', scenario: true }
+    ], v => {
+      const f = (v.gaintype === 'G' ? 1 / Math.SQRT2 : 1) * (v.combine.includes('spw') ? 1 : 0.5);
+      const sn = (t, ff) => PK * Math.sqrt(t / T) / Math.sqrt(NA - 3) * ff, t = v.solint === 'inf' && v.combine.includes('scan') ? T : SL[v.solint];
+      const xs = [], ys = [], yr = []; for (let i = 0; i <= 80; i++) { const x = 10 * Math.pow(T / 10, i / 80); xs.push(x); ys.push(sn(x, f)); yr.push(sn(x, 1)); }
+      V.plot(cv, { x: { min: 8, max: T * 1.1, log: true, ticks: [10, 30, 60, 120, 430, 2150], fmt: x => (x === 430 ? 'scan' : x === 2150 ? 'all' : x + ' s'), label: 'solint' },
+        y: { min: 0.2, max: 50, log: true, ticks: [0.3, 1, 3, 10, 30], label: 'S/N per solution' }, legendPos: 'left',
+        hlines: [{ y: 3, color: '--bad', dash: [4, 3], label: 'minsnr = 3' }, { y: 5, color: '--axis', label: '5: a safe margin' }, { y: 10, color: '--axis', dash: [2, 3], label: "10: for calmode='ap'" }],
+        series: [{ type: 'line', x: xs, y: yr, color: '--axis', width: 1.5, dash: [5, 4], label: "gaintype='T', combine='spw'" }, { type: 'line', x: xs, y: ys, color: '--s1', width: 2.5, label: 'this call' },
+          { type: 'scatter', x: [t], y: [sn(t, f)], size: 12, color: '--accent' }] });
+      const cur = sn(t, f); ro.set('sn', cur.toFixed(1), cur >= 5 ? 'good' : cur >= 3 ? 'warn' : 'bad');
+      const need = T * Math.pow(5 * Math.sqrt(NA - 3) / (PK * f), 2) / 1.001;   // tolerance: exactly one scan counts as one scan
+      const tmax = v.combine.includes('scan') ? T : SCAN;   // without combine='scan' no solution can be longer than one scan
+      ro.set('min', need > T ? 'none: too faint to self-calibrate' : need > tmax ? `none within one scan (needs ${(need / 60).toFixed(0)} min)` : need <= 10 ? "'int' (10 s here)" : need < 120 ? need.toFixed(0) + ' s' : (need / 60).toFixed(1) + ' min', need > tmax ? 'bad' : 'good');
+    });
+  },
+
+  loop(s) {
+    const cv = canv(s), A = scene(), na = A.na, tbody = $(s, 'tbody'), d0 = data();
+    let rounds, model, lastPhase, lastC;
+    const PK = REFPK(), SIG = K.memo('sc-sig0', () => imgOf(d0).sigma);
+    const tgtIdx = []; A.times.forEach((u, k) => { if (!A.isCal[k]) tgtIdx.push(k); });
+    const trueErr = (sol, ap) => {            // remaining phase error vs the truth, over antennas and target times
+      let s2 = 0, n = 0;
+      for (let j = 0; j < d0.nt; j++) {
+        const k = tgtIdx[j];
+        for (let a = 1; a < na; a++) {
+          let e = A.resid[k * na + a] - A.resid[k * na];
+          if (sol) { const iv = sol.iv[j * d0.nb], q = iv * na + a, q0 = iv * na; if (sol.flag[q]) continue; e -= Math.atan2(sol.gim[q], sol.gre[q]) - Math.atan2(sol.gim[q0], sol.gre[q0]); }
+          if (ap) { const iv = ap.iv[j * d0.nb], q = iv * na + a, q0 = iv * na; e -= Math.atan2(ap.gim[q], ap.gre[q]) - Math.atan2(ap.gim[q0], ap.gre[q0]); }
+          e = wrap(e); s2 += e * e; n++;
+        }
+      }
+      return Math.sqrt(s2 / n) / S.DEG;
+    };
+    const show = (c, im, sol, title) => {
+      V.image(cv.img, c.restored, N, { cell: CELL, crop: 140, vmin: -0.03 * PK, vmax: 0.03 * PK, beam: im.beam, cbar: { label: 'mJy/beam', scale: 1e3 } });
+      V.image(cv.res, c.residual, N, { cell: CELL, crop: 140, cmap: 'rdbu', vmin: -5 * SIG, vmax: 5 * SIG });
+      $(s, '.lt').textContent = title;
+      const series = [];
+      [12, 40].forEach((a, i) => {
+        const tx = [], ty = [];
+        for (let j = 0; j < d0.nt; j++) { const k = tgtIdx[j]; tx.push(A.times[k] / 60); ty.push(wrap(A.resid[k * na + a] - A.resid[k * na]) / S.DEG); }
+        series.push({ type: 'line', x: tx, y: ty, color: i ? '--s2' : '--s1', width: 1.2, alpha: 0.6 });
+        if (sol) {
+          const sx = [], sy = [];
+          for (let q = 0; q < sol.ns; q++) { if (sol.flag[q * na + a]) continue; const j = d0.ti[sol.iv.indexOf(q)]; sx.push(A.times[tgtIdx[j]] / 60 + 0); sy.push(wrap(Math.atan2(sol.gim[q * na + a], sol.gre[q * na + a])) / S.DEG); }
+          series.push({ type: 'scatter', x: sx, y: sy, size: sol.ns > 100 ? 2.6 : 6, color: i ? '--s2' : '--s1' });
+        }
+      });
+      V.plot(cv.sol, { x: { min: 0, max: SCENE.dur, label: 'time (min)' }, y: { min: -120, max: 120, label: 'phase (deg)' }, legend: false, series });
+    };
+    const addRow = (r) => {
+      $$(tbody, 'tr').forEach(x => x.classList.remove('cur'));
+      const tr = document.createElement('tr'); tr.className = 'cur';
+      [r.name, r.solint, K.mJy(r.pk), (r.rms * 1e6).toFixed(0) + ' μJy', r.snr.toFixed(0), r.err.toFixed(0) + '°'].forEach(t => { const td = document.createElement('td'); td.textContent = t; tr.appendChild(td); });
+      tbody.appendChild(tr);
+      const sc = tbody.closest('.tscroll'), fs = parseFloat(getComputedStyle(sc).fontSize);
+      sc.style.maxHeight = '7.6em'; const H = sc.clientHeight; let h = $(sc, 'thead').offsetHeight;
+      if (h) { for (const x of $$(tbody, 'tr').reverse()) { if (h + x.offsetHeight > H + 0.5) break; h += x.offsetHeight; } sc.style.maxHeight = h / fs + 'em'; }
+      sc.scrollTop = sc.scrollHeight;
+    };
+    const reset = () => {
+      tbody.innerHTML = '';
+      const im = imgOf(d0), c = cleanOf(im), st = stats(c);
+      model = c.model; lastPhase = null; lastC = c; rounds = 0;
+      addRow({ name: '0 (phase-ref)', solint: '–', pk: st.pk, rms: st.rms, snr: st.snr, err: trueErr(null) });
+      show(c, im, null, 'Round 0 · phase-referenced');
+    };
+    const ctl = V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'solint', type: 'choice', options: ['inf', '120s', '60s', '30s', 'int'], value: 'inf' },
+      { k: 'calmode', type: 'choice', options: ['p', 'ap'], value: 'p' },
+      { k: 'gaintype', v: "'T'" }, { k: 'refant', v: "'DA41'" }, { k: 'minsnr', v: '3.0' },
+      { k: 'solnorm', v: 'True', show: v => v.calmode === 'ap' }
+    ], () => {});
+    $$(s, 'button[data-a]').forEach(b => b.addEventListener('click', () => {
+      if (b.dataset.a === 'reset') return reset();
+      b.disabled = true; b.textContent = 'Solving…';
+      setTimeout(() => {
+        const v = ctl.vals, ap = v.calmode === 'ap';
+        const r = selfcal(d0, model, { solint: solintVal(v.solint), mode: ap ? 'ap' : 'p' }, ap ? lastPhase : null);
+        const im = imgOf(r.corrected), c = cleanOf(im), st = stats(c);
+        rounds++;
+        if (!ap) lastPhase = r.sol;
+        model = c.model;
+        let fl = 0; for (let q = 0; q < r.sol.flag.length; q++) fl += r.sol.flag[q];
+        addRow({ name: `${rounds} (${ap ? 'ap' : 'p'})`, solint: v.solint, pk: st.pk, rms: st.rms, snr: st.snr, err: ap ? trueErr(lastPhase, r.sol) : trueErr(r.sol) });
+        show(c, im, ap ? lastPhase : r.sol, `Round ${rounds} · '${v.solint}', '${v.calmode}'` + (fl ? ` · ${K.pct(fl / r.sol.flag.length)} flagged` : ''));
+        b.disabled = false; b.textContent = 'Run this round';
+      }, 20);
+    }));
+    reset();
+  },
+
+  phys1(s) {
+    const cv = canv(s), A = scene(), na = A.na, a = 30, TM = 16, T = tgt().filter(q => q.t < TM * 60);
+    const r0 = S.rng(21), raw = T.map(q => wrap(A.resid[q.k * na + a] + SIG_INT * r0.normal()) / S.DEG);   // the 10-s data never change
+    const tx = T.map(q => q.t / 60), ty = T.map(q => A.resid[q.k * na + a] / S.DEG);
+    const BASE = { solint: '30s', combine: 'spw', gaintype: 'T', minsnr: 3 }, SHOW = { solint: "'30s'", combine: "'spw'", gaintype: "'T'", minsnr: '3.0' };
+    const OPT = {
+      solint: { type: 'choice', options: ['int', '30s', '60s', 'inf'], value: '30s', note: 'int = 10 s here (ALMA: 2–6 s)' },
+      combine: { type: 'choice', options: ['', 'spw'], labels: ["''", "'spw'"], value: 'spw', note: '4 spws' },
+      gaintype: { type: 'choice', options: ['T', 'G'], value: 'T' },
+      minsnr: { type: 'choice', options: [0, 3, 5], labels: ['0.0', '3.0', '5.0'], value: 3, quote: false, fmt: v => v.toFixed(1) }
+    };
+    const INFO = {
+      solint: ['How long gaincal averages before it fits one gain per antenna. Longer means more visibilities and less noise per solution, but phase changes faster than solint are averaged away.',
+        "Go from 'int' to 'inf'. Each coloured dot averages the grey 10-s points in its interval. At 'int' most solutions are below minsnr (crosses: flagged). At 'inf' they are precise but miss the drift within a scan."],
+      combine: ["combine='spw' averages all spectral windows into one solution. The atmosphere changes the phase of every spw almost equally (the pipeline calibration removed the spw to spw offsets), so four spws give twice the S/N.",
+        "Switch to combine='' (each spw solved separately). Four solutions per interval, each twice as noisy, most of them flagged. With 'spw', applycal needs spwmap=[0,0,0,0]."],
+      gaintype: ["'G' solves the two polarizations separately, 'T' fits one phase to both. The atmosphere delays both alike, so 'T' gains √2 in S/N.",
+        "Switch to 'G'. Two sets of solutions (XX, YY), each noisier, more of them below minsnr. Use 'T' for phase self-calibration."],
+      minsnr: ['gaincal flags every solution with S/N below minsnr. applycal then flags the data those solutions would have corrected.',
+        'At 0 every noisy solution is used and adds its noise to the data. At 5 more than half are flagged here. Use 3. If many are flagged, use a longer solint.']
+    };
+    const draw = vals => {
+      const v = Object.assign({}, BASE, vals), ns = v.combine === 'spw' ? 1 : 4, np = v.gaintype === 'T' ? 1 : 2, ng = ns * np;
+      const sol = solve1(a, { solint: v.solint, ng, minsnr: v.minsnr, tmax: TM, seed: 5 }), few = sol.length / ng < 40;
+      const names = ng === 1 ? ['solutions'] : ns > 1 ? ['spw 0', '1', '2', '3'] : ['XX', 'YY'];
+      const ser = [{ type: 'scatter', x: tx, y: raw, size: 2.2, color: '--axis' }, { type: 'line', x: tx, y: ty, color: '--ink-2', width: 1.3 }], sn = [];
+      for (let g = 0; g < ng; g++) {
+        const ok = sol.filter(q => q.g === g && !q.flag), c = '--s' + (g + 1);
+        ser.push({ type: 'line', x: ok.map(q => q.t), y: ok.map(q => q.ph), color: c, width: 1.6, dots: few ? 3.2 : 2 });
+        sn.push({ type: 'scatter', x: ok.map(q => q.t), y: ok.map(q => q.snr), size: few ? 6 : 3, color: c });
+      }
+      const bad = sol.filter(q => q.flag);
+      ser.push(xmarks(bad.map(q => q.t), bad.map(q => q.ph), 0.09, 5));
+      sn.push(xmarks(bad.map(q => q.t), bad.map(q => q.snr), 0.09, 1.13, true));
+      V.plot(cv.a, { x: { min: 0, max: TM }, y: { min: -120, max: 120, ticks: [-120, -60, 0, 60, 120], label: 'phase (deg)' }, legend: false, series: ser });
+      V.plot(cv.b, { x: { min: 0, max: TM, label: 'time (min)' }, y: { min: 0.5, max: 100, log: true, ticks: [1, 3, 10, 30, 100], label: 'S/N' }, legend: false, series: sn,
+        hlines: v.minsnr > 0 ? [{ y: v.minsnr, color: '--bad', dash: [4, 3] }] : [] });
+      $(s, '.k1').innerHTML = swatch('--axis', '10-s data') + swatch('--ink-2', 'true error', 1) + names.map((n, g) => swatch('--s' + (g + 1), n)).join('') + swatch('--ink', 'flagged', 'x');
+      const med = sol.map(q => q.snr).sort((x, y) => x - y)[sol.length >> 1], nvis = Math.round(sol[sol.length >> 1].n * 42 * (4 / ns) * (2 / np));
+      $(s, '.k2').textContent = (v.minsnr > 0 ? `dashed: minsnr = ${v.minsnr.toFixed(1)} · ` : '') + `median ${med.toFixed(1)} · ${K.pct(bad.length / sol.length)} flagged · ${nvis.toLocaleString('en-US')} visibilities each`;
+    };
+    paramTabs(s, ['solint', 'combine', 'gaintype', 'minsnr'], p => {
+      const row = k => (k === p ? Object.assign({ k }, OPT[k]) : { k, v: SHOW[k] });
+      $(s, '.ph-t').textContent = INFO[p][0]; $(s, '.tr-t').textContent = INFO[p][1];
+      V.call($(s, '.ctl'), 'gaincal', [{ k: 'vis', v: "'sc.ms'" }, { k: 'caltable', v: "'sc_p1.g'" }, row('solint'), row('combine'), row('gaintype'), { k: 'calmode', v: "'p'" }, row('minsnr'), { k: 'refant', v: "'DA41'" }], draw);
+    });
+  },
+
+  phys2(s) {
+    const cv = canv(s), A = scene(), na = A.na, a = 30, all = tgt();
+    const PH = { x: { min: 0, max: 16 }, y: { min: -120, max: 120, ticks: [-120, -60, 0, 60, 120], label: 'phase (deg)' }, legend: false };
+    const truth = (ant, tm) => { const T = all.filter(q => q.t < tm * 60); return { x: T.map(q => q.t / 60), y: T.map(q => A.resid[q.k * na + ant] / S.DEG) }; };
+    const r0 = S.rng(22), raw16 = all.filter(q => q.t < 960).map(q => wrap(A.resid[q.k * na + a] + SIG_INT * r0.normal()) / S.DEG);
+    const vis = { k: 'vis', v: "'sc.ms'" }, cal = { k: 'caltable', v: "'sc.g'" };
+    const rms = xs => Math.sqrt(xs.reduce((t, x) => t + x * x, 0) / Math.max(1, xs.length));
+    const set = (c1, c2, k1, k2) => { $(s, '.c1').textContent = c1; $(s, '.c2').textContent = c2; $(s, '.k1').innerHTML = k1; $(s, '.k2').textContent = k2; };
+    // calmode: 60-s solutions; DV07 is really 7% low in amplitude (e.g. a pointing error); amplitude noise per solution = phase noise in radians
+    const AMP = 0.93, cmSol = solve1(a, { solint: '60s', ng: 1, minsnr: 3, tmax: 16, seed: 7 }).filter(q => !q.flag), ra = S.rng(19);
+    const cmAmp = cmSol.map(q => AMP * (1 + SIG_INT / Math.sqrt(q.n) * ra.normal())), tr16 = truth(a, 16), all16 = all.filter(q => q.t < 960);
+    // refant: three antennas, 60-s solutions, each with its own noise; phases relative to antenna 0 before re-referencing
+    const RA = [0, 12, 30], RN = ['DA41', 'DA55', 'DV07'], rfSol = RA.map((x, i) => solve1(x, { solint: '60s', ng: 1, minsnr: 0, tmax: 16, seed: 30 + i }));
+    // solnorm: 8 antennas, one 'ap' solution per scan, against a model holding 90% of the flux
+    const NA8 = 8, rs = S.rng(11), A0 = Array.from({ length: NA8 }, () => 1 + 0.04 * rs.normal()), Am = A0.reduce((t, x) => t + x, 0) / NA8, Atrue = A0.map(x => x / Am);
+    const scT = solve1(a, { solint: 'inf', ng: 1, minsnr: 0, tmax: 16, seed: 7 }).map(q => q.t);
+    const gRaw = Atrue.map(x => scT.map(() => x / Math.sqrt(0.9) * (1 + SIG_INT / Math.sqrt(43) * rs.normal())));
+    // applymode: antenna DV15 (larger phase errors), a table solved with solint='int', minsnr=3
+    const amSol = solve1(40, { solint: 'int', ng: 1, minsnr: 3, tmax: 16, seed: 9 }), tr40 = truth(40, 16);
+    const VIEWS = {
+      calmode: {
+        call: () => ['gaincal', [vis, cal, { k: 'solint', v: "'60s'" }, { k: 'calmode', type: 'choice', options: ['p', 'a', 'ap'], value: 'p', note: "default 'ap'" }, { k: 'gaintype', v: "'T'" }, { k: 'refant', v: "'DA41'" }]],
+        info: ["'p' corrects only phases, 'a' only amplitudes, 'ap' both. Atmospheric phase errors are large and fast. Amplitude errors (pointing, Tsys) are a few per cent and slow.",
+          "DV07 is 7% low. At solint='60s' the amplitude solutions scatter by about 15%, more than the error itself, while the phases improve. Amplitude needs much more S/N than phase. Do it last, with solint='inf'. The CASA default is 'ap', so set 'p'."],
+        draw: v => {
+          const p = v.calmode !== 'a', am = v.calmode !== 'p', ser = [{ type: 'scatter', x: all16.map(q => q.t / 60), y: raw16, size: 2.2, color: '--axis' }, { type: 'line', x: tr16.x, y: tr16.y, color: '--ink-2', width: 1.3 }];
+          if (p) ser.push({ type: 'line', x: cmSol.map(q => q.t), y: cmSol.map(q => q.ph), color: '--s1', width: 1.8, dots: 3 });
+          V.plot(cv.a, Object.assign({}, PH, { series: ser, hlines: p ? [] : [{ y: 0, color: '--s1', dash: [5, 4] }] }));
+          V.plot(cv.b, { x: { min: 0, max: 16, label: 'time (min)' }, y: { min: 0.6, max: 1.4, ticks: [0.6, 0.8, 1, 1.2, 1.4], label: 'amplitude' }, legend: false,
+            series: [{ type: 'line', x: [0, 16], y: [AMP, AMP], color: '--ink-2', width: 1.3 }].concat(am ? [{ type: 'line', x: cmSol.map(q => q.t), y: cmAmp, color: '--s1', width: 1.8, dots: 3 }] : []),
+            hlines: am ? [] : [{ y: 1, color: '--s1', dash: [5, 4], label: 'amplitude not solved: 1' }] });
+          const phl = rms(tr16.x.map((t, i) => wrapD(tr16.y[i] - (p ? interpSol(cmSol, t) : 0)))), ampl = am ? rms(cmAmp.map(g => AMP / g - 1)) : 1 - AMP;
+          set('Phase of antenna DV07 and its solutions', 'Amplitude of DV07 (true: 0.93)', swatch('--axis', '10-s data') + swatch('--ink-2', 'true error', 1) + (p ? swatch('--s1', 'solutions') : swatch('--s1', 'dashed: not solved, 0°', 1)),
+            `left after applycal: phase ${phl.toFixed(0)}°, amplitude ${(100 * ampl).toFixed(0)}%`);
+        }
+      },
+      refant: {
+        call: () => ['gaincal', [vis, cal, { k: 'solint', v: "'60s'" }, { k: 'calmode', v: "'p'" }, { k: 'gaintype', v: "'T'" }, { k: 'refant', type: 'choice', options: RN, value: 'DA41' }]],
+        info: ['An interferometer measures only phase differences between antennas. gaincal sets the reference antenna to zero phase and gives every other antenna relative to it.',
+          "Change refant. Every curve on top moves and the refant's is flat at 0. The correction on a baseline (bottom) and the image do not change. Use the pipeline's list, e.g. refant='DA41,DA55' (central antennas present in every scan)."],
+        draw: v => {
+          const r = RN.indexOf(v.refant), x = rfSol[0].map(q => q.t);
+          const ser = RA.map((_, i) => ({ type: 'line', x, y: rfSol[i].map((q, j) => (i === r ? 0 : wrapD(q.ph - rfSol[r][j].ph))), color: '--s' + (i + 1), width: 1.8, dots: 2.6 }));
+          V.plot(cv.a, Object.assign({}, PH, { series: ser }));
+          V.plot(cv.b, Object.assign({}, PH, { x: { min: 0, max: 16, label: 'time (min)' }, series: [{ type: 'line', x, y: rfSol[1].map((q, j) => wrapD(q.ph - rfSol[2][j].ph)), color: '--ink-2', width: 1.8, dots: 2.6 }] }));
+          set('Phase solutions of three antennas', 'Correction on baseline DA55–DV07: φ(DA55) − φ(DV07)', RN.map((n, i) => swatch('--s' + (i + 1), n + (i === r ? ' (refant)' : ''))).join(''), 'the same for every refant');
+        }
+      },
+      solnorm: {
+        call: () => ['gaincal', [vis, cal, { k: 'solint', v: "'inf'" }, { k: 'calmode', v: "'ap'" }, { k: 'refant', v: "'DA41'" }, { k: 'solnorm', type: 'toggle', value: false, note: 'default False' },
+          { k: 'model', label: 'MODEL_DATA', v: '90% of the true flux (cleaned too shallow)', scenario: true }]],
+        info: ["solnorm=True rescales the amplitudes so that their mean power |g|² (all antennas and times, per spw) is 1. Antennas are corrected relative to each other, the flux scale is unchanged.",
+          "The model holds only 90% of the flux. With False every gain rises by about 5% and the source loses 10% of its flux. True keeps it. Use True in every amplitude round (no effect for calmode='p')."],
+        draw: v => {
+          let m = 0, c = 0; gRaw.forEach(row => row.forEach(g => { m += g * g; c++; })); m = Math.sqrt(m / c);   // solnorm: mean power |g|^2 -> 1
+          const f = v.solnorm ? 1 / m : 1, g = gRaw.map(row => row.map(x => x * f)), xs = [], ys = [];
+          g.forEach(row => row.forEach((x, j) => { xs.push(scT[j]); ys.push(x); }));
+          const mean = scT.map((_, j) => g.reduce((t, row) => t + row[j], 0) / NA8);
+          let fl = 0, n = 0; for (let i = 0; i < NA8; i++) for (let k = i + 1; k < NA8; k++) for (let j = 0; j < scT.length; j++) { fl += Atrue[i] * Atrue[k] / (g[i][j] * g[k][j]); n++; }
+          fl /= n;
+          V.plot(cv.a, { x: { min: 0, max: 16 }, y: { min: 0.8, max: 1.3, ticks: [0.8, 0.9, 1, 1.1, 1.2, 1.3], label: 'amplitude' }, legend: false, hlines: [{ y: 1, color: '--axis', dash: [4, 4] }],
+            series: [{ type: 'scatter', x: xs, y: ys, size: 3.4, color: '--s1' }, { type: 'line', x: scT, y: mean, color: '--ink-2', width: 1.8, dots: 3 }] });
+          V.plot(cv.b, { x: { min: 0.4, max: 2.6, ticks: [1, 2], fmt: t => (t === 1 ? 'MODEL_DATA' : 'image after applycal') }, y: { min: 0, max: 1.2, ticks: [0, 0.5, 1], label: 'flux / true' }, legend: false,
+            series: [{ type: 'bars', x: [1], y: [0.9], color: '--s1', barWidth: 22, labels: ['90%'] }, { type: 'bars', x: [2], y: [fl], color: '--s2', barWidth: 22, labels: [K.pct(fl)] }] });
+          set('Amplitude solutions of eight antennas, one per scan', 'Source flux', swatch('--s1', 'solutions') + swatch('--ink-2', 'mean', 1), `mean |g|² ${((m * f) ** 2).toFixed(2)} · flux ${K.pct(fl)} of true`);
+        }
+      },
+      applymode: {
+        call: () => ['applycal', [vis, { k: 'gaintable', v: "['sc.g']" }, { k: 'interp', v: "'linear'" }, { k: 'applymode', type: 'choice', options: ['calflag', 'calonly'], value: 'calflag', note: 'default' },
+          { k: 'table', label: 'sc.g from', v: "gaincal(solint='int', minsnr=3.0)", scenario: true }]],
+        info: ["Where gaincal found no good solution, applycal either flags those data ('calflag', the default) or passes them on uncalibrated ('calonly').",
+          "This table used solint='int' and most solutions failed. calflag flags those data. calonly keeps them with their full phase error (grey line). Use a longer solint instead."],
+        draw: v => {
+          const okx = [], oky = [], unx = [], uny = [];
+          amSol.forEach((q, i) => { if (!q.flag) { okx.push(q.t); oky.push(wrapD(tr40.y[i] - q.ph)); } else if (v.applymode === 'calonly') { unx.push(q.t); uny.push(tr40.y[i]); } });
+          const n = amSol.length, nf = amSol.filter(q => q.flag).length, pc = [(n - nf) / n, v.applymode === 'calonly' ? nf / n : 0, v.applymode === 'calonly' ? 0 : nf / n];
+          V.plot(cv.a, Object.assign({}, PH, { series: [{ type: 'line', x: tr40.x, y: tr40.y, color: '--axis', width: 1.3 }, { type: 'scatter', x: okx, y: oky, size: 3.4, color: '--s1' }, { type: 'scatter', x: unx, y: uny, size: 3.4, color: '--s2' }] }));
+          V.plot(cv.b, { x: { min: 0.4, max: 3.6, ticks: [1, 2, 3], fmt: t => ['', 'calibrated', 'uncalibrated', 'flagged'][t] }, y: { min: 0, max: 100, ticks: [0, 50, 100], label: '% of data' }, legend: false,
+            series: [1, 2, 3].map(i => ({ type: 'bars', x: [i], y: [100 * pc[i - 1]], color: '--s' + i, barWidth: 22, labels: [K.pct(pc[i - 1])] })) });
+          const left = rms(oky.concat(uny));
+          set('Phase error left on antenna DV15 after applycal', 'What applycal did with the data', swatch('--axis', 'before applycal', 1) + swatch('--s1', 'calibrated') + swatch('--s2', 'uncalibrated'), `phase error left on the data kept: ${left.toFixed(0)}°`);
+        }
+      }
+    };
+    paramTabs(s, ['calmode', 'refant', 'solnorm', 'applymode'], p => {
+      const V0 = VIEWS[p], c = V0.call();
+      $(s, '.ph-t').textContent = V0.info[0]; $(s, '.tr-t').textContent = V0.info[1];
+      V.call($(s, '.ctl'), c[0], c[1], V0.draw);
+    });
+  },
+
+  solint(s) {
+    const cv = canv(s), A = scene(), na = A.na, idx = [];
+    A.times.forEach((u, k) => { if (!A.isCal[k]) idx.push(k); });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'err', label: 'Error left, this solint' }, { k: 'best', label: 'Best solint' }]);
+    const SL = [10, 20, 30, 60, 120, 240, 430];
+    // tracking error: residual phase minus its average over each solint (per antenna, per scan)
+    const track = K.memo('sc-track', () => SL.map(sl => {
+      let s2 = 0, n = 0;
+      for (let a = 1; a < na; a += 2) {
+        let group = [], last = -1;
+        const flush = () => { if (!group.length) return; let cr = 0, ci = 0; group.forEach(k => { const p = A.resid[k * na + a] - A.resid[k * na]; cr += Math.cos(p); ci += Math.sin(p); }); const m = Math.atan2(ci, cr); group.forEach(k => { const e = wrap(A.resid[k * na + a] - A.resid[k * na] - m); s2 += e * e; n++; }); group = []; };
+        idx.forEach(k => { const sc = A.scans.findIndex(q => A.times[k] >= q.t0 && A.times[k] < q.t1), key = sc * 1e4 + Math.floor((A.times[k] - A.scans[sc].t0) / sl); if (key !== last) { flush(); last = key; } group.push(k); });
+        flush();
+      }
+      return Math.sqrt(s2 / n) / S.DEG;
+    }));
+    V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'solint', type: 'choice', options: SL, labels: ["'int'", "'20s'", "'30s'", "'60s'", "'120s'", "'240s'", "'inf'"], value: 30, fmt: v => ({ 10: "'int'", 20: "'20s'", 30: "'30s'", 60: "'60s'", 120: "'120s'", 240: "'240s'", 430: "'inf'" })[v] },
+      { k: 'source', label: 'target', v: '3 mJy compact source (fixed)', scenario: true }
+    ], V.rafThrottle(v => {
+      const sigma = S.sigmaVis(6, 7.5e9, 10), noiseErr = sl => 1 / (PSRC / sigma * Math.sqrt((na - 1) * sl / 10)) / S.DEG;
+      const tot = SL.map((sl, i) => Math.sqrt(track[i] ** 2 + noiseErr(sl) ** 2));
+      const a = 30, tx = [], ty = [], sx = [], sy = [], r = S.rng(2), sl = v.solint;
+      idx.forEach(k => { tx.push(A.times[k] / 60); ty.push(wrap(A.resid[k * na + a] - A.resid[k * na]) / S.DEG); });
+      let group = [], last = -1;
+      const flush = () => { if (!group.length) return; let cr = 0, ci = 0; group.forEach(k => { const p = A.resid[k * na + a] - A.resid[k * na]; cr += Math.cos(p); ci += Math.sin(p); }); sx.push(A.times[group[group.length >> 1]] / 60); sy.push(wrap(Math.atan2(ci, cr) + r.normal() * noiseErr(sl) * S.DEG) / S.DEG); group = []; };
+      idx.forEach(k => { const sc = A.scans.findIndex(q => A.times[k] >= q.t0 && A.times[k] < q.t1), key = sc * 1e4 + Math.floor((A.times[k] - A.scans[sc].t0) / sl); if (key !== last) { flush(); last = key; } group.push(k); });
+      flush();
+      V.plot(cv.ts, { x: { min: 0, max: SCENE.dur, label: 'time (min)' }, y: { min: -120, max: 120, ticks: [-120, -60, 0, 60, 120], label: 'phase (deg)' }, legend: false,
+        series: [{ type: 'line', x: tx, y: ty, color: '--axis', width: 1.5 }, { type: 'scatter', x: sx, y: sy, size: sx.length > 150 ? 3 : 7, color: '--s1' }] });
+      const ib = tot.indexOf(Math.min.apply(null, tot)), i = SL.indexOf(sl);
+      V.plot(cv.bud, { x: { min: 8, max: 600, log: true, ticks: SL, fmt: t => (t === 10 ? 'int' : t === 430 ? 'inf' : t + ' s'), label: 'solint' }, y: { min: 1, max: 100, log: true, label: 'phase error (deg)' },
+        series: [{ type: 'line', x: SL, y: track.map(x => (x > 0.5 ? x : NaN)), color: '--s3', width: 1.5, dash: [5, 4], label: 'tracking' }, { type: 'line', x: SL, y: SL.map(noiseErr), color: '--s2', width: 1.5, dash: [5, 4], label: 'noise' },
+          { type: 'line', x: SL, y: tot, color: '--s1', width: 2.5, label: 'total', dots: 3 }, { type: 'scatter', x: [sl], y: [tot[i]], size: 12, color: '--accent' }] });
+      ro.set('err', tot[i].toFixed(0) + '°', i === ib ? 'good' : tot[i] < 1.3 * tot[ib] ? 'warn' : 'bad');
+      ro.set('best', ["'int'", "'20s'", "'30s'", "'60s'", "'120s'", "'240s'", "'inf'"][ib]);
+    }));
+  },
+
+  checksol(s) {
+    const cv = $(s, 'canvas'), A = scene(), na = A.na, TM = SCENE.dur;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'fl', label: 'Solutions flagged' }, { k: 'dfl', label: 'Data applycal would flag' }, { k: 'do', label: 'Then' }]);
+    const AN = [12, 30, 40], NM = ['DA55', 'DV07', 'DV15'], BAD = 22;   // in the 'bad antenna' table DV15 (40) has bad data after 22 min
+    const CASES = {
+      ok: { vis: "'sc_p2.g'", solint: '60s', then: ['apply it', 'good'],
+        look: "Each antenna shows a slow drift with about 10° scatter (S/N ≈ 6 per solution), no jumps and few crosses. Crosses at the scan ends are expected. A 430-s scan in 60-s intervals leaves a last interval of 10 s, too short for S/N 3." },
+      noisy: { vis: "'sc_p4.g'", solint: 'int', then: ["keep the '30s' table", 'bad'],
+        look: "At solint='int' the points scatter by tens of degrees around the drift, and most are flagged. Applying it would flag most of the data and add noise to the rest. Use the previous, longer solint." },
+      bad: { vis: "'sc_p2.g'", solint: '60s', then: ['flag DV15, solve again', 'bad'],
+        look: "DA55 and DV07 are smooth. DV15 jumps at random after 22 min and most of its solutions are flagged, likely bad data. The totals on the left barely change, so check the per-antenna plot. Flag DV15 from 22 min on in sc.ms (flagdata), then solve again." }
+    };
+    // every antenna's solutions for each table (refant 0 has none to flag)
+    const tabs = K.memo('sc-checksol', () => {
+      const o = {};
+      Object.keys(CASES).forEach(c => {
+        o[c] = Array.from({ length: na }, (_, a) => {
+          if (!a) return null;
+          const sol = solve1(a, { solint: CASES[c].solint, ng: 1, minsnr: 3, tmax: TM, seed: 50 + a });
+          if (c === 'bad' && a === 40) { const r = S.rng(77); sol.forEach(q => { if (q.t >= BAD) { q.ph = 360 * r() - 180; q.snr = 1 + 3 * r(); q.flag = q.snr < 3; } }); }
+          return sol;
+        });
+      });
+      return o;
+    });
+    const clock = t => { const sec = Math.round(t * 60 / 10) * 10, p = n => String(n).padStart(2, '0'); return `03:${p(Math.floor(sec / 60))}:${p(sec % 60)}`; };
+    V.call($(s, '.ctl'), 'plotms', [
+      { k: 'vis', vf: v => CASES[v.table].vis }, { k: 'xaxis', v: "'time'" }, { k: 'yaxis', v: "'phase'" },
+      { k: 'antenna', v: "'DA55,DV07,DV15'" }, { k: 'coloraxis', v: "'antenna1'" }, { k: 'plotrange', v: '[0, 0, -180, 180]' },
+      { k: 'table', label: 'table', type: 'choice', options: ['ok', 'noisy', 'bad'], labels: ["healthy '60s'", "'int', too noisy", 'one bad antenna'], value: 'ok', fmt: v => ({ ok: "healthy, solint='60s'", noisy: "solint='int'", bad: 'one bad antenna' })[v], scenario: true }
+    ], v => {
+      const C = CASES[v.table], T = tabs[v.table], ser = [], bx = [], by = [];
+      AN.forEach((a, i) => {
+        const ok = T[a].filter(q => !q.flag), bad = T[a].filter(q => q.flag), few = T[a].length < 60;
+        ser.push({ type: 'line', x: ok.map(q => q.t), y: ok.map(q => q.ph), color: '--s' + (i + 1), width: 1.4, dots: few ? 2.8 : 1.8 });
+        bad.forEach(q => { bx.push(q.t); by.push(q.ph); });
+      });
+      ser.push(xmarks(bx, by, bx.length > 60 ? 0.12 : 0.25, bx.length > 60 ? 5 : 8));
+      V.plot(cv, { x: { min: 0, max: TM, label: 'time (min)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, legend: false, series: ser });
+      $(s, '.cs-k').innerHTML = NM.map((n, i) => swatch('--s' + (i + 1), n)).join('') + swatch('--ink', 'flagged', 'x');
+      // totals over all antennas, and the CASA log lines for the first slots with flagged solutions
+      let ns = 0, nf = 0, nd = 0, ndf = 0; const per = T[1].map(() => 0);
+      T.forEach(sol => sol && sol.forEach((q, j) => { ns++; nd += q.n; if (q.flag) { nf++; ndf += q.n; per[j]++; } }));
+      ro.set('fl', K.pct(nf / ns), nf / ns < 0.15 ? 'good' : nf / ns < 0.3 ? 'warn' : 'bad');
+      ro.set('dfl', K.pct(ndf / nd), ndf / nd < 0.05 ? 'good' : ndf / nd < 0.2 ? 'warn' : 'bad');
+      ro.set('do', C.then[0], C.then[1]);
+      const lines = []; per.forEach((n, j) => { if (n) lines.push(`${n} of ${na} solutions flagged due to SNR &lt; 3 in spw=0 at 2026/03/14/${clock(T[1][j].t)}`); });
+      $(s, '.cs-log').innerHTML = '<span class="c"># printed in the terminal (not the logger) by this gaincal: the first 3 of ' + lines.length + ' such lines</span>\n' + lines.slice(0, 3).join('\n');
+      $(s, '.cs-t').textContent = C.look;
+    });
+  },
+
+  noisecal(s) {
+    const cv = canv(s), A = scene();
+    const ro = V.readouts($(s, '.ro'), [{ k: 'b', label: 'Peak at centre, before' }, { k: 'a', label: 'Peak at centre, after' }, { k: 'f', label: 'Solutions rejected' }]);
+    const blank = K.memo('sc-blank', () => K.targetData(A, [], { perfect: true, seed: 13 }));
+    const model = new Float64Array(N * N);
+    const mark = (ctx, m) => { const x = m.X(0), y = m.Y(0), r1 = 0.2 * m.k, r2 = 0.36 * m.k; ctx.strokeStyle = V.css('--sky'); ctx.lineWidth = 2; ctx.beginPath(); [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([u, w]) => { ctx.moveTo(x + u * r1, y + w * r1); ctx.lineTo(x + u * r2, y + w * r2); }); ctx.stroke(); };
+    V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'solint', type: 'choice', options: ['int', '60s', 'inf'], value: 'int' },
+      { k: 'calmode', v: "'p'" },
+      { k: 'minsnr', type: 'choice', options: [0, 3], value: 0, quote: false, note: '0: accept all' },
+      { k: 'model', label: 'MODEL_DATA', v: '1 mJy point at the phase centre', scenario: true }
+    ], v => {
+      model.fill(0); model[(N / 2) * N + N / 2] = 1e-3;
+      const m = S.predict(model, N, CELL, blank.u, blank.v), sol = S.solveGains(blank, m.re, m.im, { solint: solintVal(v.solint), mode: 'p', refant: 0, minsnr: 0 });
+      dataFlag(blank, m.re, m.im, sol, v.minsnr);
+      const r = { corrected: S.applyGains(blank, sol, 'calonly') }, im0 = imgOf(blank), im1 = imgOf(r.corrected);
+      let fl = 0; for (let q = 0; q < sol.flag.length; q++) fl += sol.flag[q];
+      ro.set('f', K.pct(fl / sol.flag.length), fl ? 'good' : 'bad');
+      const sig = im0.sigma, lim = 15 * sig;
+      V.image(cv.before, im0.dirty, N, { cell: CELL, crop: 128, vmin: -4 * sig, vmax: lim, beam: im0.beam, overlay: mark, cbar: { label: 'μJy/beam', scale: 1e6 } });
+      V.image(cv.after, im1.dirty, N, { cell: CELL, crop: 128, vmin: -4 * sig, vmax: lim, beam: im1.beam, overlay: mark, cbar: { label: 'μJy/beam', scale: 1e6 } });
+      const c0 = im0.dirty[(N / 2) * N + N / 2] / sig, c1 = im1.dirty[(N / 2) * N + N / 2] / sig;
+      ro.set('b', c0.toFixed(1) + ' σ'); ro.set('a', c1.toFixed(1) + ' σ', c1 > 5 ? 'bad' : c1 > 3 ? 'warn' : 'good');
+    });
+  },
+
+  ampcal(s) {
+    const cv = canv(s), A = scene();
+    const core = { type: 'gauss', flux: 0.03, fwhm: 0.05 }, halo = { type: 'gauss', flux: 0.03, fwhm: 0.6, ratio: 0.8, pa: 30 };
+    const d = K.memo('sc-amp-data', () => K.targetData(A, [core, halo], { perfect: true, seed: 17 }));
+    const rc = S.circleMask(N, CELL, 0.12), rh = S.circleMask(N, CELL, 0.9);
+    const REF = K.memo('sc-amp-ref0', () => { const im = imgOf(d), c = K.clean(im, { niter: 3000, threshold: 3 * im.sigma, mask: rh, gain: 0.15 }), ba = S.beamArea(im.beam, CELL), fc = S.sumIn(c.restored, rc) / ba; return { pk: S.max(c.restored).v, fc, fh: S.sumIn(c.restored, rh) / ba - fc }; });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'core', label: 'Core flux' }, { k: 'halo', label: 'Halo flux' }]);
+    V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'model', label: 'MODEL_DATA holds', type: 'choice', options: ['core only', 'core + halo'], value: 'core only', fmt: v => v, scenario: true },
+      { k: 'calmode', type: 'choice', options: ['p', 'ap'], value: 'ap' },
+      { k: 'solint', type: 'choice', options: ['int', '60s', 'inf'], value: 'int' },
+      { k: 'solnorm', v: 'True' }
+    ], v => {
+      const comps = v.model === 'core only' ? [core] : [core, halo];
+      const mre = new Float64Array(d.n), mim = new Float64Array(d.n); S.visModel(comps, d.u, d.v, mre, mim);
+      const sol = S.solveGains(d, mre, mim, { solint: solintVal(v.solint), mode: v.calmode, refant: 0, minsnr: 3, solnorm: true });
+      const cd = S.applyGains(d, sol, 'calflag'), im = imgOf(cd), c = K.clean(im, { niter: 3000, threshold: 3 * im.sigma, mask: rh, gain: 0.15 });
+      const ba = S.beamArea(im.beam, CELL), fc = S.sumIn(c.restored, rc) / ba, ft = S.sumIn(c.restored, rh) / ba, fh = ft - fc;
+      const tc = REF.fc, th = REF.fh;
+      V.image(cv.img, c.restored, N, { cell: CELL, crop: 110, vmin: 0, vmax: 0.15 * REF.pk, stretch: 'sqrt', beam: im.beam, cbar: { label: 'mJy/beam', scale: 1e3 } });
+      V.plot(cv.bars, { x: { min: 0.4, max: 2.6, ticks: [1, 2], fmt: t => (t === 1 ? 'core' : 'halo') }, y: { min: 0, max: 1.2, label: 'after / before' }, legend: false, hlines: [{ y: 1, color: '--axis' }],
+        series: [{ type: 'bars', x: [1, 2], y: [fc / tc, fh / th], color: '--s1', barWidth: 22, labels: [K.pct(fc / tc), K.pct(fh / th)] }] });
+      ro.set('core', K.pct(fc / tc), Math.abs(fc / tc - 1) < 0.05 ? 'good' : 'warn');
+      ro.set('halo', K.pct(fh / th), Math.abs(fh / th - 1) < 0.1 ? 'good' : fh / th > 0.6 ? 'warn' : 'bad');
+    });
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

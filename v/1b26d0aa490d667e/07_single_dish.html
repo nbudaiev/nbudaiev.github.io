@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Single-dish imaging and data combination</title>
+<meta name="deck-title" content="Single-dish imaging and data combination · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+  #takeaway pre.code.recipe { font-size: .68em; line-height: 1.42; }
+  #plan .card h3 { display: flex; flex-wrap: wrap; gap: .35em; }
+  #arrays .card p { font-size: .76em; }
+  #arrays .card { padding: .55em .8em; gap: .2em; }
+  #methods svg.diagram { max-height: 13.5em; }
+  #prep ol { gap: .2em; }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="Central uv coverage of the 12-m and 7-m arrays in metres, with the Total Power disk"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 7 of 8 · 2:45–3:00</p>
+  <h1>Single-dish imaging<br>and data combination</h1>
+  <p class="sub">Why and how to combine 12-m, 7-m and Total Power data with feather or sdintimaging.</p>
+  <div class="meta"><span>15 min</span><span>12-m · 7-m · Total Power · feather · sdintimaging</span><span>All figures are simulated live</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part · 2:45–3:00</p><h2>Outline</h2></header>
+  <div class="grid3">
+    <div class="card"><h3><span class="tag fixed">Fixed by the observation</span></h3><p><b>1 · Why combine arrays</b>: the 12-m, 7-m and Total Power arrays measure different ranges of spacings. The short-spacing problem.</p></div>
+    <div class="card"><h3><span class="tag choice">Your choice</span> <span class="tag check">Check</span></h3><p><b>2 · Combining the data</b>: combination methods, feather, preparing the Total Power image, sdintimaging.</p></div>
+    <div class="card"><h3><span class="tag check">Takeaway</span></h3><p>Reference calls for 12-m + 7-m imaging, feather and sdintimaging, and what to check.</p></div>
+  </div>
+  <p class="lede">All demos use one simulated observation at 230 GHz (Band 6): the 12-m array in a C-2-like configuration for 1 h, the 7-m array for 4.7 h, and a Total Power map. Part 1 introduced the maximum recoverable scale (MRS). Colour scales and axes are fixed.</p>
+  <p class="small muted">Backup at the end: combination options and time ratios, what Total Power measures, the Plunkett et al. (2023) comparison, questions and references.</p>
+</section>
+<section class="slide section" id="part-why">
+  <p class="num">1</p>
+  <h2>Why combine arrays</h2>
+  <p>Each array measures a different range of spacings. Structure larger than the 12-m MRS needs the 7-m array and Total Power.</p>
+</section>
+<section class="slide" id="arrays" data-demo="uvplane">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>12-m · 7-m · Total Power</p><h2>ALMA is 3 arrays in 1</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Add the 7-m array, then Total Power. Each fills part of the central hole left by the one before. Before combining, compare the arrays on the overlapping spacings (shaded): amplitudes, weights, rms.</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:2">
+        <figure class="panel"><figcaption><b>Central uv coverage</b><span>|u|, |v| ≤ 50 m</span></figcaption><canvas class="plot tall" data-k="uv"></canvas></figure>
+        <figure class="panel"><figcaption><b>Spacings each array measures</b><span>shaded: overlap</span></figcaption><canvas class="plot tall" data-k="rad"></canvas></figure>
+      </div>
+      <div class="grid3">
+        <div class="card"><h3>12-m array</h3><p>Up to 50 × 12-m antennas, baselines 15 m to 16 km.</p></div>
+        <div class="card"><h3>7-m array (ACA)</h3><p>12 × 7-m antennas, baselines ≈9–45 m.</p></div>
+        <div class="card"><h3>Total Power (TP, ACA)</h3><p>4 × 12-m single dishes. Autocorrelation spectra, on-the-fly maps.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="spacing" data-demo="spacing">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>missing short spacings · flux recovery</p><h2>The short-spacing problem</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Grow the cloud with the 12-m array only. Near the MRS its flux is lost and a shallow negative bowl appears (Deepest negative). Larger clouds vanish. The compact sources are kept. Add the 7-m array, then TP (feather). The cloud peak is fixed, so a bigger cloud has more total flux.</p>
+      <p class="small muted">Primary beam ignored (uniform sensitivity). The extra short spacings of a mosaic are not simulated.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Image</b><span>restored, mJy/beam</span></figcaption><canvas class="img cb" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>True sky</b><span>at the 12-m resolution</span></figcaption><canvas class="img short" data-k="sky"></canvas></figure>
+      <figure class="panel"><figcaption><b>Visibility amplitude</b><span>dots: data · shaded: TP spacings</span></figcaption><canvas class="plot" data-k="vis"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-comb">
+  <p class="num">2</p>
+  <h2>Combining the data</h2>
+  <p>Feather after deconvolution, or sdintimaging (joint deconvolution), and preparing the Total Power image.</p>
+</section>
+<section class="slide" id="methods">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>Plunkett et al. (2023)</p><h2>Combination methods</h2></header>
+  <div class="body">
+    <svg class="diagram" viewBox="0 0 1000 250" role="img" aria-label="Feather: 12-m and 7-m visibilities are imaged with tclean, then the interferometer image and the TP image times the primary beam are feathered into the final image. sdintimaging: the visibilities and the TP image are deconvolved together into the final image.">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+      <rect class="box" x="10" y="10" width="190" height="70" rx="10"/><text x="105" y="40" text-anchor="middle" font-weight="700" font-size="17">Visibilities</text><text x="105" y="63" text-anchor="middle" class="muted" font-size="13">12-m + 7-m (concat)</text>
+      <rect class="box" x="250" y="10" width="130" height="70" rx="10"/><text x="315" y="40" text-anchor="middle" font-weight="700" font-size="17">tclean</text><text x="315" y="63" text-anchor="middle" class="muted" font-size="13">gridder='mosaic'</text>
+      <rect class="box" x="430" y="10" width="180" height="70" rx="10"/><text x="520" y="40" text-anchor="middle" font-weight="700" font-size="17">Interferometer image</text><text x="520" y="63" text-anchor="middle" class="muted" font-size="13">.image and .pb</text>
+      <rect class="box hot" x="660" y="10" width="130" height="70" rx="10"/><text x="725" y="40" text-anchor="middle" font-weight="700" font-size="17">feather</text><text x="725" y="63" text-anchor="middle" class="muted" font-size="13">after imaging</text>
+      <rect class="box" x="840" y="10" width="150" height="70" rx="10"/><text x="915" y="52" text-anchor="middle" font-weight="700" font-size="17">Final image</text>
+      <rect class="box" x="430" y="98" width="180" height="48" rx="10"/><text x="520" y="128" text-anchor="middle" font-weight="700" font-size="16">TP image × pb</text>
+      <rect class="box" x="10" y="170" width="370" height="70" rx="10"/><text x="195" y="200" text-anchor="middle" font-weight="700" font-size="17">Visibilities + TP image</text><text x="195" y="223" text-anchor="middle" class="muted" font-size="13">12-m + 7-m, TP regridded</text>
+      <rect class="box hot" x="430" y="170" width="360" height="70" rx="10"/><text x="610" y="200" text-anchor="middle" font-weight="700" font-size="17">sdintimaging</text><text x="610" y="223" text-anchor="middle" class="muted" font-size="13">joint deconvolution, every major cycle</text>
+      <rect class="box" x="840" y="170" width="150" height="70" rx="10"/><text x="915" y="212" text-anchor="middle" font-weight="700" font-size="17">Final image</text>
+      <path class="wire" d="M200 45 H242" marker-end="url(#ar)"/><path class="wire" d="M380 45 H422" marker-end="url(#ar)"/><path class="wire" d="M610 45 H652" marker-end="url(#ar)"/><path class="wire" d="M790 45 H832" marker-end="url(#ar)"/>
+      <path class="wire" d="M610 122 H725 V88" marker-end="url(#ar)"/>
+      <path class="wire" d="M380 205 H422" marker-end="url(#ar)"/><path class="wire" d="M790 205 H832" marker-end="url(#ar)"/>
+    </svg>
+    <div class="tscroll"><table class="t">
+      <tr><th>When combined</th><th>Method</th><th>Task</th><th>Domain</th><th>Combines</th></tr>
+      <tr><td>before deconvolution</td><td>SDINT</td><td><code>sdintimaging</code></td><td>Fourier and image</td><td>visibilities + TP image</td></tr>
+      <tr><td>before deconvolution</td><td>tp2vis</td><td><code>tp2vis</code> (add-on), then <code>tclean</code></td><td>Fourier</td><td>visibilities + TP pseudo-visibilities</td></tr>
+      <tr><td>during deconvolution</td><td>MACF</td><td><code>tclean</code> (TP start model), then <code>feather</code></td><td>Fourier and image</td><td>visibilities + TP image as model</td></tr>
+      <tr><td>after deconvolution</td><td>feather</td><td><code>feather</code></td><td>Fourier</td><td>two images</td></tr>
+      <tr><td>after deconvolution</td><td>Faridani</td><td>(script)</td><td>image</td><td>two images</td></tr>
+    </table></div>
+  </div>
+</section>
+<section class="slide" id="feather" data-demo="feather">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>feather · weighting in the uv-plane</p><h2>Feather</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>12-m image only: the flux within 12″ drops from 70% to 63%. sdfactor scales the total flux.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Feathered image</b><span>mJy/beam</span></figcaption><canvas class="img cb" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Weights vs uv distance</b><span>filled: interferometer data</span></figcaption><canvas class="plot" data-k="w"></canvas></figure>
+      <figure class="panel"><figcaption><b>Cut through the source</b><span>grey: true sky · primary beam ignored</span></figcaption><canvas class="plot" data-k="cut"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="prep" data-demo="depb">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>CASA guide M100_Band3_Combine · before feather</p><h2>Preparing the TP image for feather</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Set expr='IM0' (TP alone). The TP part is then not attenuated by the pb, and impbcor raises it by 1/pb toward the edge. Both cases are less accurate near the edge, so trim to the inner region.</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:2">
+        <figure class="panel"><figcaption><b>Inputs to feather</b><span>cut across a 12-m + 7-m mosaic</span></figcaption><canvas class="plot" data-k="in"></canvas></figure>
+        <figure class="panel"><figcaption><b>After feather and impbcor</b><span>grey: true sky · pb ≥ 0.2</span></figcaption><canvas class="plot" data-k="out"></canvas></figure>
+      </div>
+      <ol class="small">
+        <li><code>imhead</code>: the TP and interferometer cubes must have the same <code>restfreq</code>. Pipeline TP cubes may not.</li>
+        <li><code>imregrid</code> the TP cube onto the 12-m + 7-m grid (<code>template=</code> the cube, <code>axes=[0, 1]</code>: RA/Dec only, so image the cube on the TP channels).</li>
+        <li><code>imsubimage</code> TP, <code>.image</code> and <code>.pb</code> to pb ≥ 0.2, without noisy TP edges.</li>
+        <li><code>immath(expr='IM0*IM1')</code>: TP × the interferometer <code>.pb</code>, so both have the same response on the sky.</li>
+        <li><code>feather</code> with <code>highres=</code> the <code>.image</code> (not <code>.pbcor</code>) and <code>lowres=</code> TP × pb, then <code>impbcor</code>.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sdint">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>joint deconvolution · Rau et al. (2019)</p><h2>sdintimaging</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <p class="small ink2">Each major cycle combines the interferometer and TP residuals (and PSFs) into a joint image, so the CLEAN model includes the large scales. Same parameters as tclean, plus:</p>
+      <div class="tscroll"><table class="t">
+        <tr><th>Parameter</th><th>Set it to</th></tr>
+        <tr><td><code>usedata</code></td><td><code>'sdint'</code> (also <code>'sd'</code>, <code>'int'</code>)</td></tr>
+        <tr><td><code>sdimage</code></td><td>the TP cube (per-plane beams), on the same spectral grid</td></tr>
+        <tr><td><code>sdpsf</code></td><td><code>''</code>: a Gaussian from the TP beam</td></tr>
+        <tr><td><code>sdgain</code></td><td><code>1.0</code>, scales the TP flux. Higher values (e.g. 3) raise the extended emission</td></tr>
+        <tr><td><code>dishdia</code></td><td><code>12.0</code> for ALMA TP</td></tr>
+        <tr><td><code>gridder</code>, <code>deconvolver</code></td><td><code>'mosaic'</code>, <code>'multiscale'</code></td></tr>
+      </table></div>
+    </div>
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <tr><th></th><th>feather</th><th>sdintimaging</th></tr>
+        <tr><td>Input</td><td>two images</td><td>visibilities + TP image</td></tr>
+        <tr><td>Combined</td><td>after deconvolution</td><td>in every major cycle</td></tr>
+        <tr><td>Run time</td><td>seconds</td><td>a full imaging run</td></tr>
+        <tr><td>Clean model</td><td>interferometer only</td><td>includes TP scales</td></tr>
+        <tr><td>Parameters</td><td><code>sdfactor</code>, <code>effdishdiam</code></td><td><code>sdgain</code>, <code>sdpsf</code></td></tr>
+      </table></div>
+      <div class="card"><h3>Which method?</h3><p>Plunkett et al. (2023): SDINT and MACF (model-assisted clean, then feather) give subtly better images. Any combination likely helps with extended emission. Compare with the accuracy parameter (A-par), the power spectrum, source structure and spectral shape.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="takeaway">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>reference starting point</p><h2>Data combination calls to copy</h2></header>
+<pre class="code recipe"><span class="c"># 1. 12-m + 7-m: one MS, one cube (as in the CASA guide M100_Band3_Combine)</span>
+<span class="f">concat</span>(<span class="k">vis</span>=[<span class="s">'12m_CO.ms'</span>, <span class="s">'7m_CO.ms'</span>], <span class="k">concatvis</span>=<span class="s">'12m7m_CO.ms'</span>)        <span class="c"># split the line spws first (ids differ per array)</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'12m7m_CO.ms'</span>, <span class="k">imagename</span>=<span class="s">'int_CO'</span>, <span class="k">field</span>=<span class="em">'M100'</span>, <span class="k">phasecenter</span>=<span class="em">'J2000 12h22m54.9 +15d49m15'</span>,
+       <span class="k">specmode</span>=<span class="s">'cube'</span>, <span class="k">gridder</span>=<span class="s">'mosaic'</span>,
+       <span class="k">mosweight</span>=True, <span class="k">restfreq</span>=<span class="em">'115.271201800GHz'</span>, <span class="k">start</span>=<span class="em">'1400km/s'</span>, <span class="k">width</span>=<span class="em">'5km/s'</span>, <span class="k">nchan</span>=<span class="em">70</span>,
+       <span class="k">outframe</span>=<span class="s">'LSRK'</span>, <span class="k">cell</span>=<span class="em">'0.5arcsec'</span>, <span class="k">imsize</span>=<span class="em">800</span>, <span class="k">weighting</span>=<span class="s">'briggsbwtaper'</span>, <span class="k">robust</span>=<span class="s">0.5</span>,
+       <span class="k">pbmask</span>=<span class="s">0.2</span>, <span class="k">restoringbeam</span>=<span class="s">'common'</span>, <span class="k">niter</span>=<span class="em">10000</span>, <span class="k">threshold</span>=<span class="em">'…mJy'</span>, <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,
+       <span class="k">sidelobethreshold</span>=<span class="s">2.0</span>, <span class="k">noisethreshold</span>=<span class="s">4.25</span>, <span class="k">minbeamfrac</span>=<span class="s">0.3</span>, <span class="k">lownoisethreshold</span>=<span class="s">1.5</span>,
+       <span class="k">negativethreshold</span>=<span class="s">0.0</span>, <span class="k">growiterations</span>=<span class="s">75</span>, <span class="k">pbcor</span>=True)
+<span class="c"># 2. TP onto the same grid, with the same response on the sky</span>
+<span class="f">imhead</span>(<span class="s">'tp.image'</span>, <span class="k">mode</span>=<span class="s">'get'</span>, <span class="k">hdkey</span>=<span class="s">'restfreq'</span>)                       <span class="c"># same as the cube's restfreq?</span>
+<span class="f">imregrid</span>(<span class="k">imagename</span>=<span class="s">'tp.image'</span>, <span class="k">template</span>=<span class="s">'int_CO.image'</span>, <span class="k">axes</span>=[<span class="s">0</span>, <span class="s">1</span>], <span class="k">output</span>=<span class="s">'tp.regrid'</span>)
+<span class="f">imsubimage</span>(<span class="k">imagename</span>=<span class="s">'tp.regrid'</span>, <span class="k">outfile</span>=<span class="s">'tp.sub'</span>, <span class="k">box</span>=<span class="em">'…'</span>)            <span class="c"># repeat for .image and .pb</span>
+<span class="f">immath</span>(<span class="k">imagename</span>=[<span class="s">'tp.sub'</span>, <span class="s">'int_CO.pb.sub'</span>], <span class="k">expr</span>=<span class="s">'IM0*IM1'</span>, <span class="k">outfile</span>=<span class="s">'tp.depb'</span>)
+<span class="c"># 3. combine, then primary beam correction</span>
+<span class="f">feather</span>(<span class="k">imagename</span>=<span class="s">'feather.image'</span>, <span class="k">highres</span>=<span class="s">'int_CO.image.sub'</span>, <span class="k">lowres</span>=<span class="s">'tp.depb'</span>,
+        <span class="k">sdfactor</span>=<span class="em">1.0</span>, <span class="k">effdishdiam</span>=-<span class="s">1.0</span>, <span class="k">lowpassfiltersd</span>=False)
+<span class="f">impbcor</span>(<span class="k">imagename</span>=<span class="s">'feather.image'</span>, <span class="k">pbimage</span>=<span class="s">'int_CO.pb.sub'</span>, <span class="k">outfile</span>=<span class="s">'feather.pbcor'</span>)
+<span class="c"># or joint deconvolution: the tclean parameters above, plus</span>
+<span class="f">sdintimaging</span>(<span class="k">usedata</span>=<span class="s">'sdint'</span>, <span class="k">sdimage</span>=<span class="s">'tp.regrid'</span>, <span class="k">sdpsf</span>=<span class="s">''</span>, <span class="k">sdgain</span>=<span class="em">1.0</span>, <span class="k">dishdia</span>=<span class="s">12.0</span>, …)
+<span class="c"># check: total flux vs the TP image (imstat, same region), same restfreq and channels</span></pre>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">B</p>
+  <h2>Backup</h2>
+  <p>Extra material if there is time, or for later reading.</p>
+</section>
+<section class="slide" id="combos">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>ALMA Technical Handbook, Table 7.5 (100 GHz)</p><h2>Array combinations and time ratios</h2></header>
+  <div class="cols">
+    <div class="tscroll"><table class="t">
+      <tr><th>θ<sub>res</sub></th><th>θ<sub>LAS</sub></th><th>Arrays</th><th>Time ratio</th></tr>
+      <tr><td>3.38″</td><td>&lt; 28.5″</td><td>C43-1</td><td>1</td></tr>
+      <tr><td></td><td>28.5–66.7″</td><td>C43-1 + 7-m</td><td>1 : 7</td></tr>
+      <tr><td></td><td>&gt; 66.7″</td><td>C43-1 + 7-m + TP</td><td>1 : 7 : 11.9</td></tr>
+      <tr><td>2.3″</td><td>&lt; 22.6″</td><td>C43-2</td><td>1</td></tr>
+      <tr><td></td><td>22.6–66.7″</td><td>C43-2 + 7-m</td><td>1 : 4.7</td></tr>
+      <tr><td></td><td>&gt; 66.7″</td><td>C43-2 + 7-m + TP</td><td>1 : 4.7 : 7.9</td></tr>
+      <tr><td>12.5″</td><td>&lt; 66.7″</td><td>7-m</td><td>1</td></tr>
+      <tr><td></td><td>&gt; 66.7″</td><td>7-m + TP</td><td>1 : 1.7</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <tr><th>θ<sub>res</sub></th><th>θ<sub>LAS</sub></th><th>Arrays</th><th>Time ratio</th></tr>
+        <tr><td>0.918″</td><td>&lt; 11.2″</td><td>C43-4</td><td>1</td></tr>
+        <tr><td></td><td>11.2–28.5″</td><td>C43-4 + C43-1</td><td>1 : 0.34</td></tr>
+        <tr><td></td><td>28.5–66.7″</td><td>+ 7-m</td><td>1 : 0.34 : 2.4</td></tr>
+        <tr><td></td><td>&gt; 66.7″</td><td>+ 7-m + TP</td><td>1 : 0.34 : 2.4 : 4.0</td></tr>
+      </table></div>
+      <p class="small ink2">Ratios are relative to the time in the most extended configuration, which sets the resolution (the combined beam can be up to 50% larger). TP and 7-m observe in parallel, so the total is less than the sum.</p>
+      <p class="small ink2">Combinations in the talk: TM1 + TM2 (extended + compact 12-m), TM1 + TM2 + 7-m, 12-m + 7-m, 7-m + TP, 12-m + 7-m + TP.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="tpdata">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>single-dish data · hsd_ stages</p><h2>What Total Power measures</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <ul>
+        <li>Each 12-m TP antenna records autocorrelation spectra: the total power in its beam. This covers spacings from 0 (the total flux) to the dish diameter, 12 m.</li>
+        <li>On-the-fly (OTF) maps: the antennas scan the target area in rows, with an emission-free reference position (OFF).</li>
+        <li>No phase, bandpass or flux calibrators. Calibration: a pointing source, Tsys, and Jy/K factors from the observatory database or a <code>jyperk.csv</code> file.</li>
+        <li>TP beam FWHM ≈ 1.13 λ/D before gridding (≈25″ at 230 GHz). Delivered cubes have native channels and 9 cells across the beam.</li>
+      </ul>
+      <p class="small ink2">The weblog pages are in Part 3 (Backup, single-dish weblog).</p>
+    </div>
+    <div class="tscroll"><table class="t">
+      <tr><th>Stage</th><th>Does</th></tr>
+      <tr><td><code>hsd_importdata</code>, <code>hsd_flagdata</code></td><td>import, online and template flags</td></tr>
+      <tr><td><code>h_tsyscal</code>, <code>hsd_tsysflag</code></td><td>Tsys tables and flags</td></tr>
+      <tr><td><code>hsd_skycal</code></td><td>OFF spectra for (ON − OFF) / OFF</td></tr>
+      <tr><td><code>hsd_k2jycal</code>, <code>hsd_applycal</code></td><td>Jy/K factors, apply</td></tr>
+      <tr><td><code>hsd_atmcor</code></td><td>residual atmospheric lines</td></tr>
+      <tr><td><code>hsd_baseline</code>, <code>hsd_blflag</code></td><td>spectral baselines with line masks, run twice</td></tr>
+      <tr><td><code>hsd_imaging</code>, <code>hsd_exportdata</code></td><td>cubes in Jy/beam, FITS products</td></tr>
+    </table></div>
+  </div>
+</section>
+<section class="slide" id="quality">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>Plunkett et al. (2023) · github.com/teuben/DataComb</p><h2>Comparing combination methods</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>Aims</h3><ul><li>A uniform, reproducible way to run several combination methods.</li><li>Which methods give the best image quality?</li></ul></div>
+    <div class="card"><h3>Method</h3><ul><li>A synthetic continuum sky model: a multiscale molecular cloud with a power-law power spectrum, plus two point sources.</li><li>The observed M100 CO(1–0) cube (12-m, 7-m and TP), the CASA guide data.</li></ul></div>
+    <div class="card"><h3>Results</h3><ul><li>SDINT and MACF give subtly better quality than the others.</li><li>Image quality measured with the accuracy parameter (A-par), Sec. 5.2.</li><li>With extended emission, any combination helps. Check the spatial power spectrum, source structure and spectral shape.</li></ul></div>
+  </div>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>discussion</p><h2>Four questions</h2></header>
+  <ol class="quiz">
+    <li>Your C-2 image of a 12″ cloud at Band 6 recovers 15% of its flux. Which tclean parameter fixes this?<details><summary>Answer</summary>None. The cloud is larger than the 12-m MRS (≈10″), so these spacings were not measured. You need 7-m and TP data.</details></li>
+    <li>Why not feather TP directly with a 12-m-only image?<details><summary>Answer</summary>TP covers spacings up to about 12 m, with little weight beyond ≈8 m. The 12-m array starts at 15 m. The 7-m array fills the gap between them. A larger single dish such as the GBT can overlap the 12-m spacings directly (Hoffman &amp; Kepley 2018).</details></li>
+    <li>The feathered image has 20% more total flux than the TP image. What do you check?<details><summary>Answer</summary>The same region in both, TP × pb before feather, the TP flux scale (<code>sdfactor</code>, Jy/K factors), and the rest frequency and channels of both cubes.</details></li>
+    <li>Which interferometer image goes into feather, <code>.image</code> or <code>.image.pbcor</code>?<details><summary>Answer</summary>The <code>.image</code>, with the TP image multiplied by the <code>.pb</code>. Run <code>impbcor</code> on the feathered image afterwards.</details></li>
+  </ol>
+</section>
+<section class="slide" id="refs">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>further reading</p><h2>References</h2></header>
+  <div class="cols">
+    <ul>
+      <li>Cotton 2017, PASP: Fourier plane image combination by feathering.</li>
+      <li>Rau et al. 2019, AJ: joint deconvolution of single-dish and interferometer data (sdintimaging).</li>
+      <li>Mason 2020: imaging spatially extended objects with interferometers, mosaicking and the short-spacing correction.</li>
+      <li>Hoffman &amp; Kepley 2018, GBT Memo 300: correcting ALMA 12-m data for missing short spacings with the GBT.</li>
+      <li>Plunkett et al. 2023: data combination methods and their comparison.</li>
+    </ul>
+    <ul>
+      <li>CASA guide <i>M100_Band3_Combine_6.6.6</i> (casaguides.nrao.edu): 12-m, 7-m and TP data of M100, with feather.</li>
+      <li>casadocs.readthedocs.io: <code>feather</code>, <code>sdintimaging</code>, <code>imregrid</code>, <code>immath</code>, <code>impbcor</code>.</li>
+      <li>github.com/teuben/DataComb: scripts for the methods compared in Plunkett et al. (2023).</li>
+      <li>ALMA Technical Handbook, Section 7.8: array combinations, MRS and time ratios.</li>
+    </ul>
+  </div>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const STD = { cfg: 'C-4', freq: 230, dec: -30, ha0: -0.5, ha1: 0.5, dt: 60, band: 6 };
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const hoverFlux = (cv, el) => el && V.hover(cv, el, (v, x, y) => `${(v * 1e3).toFixed(3)} mJy/bm at (${x.toFixed(2)}″, ${y.toFixed(2)}″)`);
+// one fixed observation for every demo: 230 GHz, 12-m C-2-like for 1 h and the 7-m array for 4.7 h (Table 7.5 ratio for C43-2 + 7-m),
+// observed as two separate arrays (no 12-m x 7-m baselines), then concatenated
+const GHZ = 230, LAM = S.C / (GHZ * 1e9), N = 256, CELL = 0.3, TPF = S.pbFWHM(GHZ, 12);   // TP beam ~ 1.13 lambda/D
+const KK = Math.PI * Math.PI / (4 * Math.LN2), LN2 = Math.LN2;
+const TRK = { '12m': ['C-2', -0.5, 0.5, 60], '7m': ['ACA', -2.35, 2.35, 120] };
+const tracks = a => K.memo('tr:' + a, () => { const t = TRK[a]; return S.uvTracks(S.config(t[0]), { freq: GHZ, dec: -30, ha0: t[1], ha1: t[2], dt: t[3] }); });
+const observe = (a, comps, key) => K.memo(`obs:${a}:${key}`, () => {
+  const t = TRK[a], D = a === '7m' ? 7 : 12;
+  return S.observe(tracks(a), comps, { sigma: S.sigmaVis(6, 7.5e9, t[3], D, D), seed: a === '7m' ? 7 : 12 });
+});
+const concat = ds => {
+  const n = ds.reduce((s, d) => s + d.n, 0), o = { n, u: new Float64Array(n), v: new Float64Array(n), re: new Float64Array(n), im: new Float64Array(n), wt: new Float64Array(n), flag: new Uint8Array(n) };
+  let k = 0;
+  ds.forEach(d => { ['u', 'v', 're', 'im', 'wt', 'flag'].forEach(f => o[f].set(d[f], k)); k += d.n; });
+  return o;
+};
+const metres = d => { const r = new Float64Array(d.n); for (let k = 0; k < d.n; k++) r[k] = Math.hypot(d.u[k], d.v[k]) * LAM; return r; };
+// TP map: the sky convolved with the TP beam (peak 1), so Jy/beam; optional noise correlated on the gridding-kernel scale (~beam/3)
+const tpImage = (comps, key, noise) => K.memo('tp:' + key, () => {
+  const img = S.convolve(S.skyImage(comps, N, CELL), S.gaussKernel(N, CELL, { maj: TPF, min: TPF, pa: 0 }, false), N);
+  if (noise) {
+    const r = S.rng(77), w = new Float64Array(N * N).map(() => r.normal());
+    const sm = S.convolve(w, S.gaussKernel(N, CELL, { maj: TPF / 3, min: TPF / 3, pa: 0 }, true), N), s0 = Math.sqrt(sm.reduce((a, x) => a + x * x, 0) / sm.length);
+    for (let i = 0; i < N * N; i++) img[i] += noise * sm[i] / s0;
+  }
+  return img;
+});
+// CASA feather (casadocs): FT both images, scale the low-res grid by the beam-volume ratio (high/low) and add the
+// high-res grid x (1 - w), w = FT of the low-res beam (1 at zero spacing). effdishdiam < 12 m: smooth TP to the larger beam first.
+const feather = (hi, hb, lo, o) => {
+  const h = N / 2, du = 1 / (N * CELL * S.AS), D = o.effdishdiam > 0 ? o.effdishdiam : 12;
+  const th = TPF * 12 / D * S.AS, t0 = TPF * S.AS, ratio = hb.maj * hb.min / (TPF * TPF), qmax = D / LAM;   // smoothing to the larger beam keeps the flux, so the volume ratio stays high/TP
+  const Hr = Float64Array.from(hi), Hi = new Float64Array(N * N), Lr = Float64Array.from(lo), Li = new Float64Array(N * N);
+  S.fft2c(Hr, Hi, N, N, -1); S.fft2c(Lr, Li, N, N, -1);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x, q2 = ((x - h) * (x - h) + (y - h) * (y - h)) * du * du, w = Math.exp(-KK * th * th * q2);
+    const f = o.lowpassfiltersd && q2 > qmax * qmax ? 0 : o.sdfactor * ratio * Math.exp(-KK * (th * th - t0 * t0) * q2);
+    Hr[i] = Hr[i] * (1 - w) + f * Lr[i]; Hi[i] = Hi[i] * (1 - w) + f * Li[i];
+  }
+  S.fft2c(Hr, Hi, N, N, 1);
+  for (let i = 0; i < N * N; i++) Hr[i] /= N * N;
+  return Hr;
+};
+const tpWeight = (B, D) => Math.exp(-KK * Math.pow(1.13 * B / (D || 12), 2));   // FT of the TP beam at spacing B (m); band independent
+const apFlux = (img, beam, r) => S.sumIn(img, S.circleMask(N, CELL, r)) / S.beamArea(beam, CELL);
+const imageOf = d => S.image(d, { N, cell: CELL, weighting: 'briggs', robust: 0.5 });
+const cleanOf = (im, r) => K.clean(im, { deconvolver: 'multiscale', scales: [0, 4, 12, 30], niter: 3000, threshold: 3 * im.sigma, mask: S.circleMask(N, CELL, r), gain: 0.2 });
+const hist = (m, lo, hi, nb) => { const c = new Float64Array(nb); for (let k = 0; k < m.length; k++) { const b = Math.floor((m[k] - lo) / (hi - lo) * nb); if (b >= 0 && b < nb) c[b]++; } const mx = Math.max.apply(null, c) || 1; return { x: Array.from(c, (_, b) => lo + (b + 0.5) * (hi - lo) / nb), y: Array.from(c, v => v / mx) }; };
+
+window.DEMOS = {
+  titleArt(s) {
+    const x = [], y = [], c = [], col = [];
+    ['12m', '7m'].forEach((a, j) => { const t = tracks(a); for (let k = 0; k < t.n; k++) { const u = t.u[k] * LAM, v = t.v[k] * LAM; if (Math.hypot(u, v) < 60) { x.push(u, -u); y.push(v, -v); col.push(j, j); } } });
+    const disk = { x: [], y: [] };
+    for (let a = -12; a <= 12; a += 1.2) for (let b = -12; b <= 12; b += 1.2) if (a * a + b * b <= 144) { disk.x.push(a); disk.y.push(b); }
+    V.plot($(s, 'canvas'), { x: { min: -62, max: 62 }, y: { min: -62, max: 62 }, axes: false, equal: true, legend: false,
+      series: [{ type: 'scatter', x: disk.x, y: disk.y, size: 5, alpha: 0.35, color: '--axis' },
+        { type: 'scatter', x: x.filter((_, i) => !col[i]), y: y.filter((_, i) => !col[i]), size: 2, alpha: 0.8, color: '--s1' },
+        { type: 'scatter', x: x.filter((_, i) => col[i]), y: y.filter((_, i) => col[i]), size: 2.4, alpha: 0.9, color: '--s2' }] });
+  },
+
+  uvplane(s) {
+    const cv = canv(s);
+    const P = K.memo('uvp', () => {
+      const o = {};
+      ['12m', '7m'].forEach(a => {
+        const t = tracks(a), x = [], y = [], m = [];
+        for (let k = 0; k < t.n; k++) { const u = t.u[k] * LAM, v = t.v[k] * LAM; m.push(Math.hypot(u, v)); if (Math.abs(u) < 52 && Math.abs(v) < 52) { x.push(u, -u); y.push(v, -v); } }
+        o[a] = { x, y, h: hist(m, 0, 60, 30) };
+      });
+      o.disk = { x: [], y: [] };
+      for (let a = -12; a <= 12; a += 1) for (let b = -12; b <= 12; b += 1) if (a * a + b * b <= 144) { o.disk.x.push(a); o.disk.y.push(b); }
+      o.tp = { x: [], y: [] }; for (let B = 0; B <= 60; B += 0.5) { o.tp.x.push(B); o.tp.y.push(tpWeight(B)); }
+      return o;
+    });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'b12', label: 'Shortest 12-m baseline' }, { k: 'b7', label: 'Shortest 7-m baseline' },
+      { k: 'm12', label: 'MRS, 12-m (C-2)' }, { k: 'm7', label: 'MRS, 7-m' }, { k: 'tp', label: 'TP beam FWHM (before gridding)' }]);
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'band', type: 'choice', options: [3, 6, 7], value: 6, quote: false, note: 'changes MRS and TP beam' },
+      { k: 'arrays', label: 'arrays', type: 'choice', options: ['12m', '12m+7m', 'all'], labels: ['12-m', '+ 7-m', '+ TP'], value: '12m+7m', scenario: true }
+    ], v => {
+      const with7 = v.arrays !== '12m', withTP = v.arrays === 'all', ghz = S.BANDS[v.band].ghz;
+      V.plot(cv.uv, { x: { min: -50, max: 50, label: 'u (m)' }, y: { min: -50, max: 50, label: 'v (m)' }, equal: true, legend: false,
+        series: [{ type: 'scatter', x: withTP ? P.disk.x : [], y: withTP ? P.disk.y : [], size: 5, alpha: 0.3, color: '--s3' },
+          { type: 'scatter', x: P['12m'].x, y: P['12m'].y, size: 2.2, alpha: 0.8, color: '--s1' },
+          { type: 'scatter', x: with7 ? P['7m'].x : [], y: with7 ? P['7m'].y : [], size: 2.4, alpha: 0.9, color: '--s2' }] });
+      const spans = [];
+      if (with7) spans.push({ x0: 15, x1: 50 });
+      if (withTP && with7) spans.push({ x0: 9, x1: 12 });
+      V.plot(cv.rad, { x: { min: 0, max: 60, label: 'uv distance (m)' }, y: { min: 0, max: 1.5, ticks: [0, 0.5, 1], label: 'relative coverage' }, spans,
+        series: [{ type: 'area', x: P['12m'].h.x, y: P['12m'].h.y, color: '--s1', width: 1.5, label: '12-m' }]
+          .concat(with7 ? [{ type: 'area', x: P['7m'].h.x, y: P['7m'].h.y, color: '--s2', width: 1.5, label: '7-m' }] : [])
+          .concat(withTP ? [{ type: 'line', x: P.tp.x, y: P.tp.y, color: '--s3', width: 2.5, label: 'TP response' }] : []) });
+      ro.set('b12', S.baselineStats(S.config('C-2')).lmin.toFixed(0) + ' m');
+      ro.set('b7', with7 ? S.baselineStats(S.config('ACA')).lmin.toFixed(0) + ' m' : '–');
+      ro.set('m12', K.as(S.mrs(S.config('C-2'), ghz)));
+      ro.set('m7', with7 ? K.as(S.mrs(S.config('ACA'), ghz)) : '–');
+      ro.set('tp', withTP ? K.as(S.pbFWHM(ghz, 12)) : '–');
+    });
+  },
+
+  spacing(s) {
+    const cv = canv(s), SIZES = [2, 3, 4, 6, 8, 12, 16, 24, 30], BP = 2e-3, B12 = 1.0, CROP = 180;   // cloud peak: 2 mJy in a 1″ beam
+    const PTS = [{ type: 'point', flux: 3e-3, x: -5, y: 3 }, { type: 'point', flux: 2e-3, x: 6, y: -4 }];
+    const comps = sz => [{ type: 'gauss', flux: BP * (sz * sz + B12 * B12) / (B12 * B12), fwhm: sz }].concat(PTS);
+    const rap = sz => Math.min(36, 1.5 * sz + 10);   // aperture: the cloud plus its surroundings (bowl, TP wings)
+    const run = (sz, arr) => K.memo(`sp:${sz}:${arr}`, () => {
+      if (arr === 'all') { const r = run(sz, '12m+7m'); return Object.assign({}, r, { img: feather(r.img, r.beam, tpImage(comps(sz), 'sp' + sz), { sdfactor: 1, effdishdiam: -1 }) }); }
+      const c = comps(sz), ds = [observe('12m', c, 'sp' + sz)].concat(arr === '12m' ? [] : [observe('7m', c, 'sp' + sz)]);
+      const im = imageOf(concat(ds)), cl = cleanOf(im, Math.max(9, Math.min(34, 1.3 * sz + 2)));
+      return { img: cl.restored, beam: im.beam };
+    });
+    const beam12 = K.memo('beam12', () => imageOf(observe('12m', [{ type: 'point', flux: 1 }], 'pt')).beam);
+    const truth = sz => K.memo('sp-true:' + sz, () => S.smoothModel(S.skyImage(comps(sz), N, CELL), N, CELL, beam12));
+    const binned = (sz, a) => K.memo(`sp-bin:${sz}:${a}`, () => {
+      const d = observe(a, comps(sz), 'sp' + sz), m = metres(d), nb = 34, l0 = Math.log10(1), l1 = Math.log10(320), sa = new Float64Array(nb), sn = new Float64Array(nb), x = [], y = [];
+      // rms amplitude per bin minus the noise bias (2σ² per visibility), comparable with the incoherent sum in 'true |V|'
+      for (let k = 0; k < d.n; k++) { const b = Math.floor((Math.log10(m[k]) - l0) / (l1 - l0) * nb); if (b >= 0 && b < nb) { sa[b] += d.re[k] * d.re[k] + d.im[k] * d.im[k] - 2 / d.wt[k]; sn[b]++; } }
+      for (let b = 0; b < nb; b++) if (sn[b] > 3) { x.push(Math.pow(10, l0 + (b + 0.5) * (l1 - l0) / nb)); y.push(Math.sqrt(Math.max(1e-8, sa[b] / sn[b]))); }
+      return { x, y };
+    });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'rec', label: 'Flux recovered' }, { k: 'mrs', label: 'Largest scale (MRS)' }, { k: 'neg', label: 'Deepest negative' }]);
+    const SC = { cell: CELL, crop: CROP, vmin: -1.5e-3, vmax: 5e-3 };
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'arrays', type: 'choice', options: ['12m', '12m+7m', 'all'], labels: ['12-m', '+ 7-m', '+ TP (feather)'], value: '12m', fmt: v => (v === 'all' ? "'12m+7m+TP'" : `'${v}'`) },
+      { k: 'size', label: 'cloud FWHM', type: 'range', min: 2, max: 30, value: 12, scale: 'log', live: false, fmt: v => v + '″', scenario: true,
+        snap: v => SIZES.reduce((a, b) => (Math.abs(Math.log(b / v)) < Math.abs(Math.log(a / v)) ? b : a)) }
+    ], v => {
+      const r = run(v.size, v.arrays), c = comps(v.size), R = rap(v.size);
+      V.image(cv.img, r.img, N, Object.assign({ beam: r.beam, cbar: { label: 'mJy/beam', scale: 1e3 } }, SC));
+      V.image(cv.sky, truth(v.size), N, SC);
+      const tq = [], ta = [], S2 = PTS.reduce((a, p) => a + p.flux * p.flux, 0);
+      for (let i = 0; i <= 160; i++) { const B = Math.pow(10, Math.log10(320) * i / 160); tq.push(B); ta.push(Math.hypot(c[0].flux * Math.exp(-KK * Math.pow(v.size * S.AS * B / LAM, 2)), Math.sqrt(S2))); }
+      const b12 = binned(v.size, '12m'), b7 = v.arrays === '12m' ? { x: [], y: [] } : binned(v.size, '7m');
+      V.plot(cv.vis, { x: { min: 1, max: 320, log: true, ticks: [1, 3, 10, 30, 100, 300], fmt: String, label: 'uv distance (m)' },
+        y: { min: 1e-3, max: 3, log: true, label: 'amplitude (Jy)' }, spans: [{ x0: 1, x1: 12 }],
+        series: [{ type: 'line', x: tq, y: ta, color: '--axis', width: 1.5, label: 'true |V|' },
+          { type: 'scatter', x: b12.x, y: b12.y, size: 6, color: '--s1', label: '12-m' }, { type: 'scatter', x: b7.x, y: b7.y, size: 6, color: '--s2', label: '7-m' }] });
+      const trueAp = c[0].flux * (1 - Math.pow(2, -4 * R * R / (v.size * v.size))) + PTS.reduce((a, p) => a + p.flux, 0), rec = apFlux(r.img, r.beam, R) / trueAp;
+      ro.set('rec', K.pct(Math.max(0, rec)), rec > 0.85 ? 'good' : rec > 0.5 ? 'warn' : 'bad');
+      const mrs = v.arrays === '12m' ? S.mrs(S.config('C-2'), GHZ) : S.mrs(S.config('ACA'), GHZ);
+      ro.set('mrs', v.arrays === 'all' ? 'TP: all scales' : K.as(mrs), v.arrays === 'all' || v.size < mrs / 2 ? 'good' : v.size < mrs ? 'warn' : 'bad');
+      let mn = 0; const lo = N / 2 - CROP / 2, hi = N / 2 + CROP / 2;
+      for (let y = lo; y < hi; y++) for (let x = lo; x < hi; x++) mn = Math.min(mn, r.img[y * N + x]);
+      ro.set('neg', (mn * 1e3).toFixed(2) + ' mJy/bm', rec < 0.5 ? 'bad' : mn > -0.1e-3 ? 'good' : mn > -0.5e-3 ? 'warn' : 'bad');
+    });
+  },
+
+  feather(s) {
+    const cv = canv(s), CROP = 220, HALF = 30;
+    // a 24″ cloud, three clumps of 5–7″ and two compact sources (peaks in mJy per 1″ beam)
+    const pk = (p, f) => p * (f * f + 1);
+    const SKY = [{ type: 'gauss', flux: pk(1.2e-3, 24), fwhm: 24 }, { type: 'gauss', flux: pk(1.0e-3, 6), fwhm: 6, x: -8, y: 5 }, { type: 'gauss', flux: pk(0.9e-3, 5), fwhm: 5, x: 9, y: 2 },
+      { type: 'gauss', flux: pk(1.0e-3, 7), fwhm: 7, x: 1, y: -9 }, { type: 'point', flux: 2e-3, x: -3, y: -2 }, { type: 'point', flux: 1.5e-3, x: 5, y: 8 }];
+    const run = hr => K.memo('fe:' + hr, () => {
+      const ds = [observe('12m', SKY, 'fe')].concat(hr === '12m' ? [] : [observe('7m', SKY, 'fe')]), im = imageOf(concat(ds)), cl = cleanOf(im, 32);
+      return { img: cl.restored, beam: im.beam, cov: { '12m': hist(metres(ds[0]), 0, 40, 40), '7m': ds[1] ? hist(metres(ds[1]), 0, 40, 40) : null } };
+    });
+    const tp = tpImage(SKY, 'fe', 0.01 * K.memo('fe-tppk', () => S.max(tpImage(SKY, 'fe0')).v));
+    const sky = K.memo('fe-sky', () => S.skyImage(SKY, N, CELL)), total = K.fluxOf(SKY);
+    const truth = K.memo('fe-true', () => S.smoothModel(sky, N, CELL, run('12m+7m').beam)), tpk = S.max(truth).v;
+    const SC = { cell: CELL, crop: CROP, vmin: -0.4 * tpk, vmax: 1.1 * tpk };
+    const ro = V.readouts($(s, '.ro'), [{ k: 'fl', label: 'Total flux / true' }, { k: 'ap', label: 'Within 12″ / true' }, { k: 'int', label: 'Interferometer, within 12″' }]);
+    V.call($(s, '.ctl'), 'feather', [
+      { k: 'imagename', v: "'feather.image'" },
+      { k: 'highres', vf: v => (v.hr === '12m' ? "'int_12m.image'" : "'int_12m7m.image'") },
+      { k: 'lowres', v: "'tp.depb'" },
+      { k: 'sdfactor', type: 'range', min: 0.5, max: 1.5, step: 0.05, value: 1, fmt: v => v.toFixed(2) },
+      { k: 'effdishdiam', type: 'choice', options: [-1, 10, 8, 6], value: -1, quote: false, fmt: v => v.toFixed(1) },
+      { k: 'lowpassfiltersd', type: 'toggle', value: false },
+      { k: 'hr', label: 'highres from', type: 'choice', options: ['12m+7m', '12m'], labels: ['12-m + 7-m', '12-m only'], value: '12m+7m', scenario: true }
+    ], V.rafThrottle(v => {
+      const r = run(v.hr), out = feather(r.img, r.beam, tp, v), D = v.effdishdiam > 0 ? v.effdishdiam : 12, A = S.beamArea(r.beam, CELL);
+      V.image(cv.img, out, N, Object.assign({ beam: r.beam, cbar: { label: 'mJy/beam', scale: 1e3 } }, SC));
+      const B = [], w = [], wi = [];
+      for (let b = 0; b <= 40; b += 0.25) { B.push(b); const x = tpWeight(b, D); w.push(x); wi.push(1 - x); }
+      const c7 = r.cov['7m'];
+      V.plot(cv.w, { x: { min: 0, max: 40, label: 'uv distance (m)' }, y: { min: 0, max: 1.75, ticks: [0, 0.5, 1], label: 'weight' },
+        series: [{ type: 'area', x: r.cov['12m'].x, y: r.cov['12m'].y, color: '--s7', width: 1, label: '12-m data' },
+          { type: 'area', x: c7 ? c7.x : [], y: c7 ? c7.y : [], color: '--s4', width: 1, label: '7-m data' },
+          { type: 'line', x: B, y: w, color: '--s2', width: 2.5, label: 'TP: ω' }, { type: 'line', x: B, y: wi, color: '--s1', width: 2.5, label: 'interf.: 1 − ω' }] });
+      const scl = r.beam.maj * r.beam.min / (TPF * TPF), a = K.cut(truth, N, CELL, 90, HALF), b = K.cut(r.img, N, CELL, 90, HALF), c = K.cut(tp, N, CELL, 90, HALF), d = K.cut(out, N, CELL, 90, HALF);
+      V.plot(cv.cut, { x: { min: -HALF, max: HALF, label: 'offset (″)' }, y: { min: -0.4, max: 1.6, ticks: [0, 0.5, 1, 1.5], label: 'mJy/beam' }, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: a.x, y: Array.from(a.y, x => x * 1e3), color: '--axis', width: 2 },
+          { type: 'line', x: b.x, y: Array.from(b.y, x => x * 1e3), color: '--s1', width: 1.5, dash: [4, 3], label: 'interferometer' },
+          { type: 'line', x: c.x, y: Array.from(c.y, x => x * scl * 1e3), color: '--s3', width: 1.5, label: 'TP' },
+          { type: 'line', x: d.x, y: Array.from(d.y, x => x * 1e3), color: '--s2', width: 2, label: 'feathered' }] });
+      const sum = a => a.reduce((x, y) => x + y, 0), fl = sum(out) / A / total, T12 = K.memo('fe-t12', () => apFlux(truth, r.beam, 12)), fa = apFlux(out, r.beam, 12) / T12, fi = apFlux(r.img, r.beam, 12) / T12;   // total flux: the whole image
+      ro.set('fl', K.pct(fl), Math.abs(fl - 1) < 0.05 ? 'good' : Math.abs(fl - 1) < 0.15 ? 'warn' : 'bad');
+      ro.set('ap', K.pct(fa), Math.abs(fa - 1) < 0.1 ? 'good' : Math.abs(fa - 1) < 0.3 ? 'warn' : 'bad');
+      ro.set('int', K.pct(Math.max(0, fi)), fi > 0.85 ? 'good' : fi > 0.5 ? 'warn' : 'bad');
+    }));
+  },
+
+  depb(s) {
+    const cv = canv(s), n = 512, dx = 0.5, h = n / 2, X = 62;   // a 1-D cut: 256″ in 0.5″ samples, shown ±62″
+    const g = (x, x0, f) => Math.exp(-4 * LN2 * Math.pow((x - x0) / f, 2));
+    const xs = Array.from({ length: n }, (_, i) => (i - h) * dx);
+    const sky = xs.map(x => 0.55 * g(x, 0, 90) + 0.45 * g(x, -14, 10) + 0.35 * g(x, 22, 8) + 0.3 * g(x, 41, 7));
+    const pb = (() => { const p = xs.map(x => { let s2 = 0; for (let k = -3; k <= 3; k++) s2 += Math.pow(g(x, 12 * k, TPF), 2); return Math.sqrt(s2); }), m = Math.max.apply(null, p); return p.map(v => v / m); })();   // 7-pointing mosaic, 12″ apart
+    // filter in the Fourier domain; B = spacing in metres
+    const filt = (a, f) => {
+      const re = Float64Array.from(a), im = new Float64Array(n); S.fft1(re, im, n, -1);
+      for (let i = 0; i < n; i++) { const q = (i < h ? i : i - n) / (n * dx * S.AS), B = Math.abs(q) * LAM, w = f(B); re[i] *= w; im[i] *= w; }
+      S.fft1(re, im, n, 1); return Array.from(re, v => v / n);
+    };
+    const omega = B => tpWeight(B);
+    const tp = filt(sky, omega);                                                            // TP: the sky smoothed by the TP beam (same brightness units)
+    const hi = filt(sky.map((v, i) => v * pb[i]), B => 1 - Math.exp(-Math.pow(B / 4.5, 4)));   // 12-m + 7-m mosaic: no spacings below a few metres
+    const ro = V.readouts($(s, '.ro'), [{ k: 'c', label: 'Error at the centre' }, { k: 'e', label: 'Error where pb = 0.3' }]);
+    const show = a => xs.map((x, i) => (Math.abs(x) <= X ? a[i] : NaN)), edge = xs.findIndex((x, i) => x > 0 && pb[i] < 0.3);
+    V.call($(s, '.ctl'), 'immath', [
+      { k: 'imagename', v: "['tp.sub', 'int.pb.sub']" },
+      { k: 'expr', type: 'choice', options: ['IM0*IM1', 'IM0'], labels: ["'IM0*IM1' (TP × pb)", "'IM0' (TP alone)"], value: 'IM0*IM1' },
+      { k: 'outfile', v: "'tp.depb'" }
+    ], v => {
+      const lowres = v.expr === 'IM0*IM1' ? tp.map((t, i) => t * pb[i]) : tp;
+      const hp = filt(hi, B => 1 - omega(B)), fe = hp.map((x, i) => x + lowres[i]), cor = fe.map((x, i) => (pb[i] >= 0.2 ? x / pb[i] : NaN));
+      V.plot(cv.in, { x: { min: -X, max: X, label: 'offset (″)' }, y: { min: -0.2, max: 1.3, label: 'fraction of sky peak' },
+        series: [{ type: 'line', x: xs, y: show(pb), color: '--axis', width: 1.5, dash: [5, 4], label: 'pb' },
+          { type: 'line', x: xs, y: show(hi), color: '--s1', width: 2, label: '.image (highres)' }, { type: 'line', x: xs, y: show(lowres), color: '--s3', width: 2, label: 'lowres' }] });
+      V.plot(cv.out, { x: { min: -X, max: X, label: 'offset (″)' }, y: { min: -0.2, max: 1.3, label: 'fraction of sky peak' },
+        series: [{ type: 'line', x: xs, y: show(sky), color: '--axis', width: 2.5 }, { type: 'line', x: xs, y: show(cor), color: '--s2', width: 2, label: 'feather, impbcor' }] });
+      const err = i => (cor[i] - sky[i]) / Math.max.apply(null, sky);
+      ro.set('c', (err(h) * 100).toFixed(0) + '%', Math.abs(err(h)) < 0.05 ? 'good' : 'warn');
+      ro.set('e', (err(edge) > 0 ? '+' : '') + (err(edge) * 100).toFixed(0) + '%', Math.abs(err(edge)) < 0.1 ? 'good' : Math.abs(err(edge)) < 0.3 ? 'warn' : 'bad');
+    });
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

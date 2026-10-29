@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Introduction to CASA</title>
+<meta name="deck-title" content="Introduction to CASA · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+  .lo { font: .54em/1.45 var(--f-mono); background: var(--code); border-radius: .45em; padding: .8em 1em; white-space: pre; overflow: auto; margin: 0; color: var(--ink-2); }
+  .lo .ann { border-radius: .2em; cursor: pointer; color: var(--ink); background: var(--accent-soft); outline: 1px solid transparent; }
+  .lo .ann:hover, .lo .ann.on { outline-color: var(--accent); }
+  .lo .ann.on { background: var(--accent); color: var(--on-accent); }
+  .chips { display: flex; flex-wrap: wrap; gap: .35em; }
+  .ms-cols { display: flex; flex-wrap: wrap; gap: .3em; }
+  .ms-cols .btn { font-family: var(--f-mono); font-size: .62em; padding: .4em .6em; border-radius: .35em; }
+  .sel input[type=text] { font: .95em var(--f-mono); width: 100%; background: var(--panel); color: var(--ink); border: 1px solid var(--rule); border-radius: .3em; padding: .2em .4em; margin-top: .3em; }
+  .sel .err { color: var(--bad); font-size: .9em; min-height: 1.2em; }
+  .legend { display: flex; gap: 1em; flex-wrap: wrap; font-size: .66em; color: var(--muted); }
+  .legend i { display: inline-block; width: .8em; height: .8em; border-radius: .15em; margin-right: .35em; vertical-align: -.05em; }
+
+  .pl-detail .w b, .pl-detail .p b { color: var(--ink); }
+  .parts { display: grid; grid-template-columns: repeat(6, 1fr); gap: .5em; }
+  .parts div { background: var(--panel); border: 1px solid var(--rule); border-radius: .4em; padding: .4em .55em; font-size: .7em; color: var(--ink-2); }
+  .parts div b { display: block; font: 700 .9em var(--f-mono); color: var(--accent); }
+  .parts div.on { border-color: var(--accent); }
+  .panel figcaption .legend.fl { font-size: 1em; gap: .2em .8em; justify-content: flex-end; }
+  .legend.fl i { border-radius: 50%; }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="uv coverage of the TW Hya observation, coloured by field"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 2 of 8 · 11:00–11:30</p>
+  <h1>Introduction<br>to CASA</h1>
+  <p class="sub">What CASA is, which version to run, what the ALMA pipeline did, what a MeasurementSet holds, and the first commands for getting oriented with the data.</p>
+  <div class="meta"><span>30 min</span><span>CASA 6.7 · pipeline · MeasurementSet · listobs · plotms</span><span>Example data: TW Hya, Band 7 (the follow-along dataset)</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part · 11:00–11:30</p><h2>Outline</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>1 · CASA and the ALMA pipeline</h3><p>What CASA is, which version to run and why, and what the pipeline did to your data.</p></div>
+    <div class="card"><h3>2 · Inside a MeasurementSet</h3><p>Tables, rows and columns, MS size, and where calibrated data, models and flags are stored.</p></div>
+    <div class="card"><h3>3 · First look with CASA tasks</h3><p>Calling tasks, <code>listobs</code>, the selection syntax, <code>plotms</code>, and five commands to copy.</p></div>
+  </div>
+  <p class="lede">Every example uses the follow-along dataset: TW Hya, ALMA project 2011.0.00340.S, Band 7, Cycle 0 (<code>twhya_calibrated.ms</code>). The plotms demo is simulated from its real scan list and antenna positions.</p>
+  <p class="small muted">The chip on each slide says what kind of slide it is: <span class="tag fixed">Concept</span> how it works · <span class="tag fixed">Fixed by the observation</span> you cannot change it · <span class="tag fixed">Set once</span> follows from your data · <span class="tag choice">Your choice</span> you tune it · <span class="tag check">Check</span> look at this.</p>
+</section>
+<section class="slide section" id="s-casa"><p class="num">1</p><h2>CASA and the ALMA pipeline</h2><p>What the software is, which version to use, and what the pipeline did to your data before delivery.</p></section>
+<section class="slide" id="path">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>overview</p><h2>Data flow: from the antennas to an image</h2></header>
+  <div class="body">
+    <svg class="diagram" viewBox="0 0 1000 215" role="img" aria-label="Data flow: antennas and correlator write an ASDM; importasdm makes a MeasurementSet; calibration, imaging and analysis follow. Tags name the workshop part for each step.">
+      <defs><marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+      <g font-size="15">
+        <rect class="box" x="5" y="40" width="150" height="90" rx="10"/><text x="80" y="76" text-anchor="middle" font-weight="700">Antennas +</text><text x="80" y="96" text-anchor="middle" font-weight="700">correlator</text><text x="80" y="118" text-anchor="middle" class="muted" font-size="12">at Chajnantor</text>
+        <rect class="box" x="195" y="40" width="140" height="90" rx="10"/><text x="265" y="80" text-anchor="middle" font-weight="700">ASDM</text><text x="265" y="104" text-anchor="middle" class="muted" font-size="12">raw archive format</text>
+        <rect class="box hot" x="375" y="40" width="160" height="90" rx="10"/><text x="455" y="80" text-anchor="middle" font-weight="700">MeasurementSet</text><text x="455" y="104" text-anchor="middle" class="muted" font-size="12">importasdm → .ms</text>
+        <rect class="box hot" x="575" y="40" width="130" height="90" rx="10"/><text x="640" y="80" text-anchor="middle" font-weight="700">Calibrate</text><text x="640" y="104" text-anchor="middle" class="muted" font-size="12">pipeline / scripts</text>
+        <rect class="box hot" x="745" y="40" width="110" height="90" rx="10"/><text x="800" y="80" text-anchor="middle" font-weight="700">Image</text><text x="800" y="104" text-anchor="middle" class="muted" font-size="12">tclean</text>
+        <rect class="box" x="885" y="40" width="110" height="90" rx="10"/><text x="940" y="80" text-anchor="middle" font-weight="700">Analyse</text><text x="940" y="104" text-anchor="middle" class="muted" font-size="12">CARTA, Python</text>
+        <path class="wire" d="M155 85 H187" marker-end="url(#a1)"/><path class="wire" d="M335 85 H367" marker-end="url(#a1)"/><path class="wire" d="M535 85 H567" marker-end="url(#a1)"/><path class="wire" d="M705 85 H737" marker-end="url(#a1)"/><path class="wire" d="M855 85 H877" marker-end="url(#a1)"/>
+        <path class="wire" d="M800 130 V160 Q800 180 780 180 H660 Q640 180 640 160 V138" marker-end="url(#a1)"/><text x="720" y="200" text-anchor="middle" class="muted" font-size="12">self-calibration loop</text>
+        <text x="80" y="28" text-anchor="middle" class="tag">PART 1 · 9:45</text>
+        <text x="265" y="28" text-anchor="middle" class="tag">ARCHIVE · 10:30</text>
+        <text x="455" y="28" text-anchor="middle" class="tag">PART 2 · NOW</text>
+        <text x="640" y="28" text-anchor="middle" class="tag">PART 3 · 11:30</text>
+        <text x="800" y="28" text-anchor="middle" class="tag">PARTS 4–5 · 1:00</text>
+        <text x="940" y="28" text-anchor="middle" class="tag">CARTA · 2:45</text>
+        <text x="720" y="160" text-anchor="middle" class="tag">PART 6 · 2:30</text>
+      </g>
+    </svg>
+    <div class="parts">
+      <div><b>Part 1 · 9:45</b>Interferometry</div>
+      <div class="on"><b>Part 2 · 11:00</b>Introduction to CASA</div>
+      <div><b>Part 3 · 11:30</b>Inspecting weblogs</div>
+      <div><b>Part 4 · 1:00</b>Continuum imaging</div>
+      <div><b>Part 5 · 1:45</b>Line imaging</div>
+      <div><b>Part 6 · 2:30</b>Self-calibration</div>
+    </div>
+    <div class="grid3">
+      <div class="card"><h3>What you get</h3><p>Raw ASDMs, calibration tables, scripts and a weblog. <code>scriptForPI.py</code> restores the calibrated MeasurementSets.</p></div>
+      <div class="card"><h3>What you do</h3><p>Inspect, maybe flag and recalibrate, then image with your own choices (the pipeline's images are a quick look).</p></div>
+      <div class="card"><h3>What you need</h3><p>The CASA version the pipeline used for your data (in the weblog), and free disk of several times the raw-data volume.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="casa">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>CASA · Common Astronomy Software Applications</p><h2>What is CASA? Tasks and tools</h2></header>
+  <div class="cols">
+    <div class="stack">
+<pre class="code"><span class="c"># tasks are plain functions; parameters are keywords</span>
+<span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
+        <span class="k">listfile</span>=<span class="s">'twhya_listobs.txt'</span>)
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>, <span class="k">field</span>=<span class="s">'3'</span>,
+       <span class="k">xaxis</span>=<span class="s">'time'</span>, <span class="k">yaxis</span>=<span class="s">'phase'</span>, <span class="k">coloraxis</span>=<span class="s">'antenna1'</span>)
+
+<span class="c"># tools are objects with methods (ms, tb, msmd, ia, cb, ...)</span>
+msmd.<span class="f">open</span>(<span class="s">'twhya_calibrated.ms'</span>)
+<span class="f">print</span>(msmd.<span class="f">fieldnames</span>(), msmd.<span class="f">nchan</span>(<span class="em">0</span>))   <span class="c"># names; 384</span>
+msmd.<span class="f">close</span>()</pre>
+<pre class="code"><span class="c"># run a whole script, from the terminal or inside CASA</span>
+casa --nologger -c reduce.py
+<span class="f">exec</span>(<span class="f">open</span>(<span class="s">'reduce.py'</span>).<span class="f">read</span>())</pre>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Two ways to install</h3><p><b>Monolithic</b>: a .dmg or tarball with its own Python, the <code>casa</code> prompt, plotms, the logger and, in pipeline builds, the ALMA pipeline. <b>Modular</b>: <code>pip install casatools casatasks casaplotms</code> into your own Python 3.12, for example for Jupyter.</p></div>
+      <div class="card"><h3>The CASA log</h3><p>Each session writes <code>casa-YYYYMMDD-HHMMSS.log</code>. Warnings about flags and failed solutions appear there first.</p></div>
+      <div class="card"><h3>Look at images in CARTA</h3><p>The old CASA viewer is no longer developed. CARTA opens images and large cubes fast (CARTA demo, 2:45).</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="versions">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>ALMA-validated CASA releases</p><h2>Which CASA version to use</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <svg class="diagram" viewBox="0 0 420 172" role="img" aria-label="Timeline: CASA general releases every 2 to 3 months. Release 6.7.4 was tested with the pipeline and became the ALMA release PL2026; 6.7.6 is a later general release used in today's notebooks.">
+        <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+        <g font-size="13">
+          <text x="10" y="16" class="muted">CASA general releases: one every 2–3 months</text>
+          <path class="wire" d="M10 52 H410"/>
+          <path class="wire" d="M20 45V59 M58 45V59 M96 45V59 M134 45V59 M210 45V59 M286 45V59 M324 45V59 M362 45V59 M400 45V59"/>
+          <path class="wire" d="M248 42V62" style="stroke-width:3"/>
+          <circle cx="172" cy="52" r="7" fill="var(--accent)"/>
+          <text x="172" y="38" text-anchor="middle" font-weight="700">6.7.4</text>
+          <text x="248" y="38" text-anchor="middle">6.7.6</text>
+          <text x="410" y="76" text-anchor="end" class="muted" font-size="12">used in today's notebooks</text>
+          <path class="wire hot" d="M172 60 V96" marker-end="url(#a2)"/>
+          <rect class="box hot" x="40" y="100" width="370" height="66" rx="8"/>
+          <text x="56" y="122" font-weight="700">ALMA release PL2026, at the start of the Cycle</text>
+          <text x="56" y="141">CASA 6.7.4-8 (Python 3.12) + Pipeline 2026.2.0-27</text>
+          <text x="56" y="158" class="muted" font-size="12">tested on past, present and future ALMA data</text>
+        </g>
+      </svg>
+      <div class="card"><h3>Why "validated"?</h3><p>The ALMA CASA + pipeline release comes once a year, at the start of an ALMA Cycle, after extensive tests on past, present and future ALMA data. ALMA recommends it for calibrating and imaging ALMA data.</p></div>
+    </div>
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <tr><th>You want to</th><th>Use</th></tr>
+        <tr><td>Restore the delivered calibration (<code>scriptForPI.py</code>)</td><td>The CASA + pipeline named in the weblog and QA report</td></tr>
+        <tr><td>Rerun pipeline stages, e.g. the imaging reprocessing tool</td><td>The same pipeline release</td></tr>
+        <tr><td>Image and self-calibrate yourself</td><td>The current ALMA release, or a newer general release (fewer ALMA tests)</td></tr>
+        <tr><td>Follow today's notebooks</td><td>CASA 6.7.6 (pip); the 6.7.4 pipeline build for <code>iclean</code></td></tr>
+      </table></div>
+      <p class="small muted">Version list: almascience.org → Processing → Science pipeline. The weblog's front page names the CASA and pipeline versions used for your data (Part 3, inspecting weblogs).</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="new67">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>CASA 6.7.4 and pipeline 2026</p><h2>What is new in CASA and the pipeline</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>Theme: support and bug fixes</h3><p>CASA 6.7.4 focuses on user support, maintenance and bug fixes. With RADPS (the software that will follow CASA for ALMA) ramping up, CASA is moving to maintenance mode with few new features.</p></div>
+    <div class="card"><h3>New tools</h3><p><code>iclean</code>: a new task for interactive cleaning on Mac and Linux, with preliminary Jupyter support (Part 4, continuum imaging, follow-along). <code>simalma</code>/<code>simobserve</code>: a <code>correlator</code> parameter (e.g. <code>'BLC'</code>, <code>'BLC_4x4bit'</code>) sets which correlator efficiency a simulation uses.</p></div>
+    <div class="card"><h3>Bug fixes</h3><p>tclean no longer prints a SEVERE message about WEIGHT_SPECTRUM and POINTING (the images were fine). <code>applycal(interp='linearPD')</code> now unwraps phases that cross ±180°, and mosaics with <code>deconvolver='mtmfs'</code>, <code>nterms=1</code> work.</p></div>
+    <div class="card"><h3>Pipeline 2026 (weblog: Part 3, inspecting weblogs)</h3><p>New stage <code>hifa_findROI</code> finds line regions quickly. <code>hif_findcont</code> is faster. QA scores were retuned, so many former yellow scores are now blue. The weblog adds the software environment, spectral resolution in MHz and km/s, zenith angle and date plots, and target-to-calibrator separations.</p></div>
+  </div>
+</section>
+<section class="slide" id="pipeline" data-demo="pipeStages">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>pipeline stages</p><h2>What is the ALMA pipeline?</h2></header>
+  <div class="body">
+    <div class="stack">
+      <p class="small muted">Main calibration stages in order, click one</p>
+      <div class="ms-cols pl-cal"></div>
+      <p class="small muted">Imaging and export stages</p>
+      <div class="ms-cols pl-img"></div>
+    </div>
+    <div class="cols">
+      <div class="card pl-detail" aria-live="polite"><h3 class="t"></h3><p class="d"></p><p class="w"><b>In the weblog</b> · <span></span></p><p class="p"><b>Covered in</b> · <span></span></p></div>
+      <div class="stack">
+        <div class="card"><h3>What you get from it</h3><p>Calibrated data (via <code>scriptForPI.py</code>), quick-look images in <code>product/</code>, and a weblog with one page and one QA score per stage.</p></div>
+        <div class="card"><h3>Re-image it yourself</h3><p>The ALMA Imaging Pipeline Reprocessing tool (a CASA guide) reruns the imaging stages with your choices. Details: Hunter et al. 2023, PASP 135, 074501.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="s-ms"><p class="num">2</p><h2>Inside a MeasurementSet</h2><p>What the data look like on disk: tables, rows and columns, how big they get, and where calibration writes its results.</p></section>
+<section class="slide" id="ms" data-demo="msExplorer">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>The MeasurementSet</p><h2>MeasurementSet structure: one row per baseline, integration and spw</h2></header>
+  <div class="body">
+    <div class="cols">
+      <div class="stack">
+        <p class="small muted">Main table columns, click one</p>
+        <div class="ms-cols main"></div>
+        <p class="small muted">Sub-tables (inside <code>twhya_calibrated.ms/</code>)</p>
+        <div class="ms-cols sub"></div>
+      </div>
+      <div class="card ms-detail" aria-live="polite"><h3 class="t"></h3><p class="d"></p><pre class="code tight ex"></pre><p class="w small muted"></p></div>
+    </div>
+    <div class="tscroll"><table class="t" style="font-size:.66em">
+      <tr><th>row</th><th>TIME</th><th>ANTENNA1</th><th>ANTENNA2</th><th>FIELD_ID</th><th>DATA_DESC_ID</th><th>SCAN_NUMBER</th><th>DATA</th></tr>
+      <tr><td>0</td><td>07:37:00.0</td><td>1 (DA42)</td><td>2 (DA44)</td><td>0</td><td>0</td><td>4</td><td>2 × 384 complex</td></tr>
+      <tr><td>1</td><td>07:37:00.0</td><td>1 (DA42)</td><td>3 (DA45)</td><td>0</td><td>0</td><td>4</td><td>2 × 384 complex</td></tr>
+      <tr><td>…</td><td colspan="7">all 171 baselines of this integration (19 antennas), then the next integration, 6.05 s later</td></tr>
+      <tr><td>171</td><td>07:37:06.1</td><td>1 (DA42)</td><td>2 (DA44)</td><td>0</td><td>0</td><td>4</td><td>2 × 384 complex</td></tr>
+    </table></div>
+  </div>
+</section>
+<section class="slide" id="mssize" data-demo="msSize">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>data volume</p><h2>MeasurementSet size and channel averaging</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+    </div>
+    <div class="stack">
+      <dl class="ro"></dl>
+      <figure class="panel"><figcaption><b>Size on disk</b><span>DATA only, then with CORRECTED_DATA and MODEL_DATA columns</span></figcaption><canvas class="plot wide"></canvas></figure>
+      <p class="try"><b>Try</b>Default: a modern 1-hour execution with 43 antennas and four 3840-channel windows, ≈130 GB per data column. Set the TW Hya values (<code>nant</code> 19, <code>nspw</code> 1, <code>nchan</code> 384, <code>hours</code> 0.75 = time in scans) to get ≈0.47 GB (the real file has 68,335 rows, ≈0.42 GB). The log axis is fixed, one grid line per ×10. Averaging to 128 channels (last bar) is why you <code>split</code> before imaging.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="columns">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>data columns and flags</p><h2>Calibration writes new data columns</h2></header>
+  <div class="body">
+    <svg class="diagram" viewBox="0 0 1000 250" role="img" aria-label="DATA plus calibration tables gives CORRECTED_DATA via applycal; setjy and tclean write MODEL_DATA; split writes a new MS whose DATA column holds the corrected data.">
+      <defs><marker id="a2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+      <g font-size="15">
+        <rect class="box" x="10" y="20" width="200" height="70" rx="10"/><text x="110" y="52" text-anchor="middle" font-weight="700" font-family="var(--f-mono)">DATA</text><text x="110" y="74" text-anchor="middle" class="muted" font-size="12">as observed, never changed</text>
+        <rect class="box" x="10" y="150" width="200" height="70" rx="10"/><text x="110" y="182" text-anchor="middle" font-weight="700" font-family="var(--f-mono)">MODEL_DATA</text><text x="110" y="204" text-anchor="middle" class="muted" font-size="12">setjy, tclean(savemodel=…)</text>
+        <rect class="box hot" x="300" y="85" width="210" height="70" rx="10"/><text x="405" y="116" text-anchor="middle" font-weight="700">gaincal, bandpass…</text><text x="405" y="138" text-anchor="middle" class="muted" font-size="12">compare DATA with MODEL</text>
+        <rect class="box" x="560" y="85" width="140" height="70" rx="10"/><text x="630" y="116" text-anchor="middle" font-weight="700">cal tables</text><text x="630" y="138" text-anchor="middle" class="muted" font-size="12">*.G, *.B, *.tsys</text>
+        <rect class="box hot" x="560" y="0" width="140" height="62" rx="10"/><text x="630" y="37" text-anchor="middle" font-weight="700">applycal</text>
+        <rect class="box" x="760" y="0" width="230" height="62" rx="10"/><text x="875" y="28" text-anchor="middle" font-weight="700" font-family="var(--f-mono)">CORRECTED_DATA</text><text x="875" y="49" text-anchor="middle" class="muted" font-size="12">what tclean images by default</text>
+        <rect class="box" x="760" y="150" width="230" height="70" rx="10"/><text x="875" y="181" text-anchor="middle" font-weight="700">split(datacolumn='corrected')</text><text x="875" y="203" text-anchor="middle" class="muted" font-size="12">new, smaller MS: corrected → DATA</text>
+        <path class="wire" d="M210 55 H250 Q270 55 270 75 V105 H292" marker-end="url(#a2)"/><path class="wire" d="M210 185 H250 Q270 185 270 165 V135 H292" marker-end="url(#a2)"/>
+        <path class="wire" d="M510 120 H552" marker-end="url(#a2)"/><path class="wire" d="M630 85 V70" marker-end="url(#a2)"/>
+        <path class="wire" d="M210 40 Q400 -10 552 28" marker-end="url(#a2)"/><path class="wire" d="M700 31 H752" marker-end="url(#a2)"/>
+        <path class="wire" d="M875 62 V142" marker-end="url(#a2)"/>
+      </g>
+    </svg>
+    <div class="grid3">
+      <div class="card"><h3>The FLAG column</h3><p><code>FLAG</code> marks bad data, which tasks skip. <code>flagdata</code> saves a backup first (<code>flagmanager</code> lists and restores versions).</p></div>
+      <div class="card"><h3>Weights</h3><p><code>WEIGHT</code> (1/σ²) sets how much each visibility counts. <code>applycal(calwt=True)</code> updates it. <code>SIGMA</code> (σ of the raw DATA) is unchanged. Imaging weights start here.</p></div>
+      <div class="card"><h3>Disk space</h3><p>Each extra column can double the size. <code>split</code> out what you need before imaging. <code>twhya_calibrated.ms</code> is such a split. Its DATA column already holds calibrated data.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="s-look"><p class="num">3</p><h2>First look with CASA tasks</h2><p>How to call a task, then <code>listobs</code>, data selection and <code>plotms</code> on the TW Hya data.</p></section>
+<section class="slide" id="tasks">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>calling a task</p><h2>Using CASA tasks: inp/go or one function call</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <p class="small muted">At the CASA prompt, one parameter at a time</p>
+<pre class="code">CASA &lt;1&gt;: <span class="f">inp</span>(listobs)               <span class="c"># show the parameters</span>
+CASA &lt;2&gt;: <span class="k">vis</span> = <span class="s">'twhya_calibrated.ms'</span>
+CASA &lt;3&gt;: <span class="k">listfile</span> = <span class="s">'twhya_listobs.txt'</span>
+CASA &lt;4&gt;: <span class="f">go</span>()                        <span class="c"># run listobs</span></pre>
+      <p class="small muted">All in one call, preferred (CASA prompt, script, Jupyter)</p>
+<pre class="code"><span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
+        <span class="k">listfile</span>=<span class="s">'twhya_listobs.txt'</span>)</pre>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Prefer the function call</h3><p>One line to copy into a script or notebook, with no hidden global variables. It also works in modular CASA, which has no <code>inp</code> or <code>go</code>.</p></div>
+      <div class="card"><h3>Print to a file</h3><p><code>listfile=</code> saves the summary next to your scripts. Add <code>overwrite=True</code> to rerun. The next slide shows it.</p></div>
+      <div class="card"><h3>Help inside CASA</h3><p><code>help(listobs)</code> lists every parameter and its default. At the prompt, <code>default(listobs)</code> resets the <code>inp</code> values and <code>tget(tclean)</code> recalls your last <code>tclean</code> call.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="listobs" data-demo="listobs">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>listobs</p><h2>Getting oriented with the data: listobs</h2></header>
+  <div class="cols" style="grid-template-columns: 2.3fr 1fr">
+<pre class="lo"></pre>
+    <div class="stack">
+      <div class="card"><h3 class="lt">Click a highlighted part</h3><p class="ld">Highlighted items show what you need later: which field is which calibrator, where the line is, the integration time, the time on TW Hya.</p></div>
+      <p class="small muted">The real listobs of <code>twhya_calibrated.ms</code>, abridged (some columns and intents shortened).</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="select" data-demo="selection">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>data selection syntax</p><h2>Selection parameters common to most tasks</h2></header>
+  <div class="bench wide-call">
+    <div class="side sel">
+      <div class="call">
+        <div class="call-row live"><code><span class="k">field</span>=</code><input type="text" id="sel-field" value="" aria-label="field"></div>
+        <div class="call-row live"><code><span class="k">spw</span>=</code><input type="text" id="sel-spw" value="0:0~239;281~383" aria-label="spw"></div>
+        <div class="call-row live"><code><span class="k">scan</span>=</code><input type="text" id="sel-scan" value="" aria-label="scan"></div>
+        <div class="call-row live"><code><span class="k">intent</span>=</code><input type="text" id="sel-intent" value="" aria-label="intent"></div>
+        <div class="call-row live"><code><span class="k">antenna</span>=</code><input type="text" id="sel-ant" value="" aria-label="antenna"></div>
+        <p class="err" aria-live="polite"></p>
+      </div>
+      <div class="chips presets"></div>
+      <dl class="ro"></dl>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Scans × channels</b><span>the 17 scans of twhya_calibrated.ms × the 384 channels of spw 0</span></figcaption><canvas class="plot" style="aspect-ratio:2.7"></canvas></figure>
+      <div class="cols" style="grid-template-columns: 1fr 1.6fr; gap:1em">
+        <figure class="panel"><figcaption><b>Baselines</b><span>8 of the 19 antennas</span></figcaption><canvas class="plot" style="aspect-ratio:1.35"></canvas></figure>
+        <div class="stack small">
+          <div class="legend"><span><i style="background:var(--s1)"></i>J0522-364</span><span><i style="background:var(--s4)"></i>3c279</span><span><i style="background:var(--s5)"></i>Ceres</span><span><i style="background:var(--s3)"></i>J1037-295</span><span><i style="background:var(--s2)"></i>TW Hya</span><span>full colour = selected, faded = not</span></div>
+          <table class="t">
+            <tr><th>Write</th><th>Means</th></tr>
+            <tr><td><code>'0:0~239;281~383'</code></td><td>spw 0 without the N2H+ line (channels 240–280)</td></tr>
+            <tr><td><code>'*:5~378'</code></td><td>every spw, drop 5 edge channels each side</td></tr>
+            <tr><td><code>'12~28'</code>, <code>'2,3,5'</code></td><td>ranges and lists (scans, spws, fields)</td></tr>
+            <tr><td><code>'DA42&amp;DV02'</code></td><td>one baseline; <code>'!DV08'</code> drops an antenna</td></tr>
+            <tr><td><code>'*PHASE*'</code></td><td>wildcards work for names and intents (here it also selects the bandpass and flux scans)</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="plotms" data-demo="plotms">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>plotms</p><h2>Inspecting your data: plotms</h2></header>
+  <div class="bench wide-call">
+    <div class="side">
+      <div class="ctl"></div>
+      <p class="try"><b>Try</b>Switch <code>ydatacolumn</code>. The axes are fixed. <code>twhya_calibrated.ms</code> was split after calibration, so its DATA is calibrated. Here <code>'data'</code> is the scriptForPI MS before applycal. With <code>field='2'</code> and <code>uvwave</code>, Ceres is resolved.</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b class="pcap">plotms</b><span class="legend fl"></span></figcaption><canvas class="plot" style="aspect-ratio:2.1"></canvas></figure>
+      <div class="card"><h3 class="pt"></h3><p class="pd"></p><p class="small muted">Simulated on the real TW Hya scans and antennas. 'data' = before applycal.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="takeaway">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>first look at any dataset</p><h2>Five commands for a first look</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+<pre class="code tight"><span class="k">VIS</span> = <span class="s">'twhya_calibrated.ms'</span>
+<span class="c"># on an MS restored by scriptForPI add ydatacolumn='corrected' to plotms</span>
+<span class="c"># 1. what is in the MS: fields, spws, scans, intents, antennas</span>
+<span class="f">listobs</span>(<span class="k">vis</span>=VIS, <span class="k">listfile</span>=<span class="s">'twhya_listobs.txt'</span>, <span class="k">overwrite</span>=<span class="em">True</span>)
+
+<span class="c"># 2. uv coverage per field ('10000' and '1e9' mean: average everything)</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=VIS, <span class="k">xaxis</span>=<span class="s">'u'</span>, <span class="k">yaxis</span>=<span class="s">'v'</span>, <span class="k">avgchannel</span>=<span class="s">'10000'</span>,
+       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">coloraxis</span>=<span class="s">'field'</span>)
+
+<span class="c"># 3. amplitude vs time, all fields: anything missing or jumping?</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=VIS, <span class="k">xaxis</span>=<span class="s">'time'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>, <span class="k">avgchannel</span>=<span class="s">'10000'</span>,
+       <span class="k">coloraxis</span>=<span class="s">'field'</span>)
+
+<span class="c"># 4. amplitude vs uv distance: point-like or resolved? outliers?</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=VIS, <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">xaxis</span>=<span class="s">'uvwave'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>,
+       <span class="k">avgchannel</span>=<span class="s">'10000'</span>, <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">coloraxis</span>=<span class="s">'antenna1'</span>)
+
+<span class="c"># 5. target spectrum: lines? bad edge channels?</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=VIS, <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">xaxis</span>=<span class="s">'channel'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>,
+       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=<span class="em">True</span>, <span class="k">avgbaseline</span>=<span class="em">True</span>)</pre>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>From listobs, write down</h3><p>Field IDs (0 and 6 bandpass, 2 Ceres for flux, 3 phase calibrator, 5 TW Hya), spw 0 with 384 channels, 6.05 s integrations, 19 antennas, ≈31 min on TW Hya.</p></div>
+      <div class="card"><h3>From plotms, expect</h3><p>Point-source calibrators flat in amplitude vs uv distance (Ceres is resolved and falls), phases near zero, no antenna or scan far off the rest.</p></div>
+      <div class="card"><h3>Next steps and help</h3><p>Part 3 covers the weblog, Part 4 the first image. Help: <code>help(task)</code>, casadocs.readthedocs.io, pipe-docs.readthedocs.io, casaguides.nrao.edu (TW Hya "First Look"), help.almascience.org.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="backup"><p class="num">B</p><h2>Backup</h2><p>Slides cut to fit the 30-minute slot: your setup for today, looking ahead to the Wideband Sensitivity Upgrade, where to get help, what an archive delivery contains, and a short quiz.</p></section>
+<section class="slide" id="setup">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>your setup for today</p><h2>CASA, Jupyter, CARTA and the dataset</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+<pre class="code tight"><span class="c"># A · CASA 6.7.4 with the pipeline (monolithic), for iclean</span>
+<span class="c">#     Mac: open the .dmg, drag CASA.app to Applications, right-click › Open</span>
+alias casa=<span class="s">"/Applications/CASA.app/Contents/MacOS/casa"</span>   <span class="c"># in ~/.zshrc</span>
+casa --pipeline                <span class="c"># CASA prompt + logger; leave with: exit</span>
+
+<span class="c"># B · CASA 6.7.6 (modular) in Jupyter, Python 3.12</span>
+%pip install <span class="s">"casatools==6.7.6.14" "casatasks==6.7.6.14"</span>
+%pip install casaplotms cubevis matplotlib
+<span class="f">import</span> casatasks; <span class="f">print</span>(casatasks.<span class="f">version_string</span>())   <span class="c"># 6.7.6.14</span>
+
+<span class="c"># the data: twhya_firstlook.tgz from</span>
+<span class="c">#   bulk.cv.nrao.edu/almadata/public/casaguides/FirstLook_TWHya_Band7_6.6.6/</span>
+tar -xvf twhya_firstlook.tgz         <span class="c"># unpacks working/</span>
+tar -xvf twhya_calibrated.ms.tar     <span class="c"># inside working/</span></pre>
+      <p class="small muted">Jupyter on CASA 6.7.4's own Python also works: install <code>jupyterlab</code> and <code>ipykernel</code> into it and register a "CASA 6.7.4" kernel (steps in <code>installing_casa.ipynb</code>). Or type the same commands at the CASA prompt.</p>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Which build for your computer</h3><p>Apple-silicon Mac (macOS 15+): the 6.7.4 pipeline .dmg. Linux: the tarball. Windows: WSL2 with Ubuntu, then the Linux steps, or CASA 6.6.4 on HiPerGator. Intel Mac: an older CASA (6.6.4).</p></div>
+      <div class="card"><h3>CARTA</h3><p>Download it from cartavis.org, for viewing images and cubes (CARTA demo, 2:45).</p></div>
+      <div class="card"><h3>The dataset</h3><p>TW Hya, ALMA 2011.0.00340.S, Band 7, Cycle 0: <code>twhya_calibrated.ms</code> for Part 4, continuum imaging; <code>twhya_selfcal.ms</code> for Part 5, line imaging.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="ahead">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>looking ahead</p><h2>The Wideband Sensitivity Upgrade (WSU)</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <div class="card"><h3>WSU: at least twice the bandwidth</h3><p>The upgrade widens ALMA's system bandwidth by at least 2× with better sensitivity (ALMA memo 621). Data volumes grow massively, so the pipeline must get faster without losing science.</p></div>
+      <div class="card"><h3>CASA + pipeline, then RADPS</h3><p>WSU data will run through CASA and the pipeline until RADPS-ALMA (Radio Astronomy Data Processing System) replaces them, around 2031. Replacement starts from the end, with imaging first. CASA keeps calibration and self-calibration.</p></div>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>The imaging refactor</h3><p>Goals: use the minimum data and the cheapest methods that still work, better throughput, products that lose less science, and code that carries over to RADPS.</p></div>
+      <div class="tscroll"><table class="t">
+        <tr><th>Release</th><th>Planned (tentative)</th></tr>
+        <tr><td>PL2026</td><td>Groundwork: new <code>mstransform</code> with LSRK transform, <code>*_imaging</code> MS, fftshift fixed in CASA, first <code>hifa_findROI</code>, faster findcont</td></tr>
+        <tr><td>PL2027</td><td>fftshift in the pipeline, findROI feeding self-cal, new imageprecheck, smarter mitigation, binning before imaging</td></tr>
+      </table></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="help">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>habits and resources</p><h2>Recap and where to get help</h2></header>
+  <div class="cols">
+    <ol class="stack" style="padding-left:1.2em">
+      <li><b>Know your MS</b>: write <code>listobs</code> to a file and note the field, spw and scan numbers.</li>
+      <li><b>Look before and after every step</b>: amplitude and phase versus time, frequency and uv distance (<code>plotms</code>).</li>
+      <li><b>Script everything</b>: one Python file per step, with the selections spelled out.</li>
+    </ol>
+    <div class="tscroll"><table class="t">
+      <tr><th>Resource</th><th>For</th></tr>
+      <tr><td>casadocs.readthedocs.io</td><td>every task and parameter, release notes</td></tr>
+      <tr><td>casaguides.nrao.edu</td><td>worked ALMA tutorials (the TW Hya "First Look" series)</td></tr>
+      <tr><td>pipe-docs.readthedocs.io</td><td>pipeline stages and heuristics (Hunter et al. 2023, PASP 135, 074501)</td></tr>
+      <tr><td>CASA Team 2022, PASP 134, 114501</td><td>the CASA paper, to cite</td></tr>
+      <tr><td>help.almascience.org</td><td>the ALMA Helpdesk</td></tr>
+      <tr><td>cartavis.org</td><td>CARTA image viewer</td></tr>
+      <tr><td><code>help(task)</code></td><td>the same docs inside CASA</td></tr>
+    </table></div>
+  </div>
+</section>
+<section class="slide" id="delivery">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>ALMA data products</p><h2>Archive delivery: what to open first</h2></header>
+  <div class="cols">
+<pre class="code"><span class="f">2023.1.01234.S/</span>  <span class="c"># project</span>
+└── science_goal.uid___A001_X…/
+    └── group.uid___A001_X…/
+        └── member.uid___A001_X…/   <span class="c"># one per source/setup</span>
+            ├── README              <span class="c"># what is where</span>
+            ├── calibration/        <span class="c"># cal tables, flags</span>
+            ├── product/            <span class="c"># pipeline FITS images</span>
+            ├── qa/                 <span class="c"># weblog .tgz, QA report</span>
+            ├── raw/                <span class="c"># ASDMs (separate download)</span>
+            ├── script/
+            │   └── <span class="em">scriptForPI.py</span>    <span class="c"># restores the MS</span>
+            └── calibrated/         <span class="c"># made by scriptForPI</span>
+                └── uid___….ms      <span class="c"># one per execution</span></pre>
+    <div class="stack">
+      <div class="card"><h3>1 · Open the weblog</h3><p>Untar the file in <code>qa/</code> and open <code>index.html</code>. Check QA scores, flagging percentages, calibrator plots and the image rms before you download raw data.</p></div>
+      <div class="card"><h3>2 · Restore with the right CASA</h3><p>From <code>script/</code>: <code>casa --pipeline -c scriptForPI.py</code> with the version named in the weblog. It applies the delivered calibration to the raw data.</p></div>
+      <div class="card"><h3>3 · Inspect, then image</h3><p><code>listobs</code>, a few <code>plotms</code> plots, then your own <code>tclean</code>. The <code>product/</code> images show what to expect.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>questions</p><h2>Four questions on the TW Hya data</h2></header>
+  <ol class="quiz">
+    <li><code>twhya_calibrated.ms</code> has 68,335 rows, one spw of 384 channels and 2 correlations. How big is one data column?<details><summary>Answer</summary>68,335 × 384 × 2 ≈ 5.2 × 10⁷ complex values × 8 bytes ≈ 0.42 GB. A modern dataset is about 300 times more.</details></li>
+    <li>Which selection keeps only TW Hya and leaves out the N2H+ line (channels 240–280)?<details><summary>Answer</summary><code>field='5'</code>, <code>spw='0:0~239;281~383'</code>.</details></li>
+    <li>J1037-295 is flat in amplitude vs uv distance, but Ceres drops to zero near 300 kλ. Is something wrong?<details><summary>Answer</summary>No. J1037-295 is a point source. Ceres is a 0.8″ disk that the longer baselines resolve. Its flux model includes that.</details></li>
+    <li><code>intent='*PHASE*'</code> also selected scans 4, 7 and 33. Why?<details><summary>Answer</summary>The bandpass (4, 33) and flux (7) scans carry CALIBRATE_PHASE too. Use <code>field='3'</code> for J1037-295 only.</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+
+/* the TW Hya execution of twhya_calibrated.ms (listobs of the follow-along notebook) */
+const FIELDS = ['J0522-364', '', 'Ceres', 'J1037-295', '', 'TW Hya', '3c279'];        // index = field ID
+const FCOL = { 0: '--s1', 2: '--s5', 3: '--s3', 5: '--s2', 6: '--s4' };
+const FDIR = { 0: [5.38277, -36.4586], 2: [6.17110, 23.3686], 3: [10.62113, -29.5674], 5: [11.03106, -34.7048], 6: [12.93644, -5.7893] };   // RA (h), Dec (deg)
+const KIND = { 0: 'bp', 2: 'fx', 3: 'pc', 5: 'tg', 6: 'bp' };
+const INTENT = { bp: 'CALIBRATE_BANDPASS#ON_SOURCE,CALIBRATE_PHASE#ON_SOURCE,CALIBRATE_WVR#ON_SOURCE', fx: 'CALIBRATE_AMPLI#ON_SOURCE,CALIBRATE_PHASE#ON_SOURCE,CALIBRATE_WVR#ON_SOURCE',
+  pc: 'CALIBRATE_PHASE#ON_SOURCE,CALIBRATE_WVR#ON_SOURCE', tg: 'OBSERVE_TARGET#ON_SOURCE' };
+const T0 = 7 * 3600 + 36 * 60 + 57;                 // 07:36:57.0 UTC, 19 Nov 2012
+const sec = h => { const [a, b, c] = h.split(':').map(Number); return a * 3600 + b * 60 + c - T0; };
+const SCANS = [[4, 0, '07:36:57.0', '07:39:13.1', 3420], [7, 2, '07:44:45.2', '07:47:01.2', 3420], [10, 3, '07:52:42.0', '07:53:47.6', 1710], [12, 5, '07:56:23.5', '08:02:11.3', 7616],
+  [14, 3, '08:04:36.3', '08:05:41.9', 1710], [16, 5, '08:08:09.6', '08:13:57.3', 8442], [18, 3, '08:16:20.6', '08:17:26.2', 1710], [20, 5, '08:19:53.9', '08:25:41.7', 8389],
+  [22, 3, '08:28:17.1', '08:29:22.6', 1710], [24, 5, '08:32:00.5', '08:37:48.2', 8409], [26, 3, '08:40:11.9', '08:41:17.4', 1710], [28, 5, '08:43:45.6', '08:49:33.4', 8514],
+  [30, 3, '08:51:57.1', '08:53:02.6', 1710], [33, 6, '08:58:12.0', '09:00:28.1', 3043], [34, 3, '09:01:35.7', '09:02:41.2', 1710], [36, 5, '09:05:15.6', '09:07:31.6', 3402],
+  [38, 3, '09:09:59.1', '09:11:04.7', 1710]].map(([id, fid, a, b, rows]) => ({ id, fid, field: FIELDS[fid], kind: KIND[fid], intent: INTENT[KIND[fid]], a, b, rows, t0: sec(a), t1: sec(b) }));
+/* the 19 antennas: east/north offsets (m) from listobs */
+const TWH = { name: 'TW Hya Cycle 0', label: '19 × 12 m', D: 12, nAnt: 19,
+  names: ['DA42', 'DA44', 'DA45', 'DA46', 'DA48', 'DA49', 'DA50', 'DV02', 'DV05', 'DV06', 'DV08', 'DV10', 'DV13', 'DV15', 'DV16', 'DV17', 'DV18', 'DV22', 'DV23'],
+  e: [43.04, -82.42, 166.18, 142.41, 21.43, -12.91, -5.42, 217.63, 269.04, 6.74, 14.32, -60.79, 147.17, 161.82, -101.48, 19.15, 12.59, 95.91, 74.02],
+  n: [-744.97, -631.78, -743.49, -678.73, -742.80, -636.46, -767.44, -637.53, -740.95, -727.30, -672.81, -563.25, -580.59, -828.62, -770.10, -901.26, -802.99, -716.50, -681.29] };
+const ANT8 = ['DA42', 'DA44', 'DA45', 'DA46', 'DV02', 'DV05', 'DV08', 'DV10'];
+const WEAK = 10;                                    // DV08: low and noisy before calibration (simulated)
+const LST0 = 7.0146;                                // local sidereal time (h) at 07:36:57 UTC
+/* simulated visibilities on the real scans and antennas, 30-s averages; fluxes approximate */
+const twh = () => K.memo('twh', () => {
+  const na = TWH.nAnt, r = S.rng(5), DT = 30, nT = Math.ceil(5700 / DT), NC = 384, sig = 0.05;
+  const MODELS = { 0: [{ type: 'point', flux: 3.4 }], 2: [{ type: 'disk', flux: 7.0, fwhm: 0.79 }], 3: [{ type: 'point', flux: 0.7 }],
+    5: [{ type: 'gauss', flux: 1.15, fwhm: 0.55 }, { type: 'point', flux: 0.35 }], 6: [{ type: 'point', flux: 8.8 }] };
+  const ph = new Float64Array(nT * na), am = new Float64Array(nT * na);
+  for (let a = 0; a < na; a++) {
+    const p0 = r() * 6.28, sl = (r() - 0.5) * 2.5, w1 = 0.5 * r(), q = r() * 6.28;
+    let rw = 0;
+    for (let t = 0; t < nT; t++) { rw += 0.06 * r.normal(); const T = t * DT / 3600; ph[t * na + a] = a === 0 ? 0 : p0 + sl * T + w1 * Math.sin(6 * T + q) + rw; am[t * na + a] = (a === WEAK ? 0.35 : 1) * (1 + 0.04 * Math.sin(3 * T + q)); }
+  }
+  const bpA = [], bpP = [];
+  for (let a = 0; a < na; a++) {
+    const A = new Float64Array(NC), P = new Float64Array(NC), rip = 0.06 * r(), ph0 = r() * 6.28, dl = (r() - 0.5) * 1.6;
+    for (let c = 0; c < NC; c++) { const x = c / (NC - 1); A[c] = (1 + rip * Math.sin(9 * x + ph0)) * (c < 8 || c > NC - 9 ? 0.55 : 1); P[c] = dl * (x - 0.5) + 0.1 * Math.sin(7 * x + ph0); }
+    bpA.push(A); bpP.push(P);
+  }
+  const bpMean = bpA.map((A, a) => { let sr = 0, si = 0; for (let c = 0; c < NC; c++) { sr += A[c] * Math.cos(bpP[a][c]); si += A[c] * Math.sin(bpP[a][c]); } return [sr / NC, si / NC]; });
+  const parts = []; let n = 0;
+  SCANS.forEach(sc => {
+    const tsec = [], ha = [];
+    for (let t = sc.t0 + DT / 2; t < sc.t1; t += DT) { tsec.push(t); ha.push((LST0 + t * 1.0027379 / 3600 - FDIR[sc.fid][0]) * 86164.09 / 24); }
+    const tr = S.uvTracks(TWH, { freq: 372.65, dec: FDIR[sc.fid][1], times: ha, elmin: -90 });
+    parts.push({ sc, tr, tsec }); n += tr.n;
+  });
+  const F = () => new Float32Array(n), um = F(), vm = F(), uvd = F(), tm = F(), a1 = new Uint8Array(n), a2 = new Uint8Array(n), fid = new Uint8Array(n);
+  const raw = { a: F(), p: F() }, cor = { a: F(), p: F() };
+  let k = 0;
+  parts.forEach(({ sc, tr, tsec }) => {
+    const re = new Float64Array(tr.n), im = new Float64Array(tr.n);
+    S.visModel(MODELS[sc.fid], tr.u, tr.v, re, im);
+    for (let q = 0; q < tr.n; q++, k++) {
+      const ts = tsec[tr.ti[q]], gi = Math.min(nT - 1, Math.round(ts / DT)), i = tr.a1[q], j = tr.a2[q];
+      um[k] = tr.u[q] * tr.lam; vm[k] = tr.v[q] * tr.lam; uvd[k] = Math.hypot(tr.u[q], tr.v[q]) / 1e3; tm[k] = ts / 60; a1[k] = i; a2[k] = j; fid[k] = sc.fid;
+      const gp = ph[gi * na + i] - ph[gi * na + j], ga = am[gi * na + i] * am[gi * na + j];
+      const bi = bpMean[i], bj = bpMean[j], br = bi[0] * bj[0] + bi[1] * bj[1], bim = bi[1] * bj[0] - bi[0] * bj[1];
+      const nz = sig * (i === WEAK || j === WEAK ? 3 : 1);
+      const vr = re[q] * br - im[q] * bim, vi = re[q] * bim + im[q] * br, c = Math.cos(gp) * ga, sn = Math.sin(gp) * ga;
+      const or = vr * c - vi * sn + nz * r.normal(), oi = vr * sn + vi * c + nz * r.normal();
+      raw.a[k] = Math.hypot(or, oi); raw.p[k] = Math.atan2(oi, or) / S.DEG;
+      const cr = re[q] + sig * r.normal(), ci = im[q] + sig * r.normal();
+      cor.a[k] = Math.hypot(cr, ci); cor.p[k] = Math.atan2(ci, cr) / S.DEG;
+    }
+  });
+  // spectra of the bandpass calibrator J0522-364 (scan 4), one per baseline (every third), scan-averaged
+  const spec = { raw: [], cor: [] }, g0 = 2, F0 = 3.4;
+  let b = 0;
+  for (let i = 0; i < na; i++) for (let j = i + 1; j < na; j++, b++) {
+    if (b % 3) continue;
+    const A = new Float64Array(NC), P = new Float64Array(NC), A2 = new Float64Array(NC), P2 = new Float64Array(NC), gp = ph[g0 * na + i] - ph[g0 * na + j];
+    const nz = 0.08 * (i === WEAK || j === WEAK ? 3 : 1);
+    for (let c = 0; c < NC; c++) {
+      const amp = F0 * bpA[i][c] * bpA[j][c] * am[g0 * na + i] * am[g0 * na + j], pp = bpP[i][c] - bpP[j][c] + gp;
+      const re = amp * Math.cos(pp) + nz * r.normal(), im = amp * Math.sin(pp) + nz * r.normal();
+      A[c] = Math.hypot(re, im); P[c] = Math.atan2(im, re) / S.DEG;
+      const re2 = F0 + 0.08 * r.normal(), im2 = 0.08 * r.normal(); A2[c] = Math.hypot(re2, im2); P2[c] = Math.atan2(im2, re2) / S.DEG;
+    }
+    spec.raw.push({ i, j, A, P });
+    if (i !== WEAK && j !== WEAK) spec.cor.push({ i, j, A: A2, P: P2 });
+  }
+  return { n, um, vm, uvd, tm, a1, a2, fid, raw, cor, spec, NC };
+});
+const uvSeries = (sc, size, alpha) => { const g = {}; for (let k = 0; k < sc.n; k++) { const f = sc.fid[k]; (g[f] = g[f] || { x: [], y: [] }); g[f].x.push(sc.um[k]); g[f].y.push(sc.vm[k]); }
+  return Object.keys(g).map(f => ({ type: 'scatter', x: g[f].x, y: g[f].y, size, alpha, color: FCOL[f], label: FIELDS[f] })); };
+
+window.DEMOS = {
+  titleArt(s) {
+    V.plot($(s, 'canvas'), { x: { min: -400, max: 400 }, y: { min: -400, max: 400 }, axes: false, equal: true, legend: false, series: uvSeries(twh(), 1.8, 0.6) });
+  },
+
+  pipeStages(s) {
+    const CAL = [
+      ['hifa_importdata', 'Reads the raw data (ASDMs) into MeasurementSets and records fields, intents and the spectral setup.', 'overview pages: fields, spws, scan intents; new in 2026, target to phase-calibrator separations.', 'Part 3, inspecting weblogs'],
+      ['hifa_flagdata', 'Flags data known to be bad: shadowed antennas, autocorrelations, band edges, online flags.', 'flagged fraction by reason. A few % is normal. Tens of % on the target is high.', 'Part 3, inspecting weblogs'],
+      ['h_tsyscal + hifa_tsysflag', 'Turns system temperatures into an amplitude correction and flags bad Tsys spectra.', 'Tsys vs frequency per antenna. Peaks at atmospheric lines are expected.', 'Part 3, inspecting weblogs'],
+      ['hifa_wvrgcalflag', 'Corrects fast atmospheric phase changes with the 183 GHz water-vapour radiometers.', 'phase rms with and without correction (it should improve).', 'Part 3, inspecting weblogs'],
+      ['hifa_bandpass', 'Solves amplitude and phase vs frequency per antenna on the bandpass calibrator (e.g. J0522-364 in the TW Hya data).', 'smooth solutions, no antenna with noisy or jumping curves.', 'Part 3, inspecting weblogs'],
+      ['hifa_spwphaseup', 'Measures phase offsets between spectral windows and determines if weak windows must be combined.', 'the signal-to-noise table and any spw mapping or combination.', 'Part 3, inspecting weblogs'],
+      ['hifa_gfluxscale', 'Sets the flux scale from the flux calibrator (e.g. Ceres in the TW Hya data; today usually a monitored quasar) and transfers it to the phase calibrator.', 'derived phase-calibrator flux vs the catalogue. ≈10% agreement is typical in Band 7.', 'Part 3, inspecting weblogs'],
+      ['hifa_timegaincal', 'Solves phase and amplitude vs time on the phase calibrator, to interpolate onto the target.', 'phase vs time: smooth tracks between scans, no jumps.', 'Part 3, inspecting weblogs'],
+      ['hif_applycal', 'Applies all cal tables and writes CORRECTED_DATA.', 'calibrated amplitude and phase vs time, frequency and uv distance for every field.', 'Part 3, inspecting weblogs, and the plotms slide here']
+    ];
+    const IMG = [
+      ['hif_findcont', 'Makes quick dirty cubes and picks the line-free channels used for continuum (faster in 2026).', 'continuum ranges over the spectrum. Do they avoid the line?', 'Part 5, line imaging'],
+      ['hifa_findROI (new)', 'Quickly finds line regions (regions of interest), for later use in self-cal line flagging and smarter imaging.', 'the line regions marked over the spectrum.', 'Part 5, line imaging'],
+      ['hif_uvcontsub', 'Subtracts the continuum from the visibilities before the line cubes are made.', 'continuum-subtracted cubes should be flat away from lines.', 'Part 5, line imaging'],
+      ['hif_selfcal', 'Self-calibrates the target when it is bright enough.', 'the before/after images and whether the solutions were applied.', 'Part 6, self-calibration'],
+      ['hif_makeimages', 'Images the target with automatic masks: continuum (mfs) and cubes.', 'image rms vs the expected sensitivity, the mask, the beam.', 'Part 4, continuum imaging'],
+      ['hifa_exportdata', 'Packages the products, calibration tables, scripts and the weblog for the archive.', 'the delivery. scriptForPI.py restores the calibrated MS.', 'ALMA archive demo (10:30)']
+    ];
+    const det = $(s, '.pl-detail');
+    const show = st => { $(det, '.t').textContent = st[0]; $(det, '.d').textContent = st[1]; $(det, '.w span').textContent = st[2]; $(det, '.p span').textContent = st[3]; };
+    const mk = (box, list) => list.forEach(st => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = st[0];
+      b.addEventListener('click', () => { $$(s, '.ms-cols .btn').forEach(x => x.setAttribute('aria-pressed', String(x === b))); show(st); });
+      box.appendChild(b);
+    });
+    mk($(s, '.pl-cal'), CAL); mk($(s, '.pl-img'), IMG);
+    $(s, '.pl-cal .btn:nth-child(5)').click();
+  },
+
+  msExplorer(s) {
+    const MAIN = {
+      TIME: ['Mid-point of the integration', 'MJD seconds (float64). One value per row.', "4.860027e9   (= 2012-11-19 07:37:00 UTC)", 'listobs, plotms (xaxis="time"), timerange selection'],
+      ANTENNA1: ['First antenna of the baseline', 'Integer index into the ANTENNA sub-table.', '1   (DA42)', 'antenna selection, plotms coloraxis'],
+      ANTENNA2: ['Second antenna of the baseline', 'ANTENNA1 ≤ ANTENNA2. Equal values are autocorrelations.', '25   (DV23)', "antenna='DA42&DV23'"],
+      FIELD_ID: ['Which pointing / source', 'Index into FIELD. A calibrator and the target are different fields.', '5   (TW Hya)', "field='TW Hya' or field='5'"],
+      DATA_DESC_ID: ['Spectral window + polarization setup', 'Index into DATA_DESCRIPTION, which points to SPECTRAL_WINDOW and POLARIZATION.', '0   (spw 0, XX YY)', 'spw selection'],
+      SCAN_NUMBER: ['Scan this row belongs to', 'A scan is one continuous stretch of observing, usually of one field, with one or more intents.', '12', "scan='12~28'"],
+      UVW: ['Baseline vector (u, v, w)', 'In metres. Tasks divide by the wavelength of each channel, so one row samples a short radial track in the uv-plane.', '[-312.4, 118.0, 4.1]', 'plotms xaxis="uvdist", tclean gridding'],
+      DATA: ['The visibilities as observed', 'Complex array [npol × nchan] per row.', '[[ 0.81+0.11j, 0.79+0.13j, … ],\n [ 0.83+0.09j, 0.80+0.10j, … ]]', 'everything. Never modified by calibration (in twhya_calibrated.ms, calibrated by split)'],
+      CORRECTED_DATA: ['Calibrated visibilities', 'Written by applycal = DATA ÷ gains. Same shape as DATA. Not in twhya_calibrated.ms (split wrote the calibrated data to DATA).', '[[ 1.02+0.00j, 1.01-0.01j, … ], …]', "tclean (default datacolumn='corrected'), plotms ydatacolumn"],
+      MODEL_DATA: ['What the visibilities should be', 'From setjy (calibrator models) or tclean savemodel. Calibration solves DATA vs MODEL.', '[[ 1.05+0.00j, 1.05+0.00j, … ], …]', 'gaincal, bandpass, self-cal'],
+      FLAG: ['Bad-data mask', 'Boolean [npol × nchan] per row. True = ignore.', '[[False, False, …, True], …]', 'flagdata, flagmanager, every task'],
+      WEIGHT: ['How much each row counts', '1/σ² per polarization (WEIGHT_SPECTRUM per channel if present).', '[1210.4, 1198.7]', 'imaging weights, statwt, calwt']
+    };
+    const SUB = {
+      ANTENNA: ['Antenna names, pads, positions, dish size', "DA42 at pad A050, 12.0 m, ITRF x/y/z"],
+      FIELD: ['Name and direction of each field', 'TW Hya  11:01:51.796 −34.42.17.366'],
+      SPECTRAL_WINDOW: ['Frequencies of every channel', 'spw 0: 384 ch × 610.35 kHz, centre 372.650 GHz, TOPO'],
+      POLARIZATION: ['Which correlations exist', 'XX, YY (ALMA linear feeds)'],
+      DATA_DESCRIPTION: ['spw + polarization pairs', 'row 0 → spw 0, pol 0'],
+      SOURCE: ['Source info, rest frequencies, virtual models', 'setjy can store the calibrator model here'],
+      STATE: ['Scan intents', 'CALIBRATE_PHASE#ON_SOURCE, OBSERVE_TARGET#ON_SOURCE'],
+      OBSERVATION: ['Project, observer, time range', 'uid://A002/X327408/X6f, observer cqi'],
+      POINTING: ['Where each antenna pointed', 'per antenna and time (empty in this MS)'],
+      SYSCAL: ['System temperatures', 'Tsys spectra per antenna, used by gencal (empty in this MS)'],
+      WEATHER: ['Weather station data', 'temperature, pressure, humidity, wind'],
+      HISTORY: ['What was done to the MS', 'task calls and messages']
+    };
+    const det = $(s, '.ms-detail');
+    const show = (title, d, ex, w) => { $(det, '.t').textContent = title; $(det, '.d').textContent = d; $(det, '.ex').textContent = ex || ''; $(det, '.ex').hidden = !ex; $(det, '.w').textContent = w || ''; };
+    const mk = (box, items, onClick) => Object.keys(items).forEach(k => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = k;
+      b.addEventListener('click', () => { $$(s, '.ms-cols .btn').forEach(x => x.setAttribute('aria-pressed', String(x === b))); onClick(k); });
+      box.appendChild(b);
+    });
+    mk($(s, '.main'), MAIN, k => { const m = MAIN[k]; show(k + ' · ' + m[0], m[1], m[2], 'Used by: ' + m[3]); });
+    mk($(s, '.sub'), SUB, k => show(k + ' sub-table', SUB[k][0] + '.', SUB[k][1], 'Open it with tb.open("twhya_calibrated.ms/' + k + '") or browsetable.'));
+    $(s, '.main .btn:nth-child(8)').click();
+  },
+
+  msSize(s) {
+    const ro = V.readouts($(s, '.ro'), [{ k: 'bl', label: 'Baselines' }, { k: 'rows', label: 'Rows' }, { k: 'vis', label: 'Complex visibilities' }, { k: 'gb', label: 'DATA column' }]);
+    V.call($(s, '.ctl'), 'observation', [
+      { k: 'nant', type: 'range', min: 4, max: 66, step: 1, value: 43 },
+      { k: 'tint', type: 'choice', options: [2.02, 6.05, 30, 60], value: 6.05, quote: false, note: 'seconds' },
+      { k: 'hours', type: 'range', min: 0.25, max: 6, step: 0.25, value: 1 },
+      { k: 'nspw', type: 'range', min: 1, max: 8, step: 1, value: 4 },
+      { k: 'nchan', type: 'choice', options: [128, 384, 480, 960, 1920, 3840], value: 3840, quote: false },
+      { k: 'npol', type: 'choice', options: [1, 2, 4], value: 2, quote: false }
+    ], v => {
+      const bl = v.nant * (v.nant - 1) / 2, ints = v.hours * 3600 / v.tint, rows = bl * ints * v.nspw, nv = rows * v.nchan * v.npol, gb = nv * 8 / 1e9;
+      const fmtN = x => (x >= 1e9 ? (x / 1e9).toFixed(1) + '×10⁹' : x >= 1e6 ? (x / 1e6).toFixed(1) + '×10⁶' : x.toFixed(0));
+      const fGB = g => (g >= 10 ? g.toFixed(0) + ' GB' : g >= 0.1 ? g.toFixed(2) + ' GB' : +(g * 1e3).toPrecision(2) + ' MB');
+      ro.set('bl', fmtN(bl)); ro.set('rows', fmtN(rows)); ro.set('vis', fmtN(nv)); ro.set('gb', fGB(gb), gb < 20 ? 'good' : gb < 100 ? 'warn' : 'bad');
+      const lab = ['DATA', '+CORRECTED', '+MODEL', 'averaged to 128 ch'], val = [gb, 2 * gb, 3 * gb, gb * 128 / v.nchan];
+      V.plot($(s, 'canvas'), { x: { min: 0.5, max: 4.5, fmt: t => (Math.abs(t - Math.round(t)) < 1e-6 ? lab[Math.round(t) - 1] || '' : ''), n: 4 }, y: { min: 1e-4, max: 3e5, log: true, label: 'size (log scale)', ticks: [1e-4, 1e-3, 0.01, 0.1, 1, 10, 100, 1e3, 1e4, 1e5], fmt: t => (t >= 1e3 ? t / 1e3 + ' TB' : t >= 1 ? t + ' GB' : +(t * 1e3).toPrecision(2) + ' MB') }, legend: false,
+        series: [{ type: 'bars', x: [1, 2, 3], y: val.slice(0, 3), color: '--s1', labels: val.slice(0, 3).map(fGB) }, { type: 'bars', x: [4], y: [val[3]], color: '--s3', labels: [fGB(val[3])] }] });
+    });
+  },
+
+  listobs(s) {
+    const A = (k, t) => `<span class="ann" data-k="${k}" tabindex="0" role="button">${t}</span>`;
+    const L = [], IA = { bp: '[CALIBRATE_BANDPASS#ON_SOURCE,…]', fx: '[CALIBRATE_AMPLI#ON_SOURCE,…]', pc: '[CALIBRATE_PHASE#ON_SOURCE,…]', tg: '[OBSERVE_TARGET#ON_SOURCE]' };
+    const FK = { 0: 'fbp', 2: 'fflux', 3: 'fphase', 5: 'ftarget', 6: 'fbp' };
+    L.push('================================================================================');
+    L.push('           MeasurementSet Name:  ' + A('ms', 'twhya_calibrated.ms') + '      MS Version 2');
+    L.push('================================================================================');
+    L.push('   Observer: cqi     Project: uid://A002/X327408/X6f');
+    L.push('Data records: 68335       Total elapsed time = ' + A('time', '5647.68 seconds'));
+    L.push('   Observed from   19-Nov-2012/07:36:57.0   to   19-Nov-2012/09:11:04.7 (UTC)');
+    L.push('  Date        Timerange (UTC)          ' + A('scan', 'Scan') + '  FldId FieldName   SpwIds  Int(s)  ScanIntent');
+    SCANS.slice(0, 6).forEach((sc, i) => {
+      L.push(`  ${i ? '            ' : '19-Nov-2012/'}${sc.a} - ${sc.b}  ${String(sc.id).padStart(4)}  ${String(sc.fid).padStart(5)} ${sc.field.padEnd(11)} [0]   ${A('dt', '[6.05]')}  ${A('intent', IA[sc.kind])}`);
+    });
+    L.push('              …   (17 scans; TW Hya in scans 12, 16, 20, 24, 28 and 36)');
+    L.push(A('fields', 'Fields: 5'));
+    L.push('  ID   Code Name                RA               Decl           Epoch   SrcId      nRows');
+    const FL = { 0: ['05:22:57.984648', '-36.27.30.85128', 0, 3420], 2: ['06:10:15.950590', '+23.22.06.90668', 2, 3420], 3: ['10:37:16.079736', '-29.34.02.81316', 3, 13680],
+      5: ['11:01:51.796000', '-34.42.17.36600', 4, 44772], 6: ['12:56:11.166576', '-05.47.21.52464', 5, 3043] };
+    [0, 2, 3, 5, 6].forEach(f => L.push('  ' + A(FK[f], `${f}    none ${FIELDS[f].padEnd(19)} ${FL[f][0]} ${FL[f][1]} J2000   ${FL[f][2]}   ${String(FL[f][3]).padStart(12)}`)));
+    L.push('Spectral Windows:  (1 unique spectral windows and 1 unique polarization setups)');
+    L.push('  SpwID  Name                           #Chans   Frame   Ch0(MHz)  ChanWid(kHz)  TotBW(kHz) CtrFreq(MHz)  Corrs');
+    L.push('  ' + A('spw', '0      ALMA_RB_07#BB_2#SW-01#FULL_RES    384   TOPO  372533.086       610.352    234375.0 372649.9688') + '  ' + A('corr', 'XX  YY'));
+    L.push(A('ant', 'Antennas: 19:'));
+    L.push('  ID   Name  Station   Diam.    Long.         Lat.');
+    L.push('  1    DA42  A050      12.0 m   -067.45.16.2  -22.53.29.3');
+    L.push('  2    DA44  A068      12.0 m   -067.45.20.6  -22.53.25.7');
+    L.push('  …    (19 antennas with IDs from 1 to 25)');
+    const pre = $(s, '.lo'); pre.innerHTML = L.join('\n');
+    const INFO = {
+      ms: ['MeasurementSet name', 'The path you pass as vis=. An MS is a directory. Copy or delete it as a whole. Do not edit the files inside.'],
+      time: ['Total time', '5648 s ≈ 1.6 h of wall clock, including calibrators and overheads. Time on TW Hya is ≈31 min (five 5.8-min scans and one of 2.3 min).'],
+      scan: ['Scans', 'A scan is one continuous stretch on one field. The numbers skip (4, 7, 10, 12 …) since scans with only setup data, such as pointing, were not kept in this MS. Select with scan="12~28".'],
+      intent: ['Scan intents', 'What each scan was for: BANDPASS, AMPLI (the flux scale), PHASE (gains vs time), OBSERVE_TARGET. The bandpass and flux scans carry PHASE too, so intent="*PHASE*" selects all calibrators.'],
+      dt: ['Integration time', '6.05 s per correlator dump. This is the shortest solint ("int") for gaincal and sets how fast you can follow the atmosphere.'],
+      fields: ['Field IDs', 'IDs 0, 2, 3, 5, 6 are not consecutive. Copy IDs or names from listobs instead of counting rows.'],
+      fbp: ['Bandpass calibrators: fields 0 and 6', 'J0522-364 (at the start) and 3c279 (near the end): bright quasars observed to measure the response vs frequency.'],
+      fflux: ['Flux calibrator: field 2', 'Ceres, a dwarf planet with a known model, sets the Jy scale. It was about 0.8″ across, so the longer baselines resolve it.'],
+      fphase: ['Phase calibrator: field 3', 'J1037-295, a quasar 7° from TW Hya, visited every ≈12 min to follow phase and amplitude vs time.'],
+      ftarget: ['Science target: field 5', 'TW Hya, the protoplanetary disk you image in Parts 4 and 5. Select it with field="5" (its name has a space).'],
+      spw: ['Spectral window 0', 'One window in Band 7 (ALMA_RB_07): 384 channels of 610 kHz (0.49 km/s at 372.65 GHz), 234 MHz wide. TOPO = frequencies as observed. N2H+ 4–3 falls in channels ≈240–280 (Part 5, line imaging).'],
+      corr: ['Correlations', 'XX and YY (ALMA has linear feeds). Stokes I = (XX + YY)/2, formed by tclean.'],
+      ant: ['Antennas', '19 antennas, all 12 m (DA, DV). The IDs run from 1 to 25 with gaps, so select antennas by name (antenna="DA42"). Station = the pad, which sets the configuration.']
+    };
+    $$(pre, '.ann').forEach(el => {
+      const act = () => { $$(pre, '.ann').forEach(x => x.classList.toggle('on', x.dataset.k === el.dataset.k)); $(s, '.lt').textContent = INFO[el.dataset.k][0]; $(s, '.ld').textContent = INFO[el.dataset.k][1]; };
+      el.addEventListener('click', act);
+      el.addEventListener('keydown', e => { if (e.key === 'Enter') act(); });
+    });
+  },
+
+  selection(s) {
+    const NSPW = 1, NCH = 384, cvs = $$(s, 'canvas'), err = $(s, '.err');
+    const ro = V.readouts($(s, '.ro'), [{ k: 'frac', label: 'Data selected' }, { k: 'bl', label: 'Baselines' }]);
+    const ids = (str, max) => {          // '1,3~5' -> Set; '' or '*' -> null (all)
+      str = str.trim(); if (!str || str === '*') return null;
+      const out = new Set();
+      for (const part of str.split(',')) {
+        const p = part.trim(), m = p.match(/^(\d+)(?:~(\d+))?$/);
+        if (!m) throw new Error(`cannot read "${p}"`);
+        const a = +m[1], b = m[2] == null ? a : +m[2];
+        if (b < a || b > max) throw new Error(`"${p}" is out of range`);
+        for (let i = a; i <= b; i++) out.add(i);
+      }
+      return out;
+    };
+    const wild = (pat, name) => new RegExp('^' + pat.trim().replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*') + '$', 'i').test(name);
+    const parseSpw = str => {           // -> array[NSPW][NCH] booleans
+      str = str.trim();
+      const sel = Array.from({ length: NSPW }, () => new Uint8Array(NCH));
+      if (!str) { sel.forEach(a => a.fill(1)); return sel; }
+      for (const part of str.split(',')) {
+        const [sp, ch] = part.split(':'), sps = sp.trim() === '*' ? [0] : Array.from(ids(sp, NSPW - 1) || [0]);
+        for (const w of sps) {
+          if (ch == null) { sel[w].fill(1); continue; }
+          for (const r of ch.split(';')) {
+            const m = r.trim().match(/^(\d+)(?:~(\d+))?$/);
+            if (!m) throw new Error(`cannot read channels "${r}"`);
+            const a = +m[1], b = m[2] == null ? a : +m[2];
+            if (b < a || b >= NCH) throw new Error(`channels "${r}" outside 0~${NCH - 1}`);
+            for (let c = a; c <= b; c++) sel[w][c] = 1;
+          }
+        }
+      }
+      return sel;
+    };
+    const parseAnt = str => {           // -> function(i, j) -> bool
+      str = str.trim(); if (!str) return () => true;
+      const terms = str.split(';').map(t => t.trim()).filter(Boolean), inc = [], exc = [];
+      const one = t => { const i = /^\d+$/.test(t) ? +t : ANT8.findIndex(n => wild(t, n)); if (i < 0 && t !== '*') throw new Error(`no antenna "${t}"`); return t === '*' ? -1 : i; };
+      for (let t of terms) {
+        const neg = t.startsWith('!'); if (neg) t = t.slice(1);
+        const [a, b] = t.split('&').map(x => x.trim()), A = one(a), B = b == null ? null : one(b);
+        const f = (i, j) => (B == null ? (A < 0 || i === A || j === A) : ((A < 0 || i === A || j === A) && (B < 0 || i === B || j === B) && (A < 0 || B < 0 || !(i === A && j === A))));
+        (neg ? exc : inc).push(B != null && A >= 0 && B >= 0 ? (i, j) => (i === A && j === B) || (i === B && j === A) : f);
+      }
+      return (i, j) => (inc.length ? inc.some(f => f(i, j)) : true) && !exc.some(f => f(i, j));
+    };
+    const PRESETS = [
+      ['everything', { field: '', spw: '', scan: '', intent: '', ant: '' }],
+      ['TW Hya, line-free', { field: '5', spw: '0:0~239;281~383', scan: '', intent: '', ant: '' }],
+      ['calibrators by intent', { field: '', spw: '0:5~378', scan: '', intent: '*PHASE*', ant: '' }],
+      ['phase cal only', { field: 'J1037*', spw: '', scan: '', intent: '', ant: '' }],
+      ['drop an antenna', { field: '', spw: '', scan: '12~28', intent: '', ant: '!DV08' }],
+      ['one baseline', { field: '3', spw: '', scan: '', intent: '', ant: 'DA42&DV02' }]
+    ];
+    const byId = id => document.getElementById(id);
+    const inp = { field: byId('sel-field'), spw: byId('sel-spw'), scan: byId('sel-scan'), intent: byId('sel-intent'), ant: byId('sel-ant') };
+    PRESETS.forEach(([lab, p]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'btn'; b.textContent = lab;
+      b.addEventListener('click', () => { Object.keys(p).forEach(k => { inp[k].value = p[k]; }); update(); });
+      $(s, '.presets').appendChild(b);
+    });
+    const COL = FCOL;
+    function update() {
+      let spw, scans, ant, fsel;
+      try {
+        spw = parseSpw(inp.spw.value); scans = ids(inp.scan.value, 38);
+        ant = parseAnt(inp.ant.value);
+        const fv = inp.field.value.trim();
+        fsel = !fv ? () => true : f => fv.split(',').some(t => (/^\d+$/.test(t.trim()) ? +t === FIELDS.indexOf(f) : wild(t, f)));
+        err.textContent = '';
+      } catch (e) { err.textContent = 'Selection error: ' + e.message; return; }
+      const iv = inp.intent.value.trim();
+      const scanOK = sc => (!scans || scans.has(sc.id)) && fsel(sc.field) && (!iv || sc.intent.split(',').some(x => wild(iv, x)));
+      // scans x channels plot: one "line" per scan row built from horizontal segments
+      const series = [];
+      let selCells = 0, tot = 0;
+      SCANS.forEach((sc, r) => {
+        const ok = scanOK(sc);
+        for (let w = 0; w < NSPW; w++) {
+          let runStart = -1;
+          for (let c = 0; c <= NCH; c++) {
+            const on = c < NCH && ok && spw[w][c];
+            if (c < NCH) { tot++; if (on) selCells++; }
+            if (on && runStart < 0) runStart = c;
+            if (!on && runStart >= 0) { series.push({ type: 'line', x: [w * (NCH + 6) + runStart, w * (NCH + 6) + c - 1 + 0.9], y: [r + 1, r + 1], color: COL[sc.fid], width: 6 }); runStart = -1; }
+          }
+          series.unshift({ type: 'line', x: [w * (NCH + 6), w * (NCH + 6) + NCH - 0.1], y: [r + 1, r + 1], color: COL[sc.fid], width: 6, alpha: 0.22 });
+        }
+      });
+      V.plot(cvs[0], { x: { min: -6, max: NCH + 5, label: 'channel of spw 0', ticks: [0, 64, 128, 192, 256, 320, 383] },
+        y: { min: SCANS.length + 0.8, max: 0.2, label: 'scan', ticks: SCANS.map((_, i) => i + 1).filter(i => i % 2), fmt: t => String((SCANS[Math.round(t) - 1] || {}).id || '') }, legend: false, series });
+      // baselines matrix
+      const bs = [];
+      let nb = 0;
+      for (let i = 0; i < 8; i++) for (let j = i + 1; j < 8; j++) {
+        const on = ant(i, j); if (on) nb++;
+        bs.push({ type: 'scatter', x: [j], y: [i], size: 11, color: on ? '--accent' : '--grid' });
+      }
+      const short = i => ANT8[i].replace('DA', 'A').replace('DV', 'V');   // full names collide at 800 px
+      V.plot(cvs[1], { x: { min: 0.3, max: 7.7, fmt: t => (Number.isInteger(t) && t > 0 ? short(t) : ''), n: 7 }, y: { min: 6.7, max: -0.7, fmt: t => (Number.isInteger(t) && t < 7 ? ANT8[t] : ''), n: 7 }, legend: false, series: bs, mr: 0.5 });
+      ro.set('frac', K.pct(selCells / tot * nb / 28));
+      ro.set('bl', `${nb} of 28`);
+    }
+    Object.values(inp).forEach(el => el.addEventListener('input', update));
+    update();
+  },
+
+  plotms(s) {
+    const cv = $(s, 'canvas'), sc = twh();
+    const INFO = {
+      'u,v': ['uv coverage, coloured by field', 'Each dot is one baseline during 30 s. TW Hya, ≈31 min in six scans, traces the longest arcs. Each calibrator is elsewhere on the sky, with its own coverage. Longest baseline ≈370 m.'],
+      'time,amp': ['Amplitude vs time', 'Each field has its own amplitude level. Before calibration, look for dropouts, steps and low antennas (DV08 in this simulation).'],
+      'time,phase': ['Phase vs time', 'Raw phases wander with the atmosphere and electronics. Calibration follows them on J1037-295 every ≈12 min and interpolates onto TW Hya. Corrected: near 0°.'],
+      'uvwave,amp': ['Amplitude vs uv distance', 'Point sources (J1037-295, J0522-364, 3c279) are flat. Ceres, a 0.8″ disk, drops to zero near 300 kλ. TW Hya is resolved too. Points far above the cloud are likely bad.'],
+      'uvwave,phase': ['Phase vs uv distance', 'A source at the phase centre has calibrated phases near 0° on all baselines. Ceres jumps to ±180° beyond its first null, as expected for a disk.'],
+      'channel,amp': ['Amplitude vs channel, bandpass calibrator J0522-364', 'Raw: the receiver bandpass, with ripples and a roll-off at the edges (flag a few edge channels). Corrected: flat.'],
+      'channel,phase': ['Phase vs channel, bandpass calibrator J0522-364', 'A slope across the band is a residual delay, removed by the bandpass solution. Corrected: flat at zero.']
+    };
+    const utc = t => { const T = Math.round(T0 + t * 60); return String(Math.floor(T / 3600)).padStart(2, '0') + ':' + String(Math.floor(T / 60) % 60).padStart(2, '0'); };
+    const XA = { u: { min: -400, max: 400, label: 'u (m)' }, time: { min: 0, max: 96, label: 'time (UTC, 19 Nov 2012)', ticks: [3.05, 23.05, 43.05, 63.05, 83.05], fmt: utc },
+      uvwave: { min: 0, max: 480, label: 'uv distance (kλ)' }, channel: { min: 0, max: 383, label: 'channel (spw 0)' } };
+    const press = (key, val) => {        // keep u with v: plotms would accept u vs amp, but it is not a view worth teaching
+      const row = $$(s, '.call-row').find(r => { const kk = $(r, '.k'); return kk && kk.textContent === key; });
+      const b = row && $$(row, '.seg button').find(x => x.textContent === val); if (b) b.click();
+    };
+    V.call($(s, '.ctl'), 'plotms', [
+      { k: 'xaxis', type: 'choice', options: ['u', 'time', 'uvwave', 'channel'], value: 'u' },
+      { k: 'yaxis', type: 'choice', options: ['v', 'amp', 'phase'], value: 'v' },
+      { k: 'ydatacolumn', type: 'choice', options: ['data', 'corrected'], value: 'corrected' },
+      { k: 'field', type: 'choice', options: ['', '2', '3', '5'], labels: ["''", '2', '3', '5'], value: '', note: '2 Ceres, 3 J1037, 5 TW Hya', show: v => v.xaxis !== 'channel' },
+      { k: 'antenna', type: 'choice', options: ['', 'DA42'], labels: ["''", 'DA42'], value: '' },
+      { k: 'coloraxis', type: 'choice', options: ['field', 'antenna1'], value: 'field' }
+    ], (v, k) => {
+      if ((v.xaxis === 'u') !== (v.yaxis === 'v')) { if (k === 'yaxis') press('xaxis', v.yaxis === 'v' ? 'u' : 'time'); else press('yaxis', v.xaxis === 'u' ? 'v' : 'amp'); return; }
+      const key = v.xaxis + ',' + v.yaxis, cor = v.ydatacolumn === 'corrected', isAmp = v.yaxis === 'amp', byField = v.coloraxis === 'field', one = v.antenna === 'DA42';
+      $(s, '.pt').textContent = INFO[key][0]; $(s, '.pd').textContent = INFO[key][1];
+      $(s, '.pcap').textContent = v.xaxis === 'u' ? 'v vs u' : `${v.yaxis} vs ${v.xaxis}, ${v.ydatacolumn}`;
+      const groups = new Map(), push = (g, x, y) => { let o = groups.get(g); if (!o) groups.set(g, o = { x: [], y: [] }); o.x.push(x); o.y.push(y); };
+      if (v.xaxis === 'channel') {
+        (cor ? sc.spec.cor : sc.spec.raw).forEach(b => { if (one && b.i !== 0) return; for (let c = 0; c < sc.NC; c++) push(byField ? 0 : b.i % 8, c, isAmp ? b.A[c] : b.P[c]); });
+      } else {
+        const fsel = v.field === '' ? -1 : +v.field, D = cor ? sc.cor : sc.raw;
+        for (let q = 0; q < sc.n; q++) {
+          const f = sc.fid[q];
+          if (fsel >= 0 && f !== fsel) continue;
+          if (one && sc.a1[q] !== 0) continue;
+          if (cor && v.yaxis !== 'v' && (sc.a1[q] === WEAK || sc.a2[q] === WEAK)) continue;      // DV08 flagged during calibration
+          const x = v.xaxis === 'u' ? sc.um[q] : v.xaxis === 'time' ? sc.tm[q] : sc.uvd[q];
+          push(byField ? f : sc.a1[q] % 8, x, v.yaxis === 'v' ? sc.vm[q] : isAmp ? D.a[q] : D.p[q]);
+        }
+      }
+      const series = [...groups].map(([g, o]) => ({ type: 'scatter', x: o.x, y: o.y, size: one ? 2.4 : 1.6, alpha: one ? 0.85 : 0.5,
+        color: byField ? FCOL[g] : `--s${g + 1}`, label: byField ? FIELDS[g] : '' }));
+      const ya = v.yaxis === 'v' ? { min: -400, max: 400, label: 'v (m)' } : isAmp ? { min: 0, max: v.xaxis === 'channel' ? 4.5 : 10, label: 'amplitude (Jy)' } : { min: -180, max: 180, label: 'phase (deg)' };
+      // legend outside the frame: inside it would hide the brightest calibrator
+      $(s, '.fl').innerHTML = byField ? [...groups.keys()].sort((a, b) => a - b).map(g => `<span><i style="background:var(${FCOL[g]})"></i>${FIELDS[g]}</span>`).join('') : '<span>colour = antenna1 (8 colours, repeating)</span>';
+      V.plot(cv, { x: XA[v.xaxis], y: ya, series, legend: false, equal: v.xaxis === 'u' });
+    });
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

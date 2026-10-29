@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<meta name="robots" content="noindex,nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta charset="utf-8">
+<title>ALMA Data Reduction Workshop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<style>
+  /* One centred column of talk rows, then a quiet reference section. Same tokens as assets/deck.css. */
+  :root {
+    --bg: #ffffff; --panel: #fafafa; --ink: #1b1b1b; --ink-2: #404040; --muted: #646464; --rule: #d4d4d4;
+    --accent: #2f6db5; --accent-soft: rgba(47, 109, 181, .09); --on-accent: #ffffff; --code: #f3f3f3; --fixed: #646464; --good: #228833;
+    --f-body: "Roboto", "Helvetica Neue", Arial, sans-serif;
+    --f-mono: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #1c1c1c; --panel: #232323; --ink: #ececec; --ink-2: #c8c8c8; --muted: #9a9a9a; --rule: #383838; --accent: #6c9bd8; --accent-soft: rgba(108, 155, 216, .15); --on-accent: #101010; --code: #262626; --fixed: #9a9a9a; --good: #4caf5a; color-scheme: dark; }
+  }
+  :root[data-theme="dark"] { --bg: #1c1c1c; --panel: #232323; --ink: #ececec; --ink-2: #c8c8c8; --muted: #9a9a9a; --rule: #383838; --accent: #6c9bd8; --accent-soft: rgba(108, 155, 216, .15); --on-accent: #101010; --code: #262626; --fixed: #9a9a9a; --good: #4caf5a; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--f-body); }
+  .wrap { max-width: 980px; margin: 0 auto; padding-block: 56px 72px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 40px; }
+  .kicker { font: 500 12px/1.3 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
+  h1 { font: 700 clamp(34px, 6.5vw, 58px)/1.05 var(--f-body); margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  h2 { font: 700 20px/1.25 var(--f-body); margin: 0; }
+  p { margin: 0; }
+  .lede { font-size: 19px; color: var(--ink-2); max-width: 44em; margin-top: 16px; }
+  code { font: .88em var(--f-mono); background: var(--code); padding: .05em .3em; border-radius: .25em; }
+  .talks { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--rule); }
+  .talk { border-bottom: 1px solid var(--rule); }
+  .talk a { display: grid; grid-template-columns: 3em 1fr auto; gap: 4px 18px; padding: 18px 8px; color: inherit; text-decoration: none; border-radius: 8px; }
+  .talk a:hover, .talk a:focus-visible { background: var(--accent-soft); outline: none; }
+  .talk.off > div { display: grid; grid-template-columns: 3em 1fr auto; gap: 4px 18px; padding: 9px 8px; }
+  .talk.off .title { font-size: 16px; font-weight: 500; color: var(--muted); }
+  .talk.off .dur { padding-top: 1px; }
+  .num { font: 700 28px/1 var(--f-body); color: var(--accent); grid-row: span 2; padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .title { font: 700 22px/1.2 var(--f-body); }
+  .dur { font: 500 13px var(--f-mono); color: var(--muted); white-space: nowrap; align-self: start; padding-top: 5px; }
+  .what { grid-column: 2 / 4; color: var(--ink-2); font-size: 15px; max-width: 46em; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .card p, .card li { color: var(--ink-2); font-size: 15px; }
+  .card ul { margin: 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 4px; }
+  .keys, .chips { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; font-size: 15px; color: var(--ink-2); align-items: center; }
+  .kbd { font: 12px var(--f-mono); border: 1px solid var(--rule); border-bottom-width: 2px; border-radius: 5px; padding: 1px 6px; color: var(--ink); white-space: nowrap; justify-self: start; }
+  .tag { font: 500 11px/1 var(--f-body); letter-spacing: .04em; text-transform: uppercase; border-radius: 4px; padding: 4px 7px 3px; border: 1px solid currentColor; justify-self: start; white-space: nowrap; }
+  .tag.fixed { color: var(--fixed); } .tag.choice { color: var(--on-accent); background: var(--accent); border-color: var(--accent); } .tag.check { color: var(--good); }
+  .foot { font-size: 13px; color: var(--muted); border-top: 1px solid var(--rule); padding-top: 16px; }
+  a { color: var(--accent); }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } .talk a, .talk.off > div { grid-template-columns: 2.4em 1fr; } .dur { grid-column: 2; padding-top: 0; } .what { grid-column: 2; } .num { font-size: 22px; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="kicker">ALMA data reduction workshop</p>
+    <h1>From visibilities<br>to science images</h1>
+    <p class="lede">Workshop schedule and eight interactive decks for people new to ALMA data. Slides with a CASA call have live controls. Changing a parameter updates the simulated uv-plane, beam, image, spectrum or gain solutions in your browser, on fixed colour scales. Each deck ends with a Backup section of extra slides.</p>
+  </header>
+
+  <ol class="talks">
+    <li class="talk off"><div><span class="num"></span><span class="title">Introduction to ALMA</span><span class="dur">9:30</span></div></li>
+    <li class="talk"><a href="01_interferometry.html"><span class="num">1</span><span class="title">Introduction to interferometry</span><span class="dur">9:45 · 15 min</span>
+      <span class="what">Baselines as Fourier samples, uv coverage of ALMA configurations, missing short spacings and the maximum recoverable scale, the primary beam, sensitivity, and what the observation fixes.</span></a></li>
+    <li class="talk off"><div><span class="num"></span><span class="title">Installing CASA &amp; acquiring data</span><span class="dur">10:00</span></div></li>
+    <li class="talk off"><div><span class="num"></span><span class="title">ALMA Archive demo</span><span class="dur">10:30</span></div></li>
+    <li class="talk"><a href="02_intro_casa.html"><span class="num">2</span><span class="title">Introduction to CASA</span><span class="dur">11:00 · 30 min</span>
+      <span class="what">Which CASA to use and how to run it, the MeasurementSet, listobs, data selection, plotms, data columns, and five first-look commands for the TW Hya data.</span></a></li>
+    <li class="talk"><a href="03_weblogs.html"><span class="num">3</span><span class="title">Inspecting weblogs</span><span class="dur">11:30 · 30 min</span>
+      <span class="what">The pipeline weblog page by page: observation summary, QA scores, the calibration stages with good and bad examples, the imaging stages, and the numbers to copy before you image.</span></a></li>
+    <li class="talk off"><div><span class="num"></span><span class="title">Lunch</span><span class="dur">12:00</span></div></li>
+    <li class="talk"><a href="04_continuum_imaging.html"><span class="num">4</span><span class="title">Continuum imaging</span><span class="dur">1:00 · 45 min</span>
+      <span class="what">Continuum emission mechanisms, why we clean, tclean parameters set once and parameters you tune, image artifacts, a reference tclean call, and a short follow-along on TW Hya.</span></a></li>
+    <li class="talk"><a href="05_line_imaging.html"><span class="num">5</span><span class="title">Line imaging</span><span class="dur">1:45 · 30 min</span>
+      <span class="what">Spectral lines in the ALMA bands, continuum subtraction, the spectral grid, cleaning cubes, channel and moment maps, and a short follow-along on N₂H⁺ in TW Hya.</span></a></li>
+    <li class="talk"><a href="06_self_calibration.html"><span class="num">6</span><span class="title">Boost your signal-to-noise: self-calibration</span><span class="dur">2:30 · 15 min</span>
+      <span class="what">Residual calibration errors, the target as its own calibrator, S/N for self-calibration, the loop round by round, the pipeline's automated self-cal, and a recipe.</span></a></li>
+    <li class="talk"><a href="07_single_dish.html"><span class="num">7</span><span class="title">Single-dish imaging and data combination</span><span class="dur">2:45 · 15 min</span>
+      <span class="what">The 12-m, 7-m and Total Power arrays, the short-spacing problem, combination methods, feather and its TP preparation steps, sdintimaging, and reference parameters.</span></a></li>
+    <li class="talk off"><div><span class="num"></span><span class="title">CARTA demo</span><span class="dur">2:45</span></div></li>
+    <li class="talk off"><div><span class="num"></span><span class="title">Open work: questions about your data</span><span class="dur">3:30</span></div></li>
+    <li class="talk"><a href="08_srdp.html"><span class="num">8</span><span class="title">Science Ready Data Products</span><span class="dur">4:15 · 30 min</span>
+      <span class="what">Ways to get a calibrated MS, amplitude renormalization, AUDI re-imaging on data.nrao.edu, the imaging pipeline's robust choice and product size mitigation, scriptForReprocessing, and automated self-calibration.</span></a></li>
+    <li class="talk off"><div><span class="num"></span><span class="title">Survey and conclusions</span><span class="dur">4:45</span></div></li>
+  </ol>
+
+  <section class="grid" aria-label="Presenting and background">
+    <div class="card">
+      <h2>Reading a slide</h2>
+      <div class="chips">
+        <span class="tag fixed">Fixed by the observation</span><span>set when the data were taken</span>
+        <span class="tag fixed">Set once</span><span>follows from the data</span>
+        <span class="tag choice">Your choice</span><span>parameters you tune</span>
+        <span class="tag check">Check</span><span>what to look at</span>
+      </div>
+      <p>Every part ends with a takeaway slide of reference parameters to start from.</p>
+    </div>
+    <div class="card">
+      <h2>Presenting</h2>
+      <div class="keys">
+        <span class="kbd">→ ← / PgDn PgUp</span><span>next / previous slide</span>
+        <span class="kbd">F</span><span>full screen</span>
+        <span class="kbd">T</span><span>light / dark (light for projectors)</span>
+        <span class="kbd">Home End</span><span>first / last slide</span>
+      </div>
+      <p>Slides scale to any 16:9 screen. Link to a slide with <code>#its-id</code>, e.g. <code>04_continuum_imaging.html#weighting</code>.</p>
+    </div>
+    <div class="card">
+      <h2>About the simulations</h2>
+      <ul>
+        <li>43-antenna layouts matched to ALMA C-2, C-4, C-6 baseline statistics; noise from the radiometer equation.</li>
+        <li>Briggs weighting as CASA defines it; Hogbom and multiscale CLEAN; Kolmogorov phase screens; an antenna-based gain solver.</li>
+        <li>Simplified: Stokes I only, nearest-cell gridding, idealized bandpasses, synthetic listobs and weblog pages. Numbers are illustrative. For proposals use the ALMA Sensitivity Calculator.</li>
+      </ul>
+    </div>
+  </section>
+
+  <p class="foot">Each part is one HTML file plus the shared <code>assets/</code> folder and runs offline. Follow-along data: the CASA Guides "First Look" TW Hya tutorials (casaguides.nrao.edu), here as Jupyter notebooks for CASA 6.7.4. CASA documentation: casadocs.readthedocs.io.</p>
+</div>

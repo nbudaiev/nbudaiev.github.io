@@ -1,0 +1,1083 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Line Imaging</title>
+<meta name="deck-title" content="Line imaging · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+.grid5 { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .7em; }
+.grid5 .tag, table.kind .tag { display: inline-block; line-height: 1.15; }
+table.kind .tag { font-size: .82em; }
+.fc-dat { min-height: 7.2em; }
+@media not all and (min-width: 700px) and (min-height: 380px) and (min-aspect-ratio: 1/1) { .grid5 { grid-template-columns: 1fr; } }
+
+.sw { display: inline-block; width: .75em; height: .75em; border-radius: 2px; margin-right: .45em; vertical-align: -.05em; }
+table.fam td:first-child { font-weight: 500; white-space: nowrap; }
+table.fam td:last-child { width: 40%; }
+table.fam td { padding: .3em .45em; }
+table.fam td[data-f] { color: var(--ink-2); }
+.grid5 .card h3 .tag { white-space: nowrap; }
+section[id^="fa-"] pre.code.tight { font-size: .86em; }   /* follow-along code: as large as the column allows */
+@media (min-width: 700px) and (min-height: 380px) and (min-aspect-ratio: 1/1) { section[id^="fa-"] .cols.l3 { grid-template-columns: 1.5fr 1fr; gap: 1.5em; } }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="Velocity field of a simulated rotating protoplanetary disk"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 5 of 8 · 1:45–2:15</p>
+  <h1>Line<br>imaging</h1>
+  <p class="sub">Which lines ALMA sees (molecules, atoms, recombination lines), how to remove the continuum, which cube parameters follow from the data and which ones you tune. Follow-along: N₂H⁺ 4–3 in TW Hya.</p>
+  <div class="meta"><span>30 min</span><span>CASA 6 · uvcontsub · tclean(specmode='cube') · immoments</span><span>All figures are simulated live</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part</p><h2>Outline</h2></header>
+  <div class="grid5">
+    <div class="card"><h3><span class="tag fixed">Concept</span></h3><p><b>Lines and cubes.</b> Which lines fall in which ALMA band, and what a cube is.</p></div>
+    <div class="card"><h3><span class="tag check">Check</span></h3><p><b>Find and remove the continuum.</b> The line-free ranges from the pipeline (<code>cont.dat</code>). Fit and subtract the continuum there (<code>uvcontsub</code>).</p></div>
+    <div class="card"><h3><span class="tag fixed">Set once</span></h3><p><b>Follow from the data</b>: <code>spw</code>, <code>specmode='cube'</code>, <code>restfreq</code>, <code>outframe</code>, <code>veltype</code>, <code>restoringbeam</code>.</p></div>
+    <div class="card"><h3><span class="tag choice">Your choice</span></h3><p><b>You tune</b>: <code>start</code>/<code>width</code>/<code>nchan</code>, masks per channel, moment maps.</p></div>
+    <div class="card"><h3><span class="tag check">Follow along</span></h3><p><b>TW Hya, N₂H⁺ 4–3.</b> Five notebook steps, after common mistakes and three example calls.</p></div>
+  </div>
+  <p class="lede">Part 4 (continuum imaging) applies to every channel: <code>cell</code>, <code>imsize</code>, weighting, masks, <code>pbcor</code>. The weblog pages are in Part 3. Each demo keeps one observation fixed and changes only what its slide says. Axes and colour scales are fixed.</p>
+</section>
+<section class="slide section" id="part-lines">
+  <p class="num">1</p>
+  <h2>Lines and cubes</h2>
+  <p>Which lines ALMA can see in each band, and what turns a spectrum into a cube.</p>
+</section>
+<section class="slide" id="lines" data-demo="lines">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>what lines ALMA sees</p><h2>Spectral lines in the ALMA bands</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Band 3 at z = 0 has CO 1–0, the dense-gas lines HCN, HCO⁺, N₂H⁺ 1–0 and the recombination lines H38α–H42α. At z = 4.5 [CII] is in Band 7, at z = 6.5 in Band 6. CO 5–4 (576 GHz) falls in the gap between Bands 8 and 9, where the atmosphere is opaque. The axis is fixed.</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Observed frequency = rest frequency / (1 + z)</b><span>shaded: Bands 3–10 (Band 1, 35–50 GHz, is off the left edge)</span></figcaption><canvas class="plot" style="aspect-ratio:3.05" data-k="ax"></canvas></figure>
+      <table class="t fam">
+        <tr><th>Family</th><th>Traces</th><th class="fam-h">In the band</th></tr>
+        <tr><td><i class="sw" style="background:var(--s1)"></i>Molecules</td><td>Cold molecular gas: mass (CO), dense gas and chemistry (HCN, HCO⁺, N₂H⁺, CS), motions.</td><td data-f="mol"></td></tr>
+        <tr><td><i class="sw" style="background:var(--s2)"></i>Atoms</td><td>[CI]: UV-lit cloud surfaces (PDRs). [CII], [NII], [OIII]: distant galaxies, only when redshifted.</td><td data-f="atom"></td></tr>
+        <tr><td><i class="sw" style="background:var(--s3)"></i>Hydrogen Hnα</td><td>Ionized gas near young massive stars. With the free-free (Part 4), the electron temperature.</td><td data-f="rrl"></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-check">
+  <p class="num">2</p>
+  <h2>Find and remove the continuum</h2>
+  <p>The line-free ranges from the pipeline (<code>hif_findcont</code>, <code>cont.dat</code>), then fit and subtract the continuum in those channels (<code>uvcontsub</code>). The other weblog pages are in Part 3.</p>
+</section>
+<section class="slide" id="findcont" data-demo="findcont">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_findcont · cont.dat</p><h2>hif_findcont: checking the line-free ranges</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Look for</b><span class="fc-say"></span></p>
+      <pre class="code tight fc-dat"></pre>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Spectrum of the source, spw 25</b><span>shaded: the cont.dat ranges</span></figcaption><canvas class="plot" style="aspect-ratio:3.3" data-k="spec"></canvas></figure>
+      <figure class="panel"><figcaption><b>After uvcontsub with these ranges, fitorder=1</b><span>dashed: the true line emission</span></figcaption><canvas class="plot" style="aspect-ratio:3.3" data-k="res"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="contsub" data-demo="contsub">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>uvcontsub · fitspec, fitorder (CASA ≥ 6.5)</p><h2>Removing the continuum: uvcontsub</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Start from the <code>cont.dat</code> ranges. If the fit windows touch the broad line's wings, the continuum is overestimated and the line gets negative dips. One narrow window on one side cannot constrain a slope. <code>fitorder=1</code> (or 0 with few line-free channels) is usually enough. CASA &lt; 6.5: the old <code>uvcontsub</code> with <code>fitspw</code> (writes <code>&lt;vis&gt;.contsub</code>), now <code>uvcontsub_old</code>.</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Spectrum and continuum fit</b><span>shaded: fitspec channels</span></figcaption><canvas class="plot" style="aspect-ratio:3.3" data-k="fit"></canvas></figure>
+      <figure class="panel"><figcaption><b>After subtraction</b><span>dashed: the true lines</span></figcaption><canvas class="plot" style="aspect-ratio:3.3" data-k="res"></canvas></figure>
+
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-set">
+  <p class="num">3</p>
+  <h2>Set once</h2>
+  <p>Cube parameters that follow from the data and the line. Set them once in your script.</p>
+</section>
+<section class="slide" id="setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>tclean, specmode='cube'</p><h2>Cube parameters set once</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td>the continuum-subtracted MS</td><td><code>outputvis</code> of <code>uvcontsub</code></td></tr>
+      <tr><td><code>imagename</code></td><td>line and grid, e.g. <code>'tgt_co21_0.5kms'</code></td><td>one cube per line and setup</td></tr>
+      <tr><td><code>field</code>, <code>spw</code></td><td>the target; the spw with the line</td><td>listobs; <code>cont.dat</code> is per spw</td></tr>
+      <tr><td><code>specmode</code></td><td><code>'cube'</code></td><td>one image per channel</td></tr>
+      <tr><td><code>restfreq</code></td><td>the line's rest frequency, e.g. <code>'230.538GHz'</code></td><td>defines 0 km/s (next slide)</td></tr>
+      <tr><td><code>outframe</code>, <code>veltype</code></td><td><code>'LSRK'</code>, <code>'radio'</code> (defaults)</td><td>tclean regrids every execution onto one LSRK grid</td></tr>
+      <tr><td><code>cell</code>, <code>imsize</code>, <code>robust</code></td><td>as in Part 4</td><td>the beam barely changes across one spw</td></tr>
+      <tr><td><code>restoringbeam</code></td><td><code>'common'</code></td><td>one beam in every channel</td></tr>
+      <tr><td><code>perchanweightdensity</code>, <code>weighting</code></td><td><code>True</code>, <code>'briggsbwtaper'</code></td><td>even noise from channel to channel (as in the pipeline)</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Rest frequency</h3><p>Copy all digits from Splatalogue. A 1 MHz error at 230 GHz shifts every velocity by 1.3 km/s, but the cube looks normal.</p></div>
+      <div class="card"><h3>Channel grid</h3><p>The log lists the central channel (frequency and velocity), the channel width and the number of channels. Check them before you clean 2000 channels.</p></div>
+      <div class="card"><h3>Primary beam correction</h3><p><code>pbcor=True</code> also writes <code>.image.pbcor</code> for fluxes. Inspect and clip the <code>.image</code> (flat noise).</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="doppler" data-demo="doppler">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>restfreq, veltype</p><h2>Rest frequency and velocity convention</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>The data hold CO 2–1. A rounded rest frequency (230.54, 230.5) shifts the line by 2.6 or 49 km/s, and the cube looks normal. With 13CO the line is near −13,800 km/s. Radio and optical <code>veltype</code> agree at 5 km/s and differ by ≈30 km/s at 3000 km/s (a galaxy). Keep the default <code>'radio'</code> and say so.</p>
+    </div>
+    <div class="stack">
+      <div class="eq">radio: v = c (ν₀ − ν) / ν₀ &nbsp;·&nbsp; optical: v = c (ν₀ − ν) / ν &nbsp;·&nbsp; Δv ≈ c Δν / ν</div>
+      <figure class="panel"><figcaption><b>The data's CO 2–1 line in your cube</b><span>dashed: true velocity</span></figcaption><canvas class="plot" style="aspect-ratio:4.2" data-k="ax"></canvas></figure>
+      <figure class="panel"><figcaption><b>Optical minus radio velocity for the same frequency</b><span>dot: this velocity</span></figcaption><canvas class="plot" style="aspect-ratio:4.2" data-k="vt"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-tune">
+  <p class="num">4</p>
+  <h2>Your choice</h2>
+  <p>The spectral grid, masks per channel, channel maps and moment maps.</p>
+</section>
+<section class="slide" id="chanwidth" data-demo="chanwidth">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>start, width, nchan</p><h2>Choosing the channel width</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Keep at least 3 channels across the line FWHM (<code>width</code> ≤ FWHM/3). Wider channels lose the peak and the profile shape. This line is 2.5 native channels wide, so keep the native width. The integrated flux S/N changes little. A <code>width</code> below the native spacing stops tclean with an error ("smaller than smallest original channel width").</p>
+    </div>
+    <figure class="panel"><figcaption><b>Spectrum of a cold-core line, FWHM 0.4 km/s</b><span>grey: true profile; native spacing 0.16 km/s</span></figcaption><canvas class="plot" style="aspect-ratio:1.5"></canvas></figure>
+  </div>
+</section>
+<section class="slide" id="cubemask" data-demo="cubemask">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>usemask in a cube</p><h2>Masking options for cubes</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Look at <b>Empty mask, per channel</b>. One region leaves ≈ 260 empty beams in every channel, where CLEAN can pick noise peaks. <code>auto-multithresh</code> makes a mask per channel from that channel's noise and follows the line (≈ 5 empty beams, 95% of the line flux). Masks by hand per channel (<code>iclean</code>, no viewer on macOS) work for 15 channels, not for 500. <code>'pb'</code> masks everything.</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:3">
+        <figure class="panel"><figcaption><b>Channel 19</b><span>4.9 km/s</span></figcaption><canvas class="img" data-k="c0"></canvas></figure>
+        <figure class="panel"><figcaption><b>Channel 24</b><span>6.1 km/s (systemic)</span></figcaption><canvas class="img" data-k="c1"></canvas></figure>
+        <figure class="panel"><figcaption><b>Channel 29</b><span>7.4 km/s</span></figcaption><canvas class="img" data-k="c2"></canvas></figure>
+      </div>
+      <p class="try">Green: the mask CLEAN may work in. Same colour scale in all three channels (−12 to 68 mJy/beam), as in the channel-map slide.</p>
+      <div class="grid2">
+        <div class="card"><h3>Stopping per channel</h3><p><code>nsigma=3</code> stops each channel at 3× its own rms, also the noisier ones near atmospheric lines (Backup: threshold vs nsigma).</p></div>
+        <div class="card"><h3>Absorption</h3><p><code>auto-multithresh</code> ignores negative emission when <code>negativethreshold=0</code> (default). The pipeline uses 15 for cubes (only absorption deeper than 15σ). Lower it (e.g. 5) if you expect real absorption.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="chanmaps" data-demo="chanmaps">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>CARTA · spectral profiler</p><h2>Channel maps and the spectral profile</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Step through the channels. The emission moves from one side of the disk to the other (a "butterfly"). Near the systemic velocity (6 km/s) it lies along the minor axis. At high velocities it is compact, near the star. Click the map for the spectrum of one pixel (in CARTA: the spectral profiler, for a pixel or a region). Same colour scale in every channel.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b class="vlab">Channel map</b><span class="pix">click for a spectrum</span></figcaption><canvas class="img cb" data-k="map"></canvas></figure>
+      <figure class="panel"><figcaption><b>Spectrum at the clicked pixel</b><span>line: current channel</span></figcaption><canvas class="plot" data-k="spec"></canvas></figure>
+      <figure class="panel"><figcaption><b>Spectrum of the whole disk</b><span>Jy, summed within 3.2″ of the star</span></figcaption><canvas class="plot" data-k="tot"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="moments" data-demo="moments">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>immoments · moments, includepix, chans</p><h2>Moment maps and clipping</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Without clipping, moments 1 and 2 are dominated by noise. At 3σ they are less noisy, but moment 0 loses the faint outer disk and its total flux drops. Moment 8 (peak) is robust and good for a first look. Colour scales are fixed, so moment 0 fades as you clip.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Moment 0</b><span>integrated intensity</span></figcaption><canvas class="img short" data-k="m0"></canvas></figure>
+      <figure class="panel"><figcaption><b>Moment 1</b><span>intensity-weighted velocity</span></figcaption><canvas class="img short" data-k="m1"></canvas></figure>
+      <figure class="panel"><figcaption><b>Moment 2</b><span>velocity dispersion</span></figcaption><canvas class="img short" data-k="m2"></canvas></figure>
+      <figure class="panel"><figcaption><b>Moment 8</b><span>peak intensity</span></figcaption><canvas class="img short" data-k="m8"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-verify">
+  <p class="num">5</p>
+  <h2>Is the cube right?</h2>
+  <p>Common issues with line imaging, and three example calls for your own cube.</p>
+</section>
+<section class="slide" id="pitfalls">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>caution</p><h2>Common issues in line imaging</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>Line in the continuum</h3><p>Lines left inside the continuum selection leak into the continuum image and are oversubtracted from the cube. After <code>uvcontsub</code>, <code>plotms</code> amplitude vs channel should scatter around zero away from the lines.</p></div>
+    <div class="card"><h3>Wrong rest frequency</h3><p>The cube looks fine but every velocity is shifted. Copy rest frequencies from Splatalogue with all digits. 1 MHz at 230 GHz is 1.3 km/s.</p></div>
+    <div class="card"><h3>Channels narrower than native</h3><p>No new information and correlated noise. The rms per channel and line S/N are misleading.</p></div>
+    <div class="card"><h3>Per-channel beams</h3><p>Moments of a cube without a common beam mix resolutions. Use <code>restoringbeam='common'</code> or <code>imsmooth</code>.</p></div>
+    <div class="card"><h3>Jy/beam vs K</h3><p>Convert with the beam and frequency (<code>imhead</code>, or CARTA). Brightness temperature comparisons need the same beam.</p></div>
+    <div class="card"><h3>Clipped moments</h3><p>Moment 0 fluxes from clipped maps are biased low. Measure fluxes from the cube, in a mask, or from unclipped moment 0 over the line channels.</p></div>
+  </div>
+</section>
+<section class="slide" id="takeaway">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>reference starting point</p><h2>Three calls to start a line cube from</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="c"># 1. continuum subtraction (CASA ≥ 6.5); ranges from the hif_uvcontsub log</span>
+<span class="f">uvcontsub</span>(<span class="k">vis</span>=<span class="s">'target.ms'</span>, <span class="k">outputvis</span>=<span class="s">'target_line.ms'</span>,
+          <span class="k">field</span>=<span class="s">'TARGET'</span>, <span class="k">spw</span>=<span class="em">'25'</span>,     <span class="c"># only the spw you image</span>
+          <span class="k">fitspec</span>=<span class="em">'25:20~505;590~1050;1120~1899'</span>, <span class="k">fitorder</span>=<span class="em">1</span>)
+<span class="c"># 2. the cube; spw 25: 1920 ch × 0.98 MHz = 1.27 km/s; cell, imsize from Part 4</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'target_line.ms'</span>, <span class="k">imagename</span>=<span class="s">'target_co21'</span>,
+       <span class="k">field</span>=<span class="s">'TARGET'</span>, <span class="k">spw</span>=<span class="s">'25'</span>, <span class="k">specmode</span>=<span class="s">'cube'</span>,
+       <span class="k">restfreq</span>=<span class="em">'230.538GHz'</span>, <span class="k">outframe</span>=<span class="s">'LSRK'</span>, <span class="k">veltype</span>=<span class="s">'radio'</span>,
+       <span class="k">start</span>=<span class="em">'-63km/s'</span>, <span class="k">width</span>=<span class="em">'1.3km/s'</span>, <span class="k">nchan</span>=<span class="em">104</span>,  <span class="c"># line: −49 to +56 km/s</span>
+       <span class="k">gridder</span>=<span class="s">'standard'</span>, <span class="k">cell</span>=<span class="s">'0.06arcsec'</span>, <span class="k">imsize</span>=<span class="s">640</span>,
+       <span class="k">weighting</span>=<span class="s">'briggsbwtaper'</span>, <span class="k">robust</span>=<span class="s">0.5</span>,
+       <span class="k">niter</span>=<span class="s">100000</span>, <span class="k">nsigma</span>=<span class="em">3.0</span>,    <span class="c"># each channel stops at 3σ</span>
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,    <span class="c"># as Part 4, b75 300–400 m:</span>
+       <span class="k">sidelobethreshold</span>=<span class="em">2.0</span>, <span class="k">noisethreshold</span>=<span class="em">5.0</span>,
+       <span class="k">lownoisethreshold</span>=<span class="em">1.5</span>, <span class="k">minbeamfrac</span>=<span class="em">0.3</span>,
+       <span class="k">restoringbeam</span>=<span class="em">'common'</span>, <span class="k">pbcor</span>=<span class="s">True</span>)
+<span class="c"># 3. moment 0 (flux) from .pbcor; clipped moments from .image (flat noise)</span>
+<span class="f">immoments</span>(<span class="k">imagename</span>=<span class="s">'target_co21.image.pbcor'</span>, <span class="k">moments</span>=<span class="s">[0]</span>,
+          <span class="k">chans</span>=<span class="em">'11~92'</span>, <span class="k">outfile</span>=<span class="s">'target_co21.mom0.pbcor'</span>)
+<span class="f">immoments</span>(<span class="k">imagename</span>=<span class="s">'target_co21.image'</span>, <span class="k">moments</span>=<span class="s">[1]</span>,
+          <span class="k">chans</span>=<span class="em">'11~92'</span>, <span class="k">includepix</span>=<span class="em">[0.012, 1e9]</span>,  <span class="c"># 3σ, σ = 4 mJy/beam</span>
+          <span class="k">outfile</span>=<span class="s">'target_co21.mom1'</span>)</pre>
+    <div class="stack">
+      <table class="t">
+        <tr><td><code>fitspec</code></td><td>from the <code>hif_uvcontsub</code> log, or <code>cont.dat</code> converted to channels in plotms (LSRK). Check by eye.</td></tr>
+        <tr><td><code>width</code></td><td>≥ native spacing (here 1.27 km/s); ≤ FWHM/3, so ≥ 3 channels across the line</td></tr>
+        <tr><td><code>start</code>, <code>nchan</code></td><td>the line plus ≥ 10 line-free channels on each side</td></tr>
+        <tr><td><code>nsigma</code></td><td>3; auto-multithresh with the Part 4 values for your b75; <code>negativethreshold=15</code> (pipeline; e.g. 5 for real absorption)</td></tr>
+        <tr><td><code>weighting</code></td><td><code>'briggsbwtaper'</code>, <code>robust=0.5</code> (Part 4)</td></tr>
+        <tr><td>moment 0</td><td>from the pbcor cube, no clip, <code>chans</code> = the line channels</td></tr>
+        <tr><td>moments 1, 2</td><td>from the <code>.image</code>, <code>includepix=[3σ, 1e9]</code>, σ from <code>imstat</code> on line-free channels</td></tr>
+        <tr><td>Done when</td><td>rms per channel ≈ expected; line-free channels look like noise</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="follow">
+  <p class="num">6</p>
+  <h2>Follow along</h2>
+  <p>TW Hya, N₂H⁺ 4–3 (rest 372.67249 GHz), in <code>First_Look_at_Line_Imaging_CASA_6.7.4.ipynb</code>, five steps from the spectrum to a cube in CARTA. Open it next to the slides.</p>
+</section>
+<section class="slide" id="fa-data">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 1 · the data and its spectrum</p><h2>Amplitude vs channel: finding the line</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="c"># TW Hya after self-calibration; the target is field 5</span>
+<span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>,
+        <span class="k">listfile</span>=<span class="s">'twhya_selfcal_listobs.txt'</span>)
+
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>, <span class="k">field</span>=<span class="em">'5'</span>,
+       <span class="k">xaxis</span>=<span class="em">'channel'</span>, <span class="k">yaxis</span>=<span class="em">'amp'</span>,
+       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=<span class="s">True</span>,   <span class="c"># all times</span>
+       <span class="k">avgbaseline</span>=<span class="s">True</span>,              <span class="c"># all baselines</span>
+       <span class="k">avgspw</span>=<span class="s">False</span>)
+
+<span class="c"># then xaxis='frequency': the same spectrum in GHz</span></pre>
+    <div class="stack">
+      <div class="card"><h3>What you should see</h3><ul><li>One spectral window (spw 0) with 384 channels, around N₂H⁺ 4–3.</li><li>A flat level: the disk's dust continuum, the "blob" you imaged in Part 4.</li><li>The line, near channels 240–280. Everything else is line-free (keep a margin on both sides).</li></ul></div>
+      <p class="try"><b>Demo</b>Part 5 · <a href="#findcont">line-free ranges</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-contsub">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 2 · subtract the continuum</p><h2>Continuum subtraction and check</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="f">uvcontsub</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
+          <span class="k">fitspec</span>=<span class="em">'0:0~239;281~383'</span>,  <span class="c"># not 240~280</span>
+          <span class="k">fitorder</span>=<span class="em">0</span>,                 <span class="c"># a flat continuum</span>
+          <span class="k">outputvis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>)
+
+<span class="c"># check: the same plot on the new MS</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="em">'twhya_selfcal.ms.contsub'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
+       <span class="k">xaxis</span>=<span class="s">'frequency'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>,
+       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=<span class="s">True</span>,
+       <span class="k">avgbaseline</span>=<span class="s">True</span>, <span class="k">avgspw</span>=<span class="s">False</span>)</pre>
+    <div class="stack">
+      <div class="card"><h3>What you should see</h3><ul><li>The line-free channels drop to a small level near zero (plotms shows amplitudes, and noise does not average to 0).</li><li>Only the N₂H⁺ line is left, with the same shape as before.</li><li><code>fitorder=0</code> is enough. Across this 234 MHz spw a dust spectrum (S ∝ ν<sup>2.5</sup>) changes by 0.16%.</li><li>CASA ≥ 6.5 uses <code>fitspec</code>. Old scripts use <code>fitspw</code> (now <code>uvcontsub_old</code>). Only <code>uvcontsub_old</code> can fit several spws together.</li></ul></div>
+      <p class="try"><b>Demo</b>Part 5 · <a href="#contsub">continuum subtraction</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-tclean">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 3 · the cube</p><h2>specmode='cube': 15 channels of 0.5 km/s</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>,
+       <span class="k">imagename</span>=<span class="s">'twhya_n2hp'</span>, <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">spw</span>=<span class="s">'0'</span>,
+       <span class="k">specmode</span>=<span class="em">'cube'</span>,
+       <span class="k">restfreq</span>=<span class="em">'372.67249GHz'</span>, <span class="k">outframe</span>=<span class="s">'LSRK'</span>,
+       <span class="k">start</span>=<span class="em">'0.0km/s'</span>, <span class="k">width</span>=<span class="em">'0.5km/s'</span>, <span class="k">nchan</span>=<span class="em">15</span>,
+       <span class="k">perchanweightdensity</span>=<span class="s">True</span>, <span class="k">weighting</span>=<span class="s">'briggsbwtaper'</span>,
+       <span class="k">robust</span>=<span class="s">0.5</span>, <span class="k">imsize</span>=<span class="s">[250, 250]</span>, <span class="k">cell</span>=<span class="s">'0.1arcsec'</span>,
+       <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>, <span class="k">niter</span>=<span class="s">5000</span>,
+       <span class="k">usemask</span>=<span class="em">'auto-multithresh'</span>,      <span class="c"># a mask per channel</span>
+       <span class="k">noisethreshold</span>=<span class="s">4.25</span>, <span class="k">sidelobethreshold</span>=<span class="s">2.0</span>,
+       <span class="k">lownoisethreshold</span>=<span class="s">1.5</span>, <span class="k">minbeamfrac</span>=<span class="s">0.3</span>,
+       <span class="k">negativethreshold</span>=<span class="s">15.0</span>,          <span class="c"># pipeline value</span>
+       <span class="k">restoringbeam</span>=<span class="em">'common'</span>)</pre>
+    <div class="stack">
+      <div class="card"><h3>What you should see</h3><ul><li>The log lists the grid as centre 3500 m/s, width 500 m/s, 15 channels: 0.0 to 7.0 km/s (LSRK). Check it before cleaning.</li><li>TW Hya is at about 2.8 km/s. The line is in channels 5–7 (2.5–3.5 km/s).</li><li>Seven products: <code>.image</code>, <code>.residual</code>, <code>.model</code>, <code>.mask</code>, <code>.psf</code>, <code>.pb</code>, <code>.sumwt</code> (the notebook plots the first six). One beam for all channels.</li></ul></div>
+      <p class="try"><b>Demo</b>Part 5 · <a href="#setonce">set once</a> · <a href="#doppler">restfreq</a> · <a href="#cubemask">masks per channel</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-chans">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 4 · the channel maps</p><h2>Channels 5, 6 and 7 on one colour scale</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="c"># channels 5, 6, 7 = 2.5, 3.0, 3.5 km/s</span>
+vmax = <span class="f">imstat</span>(<span class="s">'twhya_n2hp.image'</span>)[<span class="s">'max'</span>][0]
+<span class="k">for</span> ch <span class="k">in</span> [<span class="em">5</span>, <span class="em">6</span>, <span class="em">7</span>]:
+    <span class="f">quicklook</span>(<span class="s">'twhya_n2hp.image'</span>, <span class="k">chan</span>=ch, <span class="k">zoom</span>=<span class="s">40</span>,
+              <span class="k">vmin</span>=<span class="em">-0.2 * vmax</span>, <span class="k">vmax</span>=<span class="em">vmax</span>)
+
+<span class="c"># and every product of channel 5</span>
+<span class="k">for</span> ext <span class="k">in</span> [<span class="s">'image'</span>, <span class="s">'residual'</span>, <span class="s">'model'</span>,
+            <span class="s">'mask'</span>, <span class="s">'psf'</span>, <span class="s">'pb'</span>]:
+    <span class="f">quicklook</span>(f<span class="s">'twhya_n2hp.{ext}'</span>, <span class="k">chan</span>=<span class="s">5</span>)</pre>
+    <div class="stack">
+      <div class="card"><h3>What you should see</h3><ul><li>One colour scale for the whole cube.</li><li>TW Hya is almost face-on (i ≈ 5–7°). The emission hardly moves between channels (no butterfly as in the 40° demo).</li><li>The mask covers the emission in channels 5 and 7. Channel 6 has none (auto-multithresh pruned it), so it is not cleaned and looks fainter. The residual looks like noise inside and outside it (dirty vs residual: <a href="04_continuum_imaging.html#cleanstep">Part 4 · CLEAN step</a>).</li></ul></div>
+      <p class="try"><b>Demo</b>Part 5 · <a href="#chanmaps">channel maps</a> · <a href="#cubemask">masks per channel</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-export">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 5 · experiment, export, CARTA</p><h2>Experiments and export to CARTA</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="c"># the step-3 call with one change, under a new name</span>
+<span class="f">tclean</span>(... <span class="k">imagename</span>=<span class="s">'twhya_n2hp_experiment1'</span>,
+       <span class="k">deconvolver</span>=<span class="em">'asp'</span>)   <span class="c"># or nchan, width</span>
+
+<span class="c"># for fluxes: primary beam correction (not in the notebook)</span>
+<span class="f">impbcor</span>(<span class="k">imagename</span>=<span class="s">'twhya_n2hp.image'</span>,
+        <span class="k">pbimage</span>=<span class="s">'twhya_n2hp.pb'</span>,
+        <span class="k">outfile</span>=<span class="s">'twhya_n2hp.pbcor.image'</span>)
+<span class="c"># the notebook exports .image (flat noise, for looking);</span>
+<span class="c"># export .pbcor.image the same way for fluxes</span>
+<span class="f">exportfits</span>(<span class="k">imagename</span>=<span class="s">'twhya_n2hp.image'</span>,
+           <span class="k">fitsimage</span>=<span class="s">'twhya_n2hp.image.fits'</span>,
+           <span class="k">velocity</span>=<span class="em">True</span>, <span class="k">overwrite</span>=<span class="s">True</span>)</pre>
+    <div class="stack">
+      <div class="card"><h3>What you should see</h3><ul><li>hogbom vs asp, channel 5, same colour scale. The restored maps are close. The differences are in the model and the residual.</li><li>A wider <code>width</code>: less noise per channel (rms ∝ 1/√width), but a coarser line.</li><li>Fewer channels (<code>nchan</code>) at the same width: same noise, less velocity range. Check that the line and some line-free channels still fit.</li><li><code>velocity=True</code> writes the spectral axis as radio velocity (m/s in the FITS header; CARTA shows km/s). In CARTA: step through the channels, draw a region, open the spectral profiler.</li></ul></div>
+      <p class="try"><b>Demo</b>Part 5 · <a href="#chanwidth">start, width, nchan</a> · <a href="#chanmaps">spectral profile</a> · <a href="#moments">moments</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">7</p>
+  <h2>Backup</h2>
+  <p>Slides cut to fit the 30-minute slot: what a cube adds, spectral response, Doppler setting, the weblog pages for lines, threshold vs nsigma, PV diagrams, defaults to leave alone, a checklist and a quiz.</p>
+</section>
+<section class="slide" id="whatchanges" data-demo="cubeArt">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>what a cube is</p><h2>What a cube adds</h2></header>
+  <div class="cols">
+    <canvas class="plot" style="aspect-ratio:1.25" aria-label="Channel maps of a rotating disk stacked as a cube"></canvas>
+    <div class="stack">
+      <table class="t kind">
+        <tr><th>Decision</th><th>Where</th><th>Kind</th></tr>
+        <tr><td>Channel spacing, resolution</td><td>correlator setup</td><td><span class="tag fixed">Fixed by the observation</span></td></tr>
+        <tr><td>Which line, which velocity</td><td><code>restfreq</code>, <code>veltype</code></td><td><span class="tag fixed">Set once</span></td></tr>
+        <tr><td>In which frame</td><td><code>outframe='LSRK'</code></td><td><span class="tag fixed">Set once</span></td></tr>
+        <tr><td>Remove the continuum</td><td><code>uvcontsub</code>: <code>fitspec</code>, <code>fitorder</code></td><td><span class="tag choice">Your choice</span></td></tr>
+        <tr><td>The spectral grid</td><td><code>start</code>, <code>width</code>, <code>nchan</code></td><td><span class="tag choice">Your choice</span></td></tr>
+        <tr><td>Clean every channel</td><td><code>nsigma</code>, auto-multithresh</td><td><span class="tag choice">Your choice</span></td></tr>
+        <tr><td>One beam for all channels</td><td><code>restoringbeam='common'</code></td><td><span class="tag fixed">Set once</span></td></tr>
+        <tr><td>Reduce the cube</td><td><code>immoments</code>, <code>impv</code></td><td><span class="tag choice">Your choice</span></td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="slide" id="srf" data-demo="srf">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>spectral setup · channel spacing vs resolution</p><h2>Channel spacing and spectral resolution</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>With no online averaging, Hanning smoothing makes the resolution twice the channel spacing and correlates neighbours. Averaging 2 or 4 channels makes the response close to a box of the new width. This is fixed by the observation setup. In tclean you can only average further (<code>width</code>: the <a href="#chanwidth">channel-width slide</a>).</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Response of one output channel</b><span>in native channel units</span></figcaption><canvas class="plot sq"></canvas></figure>
+      <figure class="panel"><figcaption><b>A narrow line, as observed</b><span>grey: the true line</span></figcaption><canvas class="plot sq"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="frames" data-demo="frames">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>spectral frames · outframe</p><h2>Doppler setting: TOPO and LSRK</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Move execution 2 a few months away from execution 1. ALMA does not Doppler-track. At the start of each execution it tunes so the line falls near the same channel, then keeps the TOPO frequencies fixed. The executions then have different channel frequencies. On one TOPO axis (left) the lines are up to ~45 km/s apart. Regridded to LSRK (right) they line up. tclean does this with <code>outframe='LSRK'</code> (default).</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Earth's velocity toward TW Hya through the year</b><span>dots: the two executions</span></figcaption><canvas class="plot" style="aspect-ratio:3.4" data-k="year"></canvas></figure>
+      <div class="panels" style="--cols:2">
+        <figure class="panel"><figcaption><b>As observed (TOPO)</b><span>grey: both added on one TOPO axis</span></figcaption><canvas class="plot" data-k="topo"></canvas></figure>
+        <figure class="panel"><figcaption><b>Regridded to LSRK</b><span>grey: one line</span></figcaption><canvas class="plot" data-k="lsrk"></canvas></figure>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="weblog-lines">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>the pipeline weblog, for lines</p><h2>Weblog pages for cubes</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Weblog page</th><th>Look at</th><th>You need it for</th></tr>
+      <tr><td><code>hifa_imageprecheck</code></td><td>beam and predicted rms for several <code>robust</code></td><td>the noise your cube should reach</td></tr>
+      <tr><td><code>hif_findcont</code></td><td>per spw: spectrum, chosen line-free ranges, atmosphere</td><td><code>fitspec</code> (<a href="#findcont">the findcont slide</a>)</td></tr>
+      <tr><td><code>hif_uvcontsub</code></td><td>ranges and fit order used (older: <code>hif_uvcontfit</code>)</td><td>its CASA log: the <code>uvcontsub</code> call, ranges per MS</td></tr>
+      <tr><td><code>hif_selfcal</code></td><td>self-cal applied to this target? (Pass/Fail)</td><td>if yes, the weblog cubes are less noisy than yours until you apply it (Part 6)</td></tr>
+      <tr><td><code>hif_makeimlist</code> (cube)</td><td><code>robust</code>, <code>nbins</code> (binned channels; <code>hif_checkproductsize</code>)</td><td>why a weblog cube may be coarser than native</td></tr>
+      <tr><td><code>hif_makeimages</code> (cube)</td><td>beam, rms, peak; mom8 and line-free mom8_fc previews</td><td>where the lines are; mom8_fc: little or no emission. Its log has the <code>tclean</code> call</td></tr>
+    </table></div>
+    <div class="stack">
+<pre class="code tight"><span class="c"># cont.dat, in the delivery</span>
+Field: TARGET
+
+SpectralWindow: 25
+230.0195~230.4941GHz LSRK
+230.5762~231.0264GHz LSRK
+231.0938~231.8555GHz LSRK</pre>
+      <div class="card"><h3>Reading cont.dat</h3><p>Line-free ranges per field and spw, in LSRK. The gaps are the lines. The MS is in TOPO, so you need channels. Copy them from the <code>hif_uvcontsub</code> log, or in plotms set Transform › Frame = LSRK, plot amp vs frequency, then switch the x-axis to channel.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="cubeclean" data-demo="cuberms">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>threshold, nsigma in cubes</p><h2>Stopping criteria in cubes</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Set <code>nsigma=0</code> and <code>threshold='9mJy'</code>. Quiet channels stop at 3σ, but the ozone and edge channels are cleaned into the noise. With <code>nsigma=3</code> every channel stops at 3× its own rms. Then add <code>threshold='15mJy'</code>, which sets a floor where it is higher.</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Per-channel rms of one cube, and where CLEAN stops</b><span>stop = max(threshold, nsigma × rms)</span></figcaption><canvas class="plot" style="aspect-ratio:2.5"></canvas></figure>
+      <div class="grid2">
+        <div class="card"><h3>Auto-multithresh in a cube</h3><p>The mask is built channel by channel, from that channel's noise. For absorption against continuum, auto-multithresh needs <code>negativethreshold</code> &gt; 0 (default 0; pipeline 15; e.g. 5 for real absorption).</p></div>
+        <div class="card"><h3>Big cubes</h3><p>Image only the channels you need (<code>start</code>, <code>nchan</code>). On a cluster: <code>parallel=True</code> with <code>mpicasa</code>.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="pv" data-demo="pv">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>impv · pa</p><h2>Position–velocity diagrams</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Rotate the cut away from the major axis and the Keplerian "butterfly" collapses. Along the major axis, fit the model mass to the emission edge to get the dynamical mass (times sin² i).</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Position–velocity diagram</b><span>lines: Keplerian model</span></figcaption><canvas class="img" data-k="pv"></canvas></figure>
+      <figure class="panel"><figcaption><b>Peak intensity (moment 8)</b><span>line: the cut</span></figcaption><canvas class="img short" data-k="m8"></canvas></figure>
+      <figure class="panel"><figcaption><b>Rotation curve</b><span>v sin i vs radius</span></figcaption><canvas class="plot" data-k="rc"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="leave">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Leave at default</span>for now</p><h2>Cube parameters to leave at default</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Default</th><th>When it is worth changing</th></tr>
+      <tr><td><code>interpolation</code></td><td><code>'linear'</code></td><td>Rarely. Sets how channels are regridded to LSRK and your <code>width</code>. <code>'linear'</code> suits most data.</td></tr>
+      <tr><td><code>specmode='cubesource'</code></td><td><code>'cube'</code></td><td>Solar-system targets that move on the sky (ephemeris).</td></tr>
+      <tr><td><code>specmode='cubedata'</code></td><td><code>'cube'</code></td><td>No frame conversion: channels stay in TOPO. For tests, not for science cubes.</td></tr>
+      <tr><td><code>start</code>, <code>width</code> in GHz or channels</td><td><code>''</code> (the native grid)</td><td>We use km/s (needs <code>restfreq</code>). GHz or channels suit spectral scans.</td></tr>
+      <tr><td><code>chanchunks</code></td><td>1 (older CASA; −1 = auto)</td><td>Removed from current tclean, which splits big cubes. Ignore it in old scripts.</td></tr>
+      <tr><td><code>fastnoise</code></td><td><code>True</code></td><td><code>False</code> estimates the rms outside the mask. Slower, better when emission fills a channel.</td></tr>
+      <tr><td><code>fitorder</code> ≥ 2 (uvcontsub)</td><td>0</td><td>We use 1. ≥ 2 only for a curved continuum over a wide spw with many line-free channels.</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Note</h3><p>Change one parameter at a time, only when the cube shows a problem it addresses.</p></div>
+      <div class="card"><h3>Make a test cube first</h3><p>Try a new setting on a few channels around the line (<code>start</code>, <code>nchan</code>), not on the whole spw.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="checklist">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>every cube</p><h2>Cube checklist</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>Before imaging</h3><ul><li>Line-free ranges checked by eye: <code>cont.dat</code> against the weblog spectrum, and the subtracted data in plotms.</li><li>Rest frequency from Splatalogue. <code>width</code> ≥ the native spacing.</li><li>Expected rms per channel from the weblog, scaled by √(weblog width / your width). Within 1–2 native channels the gain is smaller (correlated channels).</li></ul></div>
+    <div class="card"><h3>After cleaning</h3><ul><li>rms per channel (<code>imstat</code> on line-free channels) close to expected.</li><li>The first and last channels are line-free (the whole line is in the cube).</li><li>The mask follows the emission in each channel, and the residual looks like noise.</li></ul></div>
+    <div class="card"><h3>Moments</h3><ul><li>Clip on the <code>.image</code> (flat noise), not on <code>.image.pbcor</code>.</li><li>Fluxes from the pbcor cube in a mask, or from an unclipped moment 0 of the pbcor cube over the line channels.</li><li>Write down the clip level and the channel range you used.</li></ul></div>
+    <div class="card"><h3>Keep</h3><ul><li>The <code>uvcontsub</code>, <code>tclean</code> and <code>immoments</code> calls in a script.</li><li><code>exportfits</code> the cube, pbcor cube and moments you publish.</li><li>Report <code>restfreq</code>, frame, <code>veltype</code> and <code>width</code> with your results.</li></ul></div>
+  </div>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>questions</p><h2>Four questions before the hands-on session</h2></header>
+  <ol class="quiz">
+    <li>Your spw has 3840 channels of 122 kHz at 230 GHz. What is the channel spacing in km/s, and roughly the spectral resolution?<details><summary>Answer</summary>Δv = c·Δν/ν ≈ 3×10⁵ × 0.122/230000 ≈ 0.16 km/s. With Hanning smoothing and no online averaging the resolution is ≈2× that, 0.32 km/s. So <code>width='0.16km/s'</code> is the finest grid tclean accepts.</details></li>
+    <li>The weblog's mom8_fc preview of your spw 25 cube shows the disk. What went wrong, and what do you change?<details><summary>Answer</summary>Line emission is in channels that <code>cont.dat</code> calls line-free. It was fitted as continuum, so the continuum image is contaminated and the cube lost flux. Cut those channels out of <code>fitspec</code>, rerun <code>uvcontsub</code>, and reimage both.</details></li>
+    <li>Your continuum-subtracted cube shows negative dips on both sides of a broad line. Cause?<details><summary>Answer</summary>The <code>fitspec</code> ranges included the line wings, so the continuum was overestimated there. Widen the excluded range around the line.</details></li>
+    <li>Moment 0 with <code>includepix=[3σ, 1e9]</code> gives 20% less flux than the cube spectrum. Which is right?<details><summary>Answer</summary>The cube spectrum (in a mask or aperture). Clipping removes the faint emission below 3σ in each channel, and that adds up. Make moment 0 without clipping, over the line channels only.</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const CKMS = 299792.458;
+
+/* ---- a Keplerian disk observed in CO: cube in Jy/beam, beam-convolved, with correlated noise ---- */
+const DISK0 = { N: 128, cell: 0.05, nchan: 48, v0: 0.125, dv: 0.25, vsys: 6.0, mstar: 1.0, dist: 140, inc: 40, pa: 130, rout: 380,
+  sigv: 0.18, beam: { maj: 0.32, min: 0.27, pa: 20 }, rms: 4e-3, flux: 6.0, seed: 3 };
+function keplerCube(o) {
+  const N = o.N, h = N / 2, cell = o.cell, pa = o.pa * S.DEG, sp = Math.sin(pa), cp = Math.cos(pa), ci = Math.cos(o.inc * S.DEG), si = Math.sin(o.inc * S.DEG);
+  const vlos = new Float64Array(N * N), I = new Float64Array(N * N);
+  let Itot = 0;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = (x - h) * cell, dy = (y - h) * cell, a = dx * sp + dy * cp, b = (dx * cp - dy * sp) / ci;
+    const r = Math.max(Math.hypot(a, b) * o.dist, 4), i = y * N + x;
+    vlos[i] = o.vsys + 29.78 * Math.sqrt(o.mstar / r) * si * (a * o.dist / r);
+    I[i] = Math.pow(r / 50, -0.6) * Math.exp(-Math.pow(r / o.rout, 4));
+    Itot += I[i];
+  }
+  const vel = new Float64Array(o.nchan), cube = new Float32Array(N * N * o.nchan), sig = Math.sqrt(o.sigv * o.sigv + o.dv * o.dv / 12);
+  const kern = S.gaussKernel(N, cell, o.beam), KF = S.kernelFT(kern, N);
+  let k2 = 0; for (let i = 0; i < N * N; i++) k2 += kern[i] * kern[i];
+  const r = S.rng(o.seed), nsc = o.rms / Math.sqrt(k2), norm = o.flux / (Itot * o.dv) * o.dv / (sig * Math.sqrt(2 * Math.PI));
+  const ch = new Float64Array(N * N);
+  for (let c = 0; c < o.nchan; c++) {
+    const v = o.v0 + c * o.dv; vel[c] = v;
+    for (let i = 0; i < N * N; i++) { const d = (v - vlos[i]) / sig; ch[i] = norm * I[i] * Math.exp(-0.5 * d * d) + nsc * r.normal(); }
+    const im = S.convolveFT(ch, KF, N);
+    cube.set(im, c * N * N);
+  }
+  return { cube, vel, N, cell, nchan: o.nchan, beam: o.beam, rms: o.rms, o, vlos };
+}
+const cubeFor = o => K.memo('cube:' + JSON.stringify(o), () => keplerCube(o));
+function moments(C, clip, c0, c1) {
+  const N = C.N, NN = N * N, m0 = new Float64Array(NN), m1 = new Float64Array(NN), m2 = new Float64Array(NN), m8 = new Float64Array(NN).fill(-Infinity), thr = clip * C.rms;
+  for (let c = c0; c <= c1; c++) {
+    const off = c * NN, v = C.vel[c];
+    for (let i = 0; i < NN; i++) { const val = C.cube[off + i]; if (val > m8[i]) m8[i] = val; if (clip > 0 && val < thr) continue; m0[i] += val; m1[i] += val * v; }
+  }
+  for (let i = 0; i < NN; i++) m1[i] = m0[i] > 0 ? m1[i] / m0[i] : NaN;
+  for (let c = c0; c <= c1; c++) {
+    const off = c * NN, v = C.vel[c];
+    for (let i = 0; i < NN; i++) { const val = C.cube[off + i]; if (clip > 0 && val < thr) continue; if (m1[i] === m1[i]) m2[i] += val * (v - m1[i]) * (v - m1[i]); }
+  }
+  for (let i = 0; i < NN; i++) { m2[i] = m0[i] > 0 && m2[i] > 0 ? Math.sqrt(m2[i] / m0[i]) : NaN; m0[i] *= C.vel[1] - C.vel[0]; }
+  return { m0, m1, m2, m8 };
+}
+
+window.DEMOS = {
+  titleArt(s) {
+    const C = cubeFor(DISK0), M = moments(C, 4, 0, C.nchan - 1), m1 = M.m1.map((v, i) => (M.m0[i] > 0.015 ? v : NaN));
+    V.image($(s, 'canvas'), m1, C.N, { cell: C.cell, axes: false, frame: false, cmap: 'rdbu', vmin: C.o.vsys - 4, vmax: C.o.vsys + 4, smooth: true });
+  },
+
+  cubeArt(s) {
+    const C = cubeFor(DISK0), cv = $(s, 'canvas'), N = C.N;
+    const draw = () => {
+      const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight; if (!w) return;
+      cv.width = w * dpr; cv.height = h * dpr; const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+      const chans = [12, 16, 20, 24, 28, 32, 36], sz = Math.min(w, h) * 0.6, off = document.createElement('canvas'); off.width = off.height = N;
+      const octx = off.getContext('2d'), L = [], LUT = V.lut('inferno');
+      chans.forEach((c, j) => {
+        const id = octx.createImageData(N, N), base = c * N * N, vmax = 0.075;
+        for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+          const val = C.cube[base + (N - 1 - y) * N + (N - 1 - x)], t = Math.max(0, Math.min(1, val / vmax)), p = (y * N + x) * 4, li = Math.round(Math.sqrt(t) * 255) * 3;
+          id.data[p] = LUT[li]; id.data[p + 1] = LUT[li + 1]; id.data[p + 2] = LUT[li + 2]; id.data[p + 3] = 240;
+        }
+        octx.putImageData(id, 0, 0);
+        const X = w * 0.02 + j * (w * 0.5 / chans.length), Y = h * 0.58 - j * (h * 0.4 / chans.length);
+        ctx.save(); ctx.translate(X, Y); ctx.transform(1, -0.32, 0.55, 0.55, 0, 0);
+        ctx.drawImage(off, 0, 0, sz, sz); ctx.strokeStyle = V.css('--axis'); ctx.lineWidth = 1; ctx.strokeRect(0, 0, sz, sz); ctx.restore();
+        L.push([X, Y, C.vel[c]]);
+      });
+      ctx.fillStyle = V.css('--muted'); ctx.font = `${parseFloat(getComputedStyle(cv).fontSize) * 0.62}px ${V.css('--f-body')}`;
+      L.forEach(([x, y, v], j) => { if (j % 2 === 0) ctx.fillText(v.toFixed(1) + ' km/s', x + sz * 0.6, y + sz * 0.38); });
+    };
+    cv._render = draw; new ResizeObserver(draw).observe(cv); draw();
+  },
+
+  lines(s) {
+    const cv = canv(s), RH = 3.28805e15;                            // Rydberg frequency for hydrogen, Hz
+    const BANDS = [[3, 84, 116], [4, 125, 163], [5, 163, 211], [6, 211, 275], [7, 275, 373], [8, 385, 500], [9, 602, 720], [10, 787, 950]];
+    // rest frequencies (GHz), CDMS/Splatalogue
+    const MOL = [['¹³CO 1–0', 110.2014], ['¹³CO 2–1', 220.3987], ['¹³CO 3–2', 330.5880], ['C¹⁸O 2–1', 219.5604],
+      ['HCO⁺ 1–0', 89.1885], ['HCO⁺ 3–2', 267.5576], ['HCO⁺ 4–3', 356.7342], ['HCN 1–0', 88.6316], ['HCN 3–2', 265.8864], ['HCN 4–3', 354.5055],
+      ['N₂H⁺ 1–0', 93.1737], ['N₂H⁺ 3–2', 279.5117], ['N₂H⁺ 4–3', 372.6725], ['CS 2–1', 97.9810], ['CS 5–4', 244.9356], ['CS 7–6', 342.8829]];
+    const ATOM = [['[CI] 1–0', 492.1607], ['[CI] 2–1', 809.3420], ['[NII] 205 µm', 1461.1314], ['[CII] 158 µm', 1900.537], ['[OIII] 88 µm', 3393.006]];
+    // CO J→J−1 from the rigid rotor with centrifugal distortion (2BJ − 4DJ³): within 0.01 GHz of CDMS up to J = 20
+    for (let J = 1; J <= 20; J++) MOL.push([`CO ${J}–${J - 1}`, 115.27194 * J - 0.000734 * J ** 3]);
+    const KEY = /^(CO|¹³CO|C¹⁸O|HCN|HCO⁺) |^N₂H⁺ 4/, SHOWN = 5;                 // listed first in the table
+    const RRL = []; for (let n = 10; n <= 45; n++) RRL.push([`H${n}α`, RH * (1 / (n * n) - 1 / ((n + 1) * (n + 1))) / 1e9]);
+    const FAM = [{ k: 'mol', L: MOL, y: 2, c: '--s1', n: 'mol.' }, { k: 'atom', L: ATOM, y: 1, c: '--s2', n: 'atomic' }, { k: 'rrl', L: RRL, y: 0, c: '--s3', n: 'Hnα' }];
+    const LANE = { 0.5: 'Hnα', 1.5: 'atoms', 2.5: 'mol.' };
+    const ro = V.readouts($(s, '.ro'), [{ k: 'rest', label: 'Rest frequencies in the band' }, { k: 'n', label: 'Lines in the band' }]);
+    const sticks = (obs, y, keep) => { const x = [], yy = []; obs.forEach(([, f]) => { if (keep(f)) { x.push(f, f, f); yy.push(y + 0.15, y + 0.85, NaN); } }); return { x, y: yy }; };
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'band', type: 'choice', options: [3, 4, 5, 6, 7, 8, 9, 10], value: 3, quote: false },
+      { k: 'z', label: 'source redshift z', type: 'range', min: 0, max: 7, step: 0.01, value: 0, scenario: true, fmt: v => v.toFixed(2) }
+    ], V.rafThrottle(v => {
+      const B = BANDS.find(b => b[0] === v.band), zf = 1 + v.z, inB = f => f >= B[1] && f <= B[2], series = [], cnt = {};
+      FAM.forEach(F => {
+        const obs = F.L.map(([n, f]) => [n, f / zf]).filter(([, f]) => f >= 84 && f <= 950);
+        const a = sticks(obs, F.y, f => !inB(f)), b = sticks(obs, F.y, inB);
+        series.push({ type: 'line', x: a.x, y: a.y, color: F.c, width: 1.5, alpha: 0.4 }, { type: 'line', x: b.x, y: b.y, color: F.c, width: 3.5 });
+        const here = obs.filter(([, f]) => inB(f)).sort((p, q) => p[1] - q[1]);
+        cnt[F.k] = here.length;
+        const pick = here.filter(([n]) => KEY.test(n)).concat(here.filter(([n]) => !KEY.test(n))).slice(0, SHOWN).sort((p, q) => p[1] - q[1]);
+        const shown = pick.map(([n, f]) => `${n} (${f.toFixed(1)})`).join(', ');
+        $(s, `td[data-f="${F.k}"]`).textContent = here.length ? shown + (here.length > SHOWN ? `, +${here.length - SHOWN} more` : '') : '–';
+      });
+      V.plot(cv.ax, { x: { min: 84, max: 950, log: true, ticks: [100, 150, 200, 300, 400, 500, 700, 900], fmt: t => String(t), label: 'observed frequency (GHz)' },
+        y: { min: 0, max: 3.5, ticks: [0.5, 1.5, 2.5], fmt: t => LANE[t] }, legend: false,
+        spans: BANDS.map(b => ({ x0: b[1], x1: b[2], color: b[0] === v.band ? '--accent-soft' : '--grid' })),
+        vlines: BANDS.map(b => ({ x: b[1], color: 'transparent', label: 'B' + b[0] })).concat([{ x: B[1], color: '--accent', dash: [4, 3] }, { x: B[2], color: '--accent', dash: [4, 3] }]),
+        series });
+      $(s, '.fam-h').textContent = `In Band ${v.band} (GHz)`;
+      ro.set('rest', `${Math.round(B[1] * zf)}–${Math.round(B[2] * zf)} GHz`);
+      ro.set('n', `${cnt.mol} mol. · ${cnt.atom} atom · ${cnt.rrl} Hnα`);
+    }));
+  },
+
+  findcont(s) {
+    const cv = canv(s), n = 1920, df = 1.875 / n, fq = c => 230 + (c + 0.5) * df, X = Array.from({ length: n }, (_, c) => fq(c));
+    const g = (c, c0, sg) => Math.exp(-0.5 * Math.pow((c - c0) / sg, 2)), O3 = 1312;          // ozone line at 231.281 GHz
+    const two = c => 14 * g(c, 546, 9) + 5 * g(c, 1085, 6);
+    const CASES = {
+      healthy: { cont: 15, line: two, R: [[20, 505], [590, 1050], [1120, 1899]], say: 'The ranges exclude both lines with a margin, and the noisy edge channels. In the ranges the residual is noise. No action needed.' },
+      leak: { cont: 15, line: c => two(c) + 3 * g(c, 1587, 10), R: [[20, 505], [590, 1050], [1120, 1899]], say: 'A weak line at 231.55 GHz is inside a range, missed by findcont. It goes into the continuum image and stays in the "line-free" channels of the cube (the mom8_fc preview shows it). Split that range around the line.' },
+      absorption: { cont: 25, line: c => -13 * g(c, 546, 8), R: [[20, 505], [590, 1899]], say: 'The dip is real absorption against bright continuum. Keep it out of the ranges. In the cube it stays negative, so set negativethreshold for auto-multithresh and do not clip it in moments.' },
+      atmosphere: { cont: 15, line: two, atm: true, R: [[20, 505], [590, 1050], [1120, 1285], [1340, 1899]], say: 'The ozone line at 231.28 GHz adds a gap with no source line, and extra noise (the weblog plots the atmospheric transmission). Excluding it is correct. These channels are noisier in the cube.' },
+      wide: { cont: 15, line: c => 10 * g(c, 960, 450), R: [[20, 110], [1810, 1899]], say: 'The line fills most of the spw. Only 9% is left at the edges, and the line wings reach into it. The continuum is too high and line flux is lost, but the in-range check looks clean (wings below the noise in each channel add up). Use narrower windows clear of the wings with fitorder=0, or take the continuum from the other spws.' }
+    };
+    const KEYS = Object.keys(CASES), LAB = ['healthy', 'line in a range', 'absorption', 'atmospheric line', 'wide line'];
+    const D = {};
+    KEYS.forEach((k, j) => {
+      const o = CASES[k], r = S.rng(21 + j), y = new Float64Array(n), tl = new Float64Array(n);
+      for (let c = 0; c < n; c++) {
+        const nz = 0.8 * (c < 20 || c >= n - 20 ? 2.5 : 1) * (o.atm ? 1 + 2 * g(c, O3, 12) : 1);
+        tl[c] = o.line(c);
+        y[c] = o.cont + 2 * (c - n / 2) / n + tl[c] + (o.atm ? 1.5 * g(c, O3, 6) : 0) + nz * r.normal();
+      }
+      // fitorder=1 through the channels in the ranges, as uvcontsub does
+      let sw = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      o.R.forEach(([a, b]) => { for (let c = a; c <= b; c++) { const t = (c - n / 2) / n; sw++; sx += t; sy += y[c]; sxx += t * t; sxy += t * y[c]; } });
+      const B = (sw * sxy - sx * sy) / (sw * sxx - sx * sx), A = (sy - B * sx) / sw, res = y.map((v, c) => v - A - B * (c - n / 2) / n);
+      // the mom8_fc check: brightest 8-channel average inside the ranges, in units of its noise
+      const inR = []; o.R.forEach(([a, b]) => { for (let c = a; c <= b; c++) inR.push(res[c]); });
+      const sig = S.madRms(Float64Array.from(inR)) / Math.sqrt(8);
+      let feat = 0; o.R.forEach(([a, b]) => { for (let c = a; c + 8 <= b + 1; c += 4) { let t = 0; for (let i = c; i < c + 8; i++) t += res[i]; feat = Math.max(feat, Math.abs(t / 8) / sig); } });
+      let mx = 0; for (let c = 0; c < n; c++) mx = Math.max(mx, Math.abs(tl[c]));
+      let fr = 0, ft = 0; for (let c = 0; c < n; c++) if (Math.abs(tl[c]) > 0.02 * mx) { fr += res[c]; ft += tl[c]; }
+      const free = o.R.reduce((t, [a, b]) => t + b - a + 1, 0) / n;
+      const dat = 'Field: TARGET\n\nSpectralWindow: 25\n' + o.R.map(([a, b]) => `${(230 + a * df).toFixed(4)}~${(230 + (b + 1) * df).toFixed(4)}GHz LSRK`).join('\n');
+      D[k] = { y, tl, res, feat, kept: fr / ft, free, dat };
+    });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'feat', label: 'Brightest feature in ranges' }, { k: 'free', label: 'Line-free part of spw' }, { k: 'kept', label: 'Line flux kept' }]);
+    V.call($(s, '.ctl'), 'hif_findcont', [
+      { k: 'case', label: 'dataset', type: 'choice', options: KEYS, labels: LAB, value: 'healthy', scenario: true, fmt: v => LAB[KEYS.indexOf(v)] }
+    ], v => {
+      const o = CASES[v.case], d = D[v.case], spans = o.R.map(([a, b]) => ({ x0: 230 + a * df, x1: 230 + (b + 1) * df }));
+      const vl = o.atm ? [{ x: fq(O3), color: '--axis', dash: [4, 4], label: 'ozone' }] : [];
+      V.plot(cv.spec, { x: { min: 230, max: 231.875, label: 'LSRK frequency (GHz)' }, y: { min: 5, max: 35, label: 'mJy' }, legend: false, spans, vlines: vl,
+        series: [{ type: 'line', x: X, y: d.y, color: '--s1', width: 1 }] });
+      V.plot(cv.res, { x: { min: 230, max: 231.875, label: 'LSRK frequency (GHz)' }, y: { min: -16, max: 20, label: 'mJy' }, legend: false, spans, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: X, y: d.res, color: '--s1', width: 1 }, { type: 'line', x: X, y: d.tl, color: '--ink-2', width: 1.5, dash: [4, 3] }] });
+      ro.set('feat', d.feat < 4.5 ? `${d.feat.toFixed(1)}σ: noise` : `${d.feat.toFixed(0)}σ: a line`, d.feat < 4.5 ? 'good' : 'bad');
+      ro.set('free', K.pct(d.free), d.free >= 0.3 ? 'good' : d.free >= 0.15 ? 'warn' : 'bad');
+      ro.set('kept', K.pct(d.kept), Math.abs(d.kept - 1) < 0.05 ? 'good' : Math.abs(d.kept - 1) < 0.15 ? 'warn' : 'bad');
+      $(s, '.fc-say').textContent = o.say;
+      $(s, '.fc-dat').textContent = d.dat;
+    });
+  },
+
+  doppler(s) {
+    const cv = canv(s), F0 = 230.538;                         // the data: CO 2-1 (Splatalogue)
+    const RF = ['230.538GHz', '230.54GHz', '230.5GHz', '220.398684GHz'], LAB = ['CO 2–1', '230.54', '230.5', '13CO 2–1'];
+    const kms = x => ((x = Math.abs(x) < 0.005 ? 0 : x), Math.abs(x) >= 100 ? Math.round(x).toLocaleString('en-US') : x.toFixed(Math.abs(x) < 1 ? 2 : 1)) + ' km/s';
+    const ro = V.readouts($(s, '.ro'), [{ k: 'vc', label: 'Line lands at' }, { k: 'err', label: 'Restfreq error' }, { k: 'dvo', label: 'Optical − radio' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'restfreq', type: 'choice', options: RF, labels: LAB, value: RF[0] },
+      { k: 'veltype', v: "'radio'" },
+      { k: 'velocity', label: 'source velocity', type: 'range', min: -100, max: 6000, value: 5, step: 1, fmt: v => `${v} km/s`, snap: v => (Math.abs(v) < 100 ? Math.round(v) : Math.round(v / 10) * 10), scenario: true }
+    ], V.rafThrottle(v => {
+      const f0 = parseFloat(v.restfreq), vel = v.velocity, nu = F0 * (1 - vel / CKMS);   // the observed frequency is fixed by the source
+      const vc = CKMS * (f0 - nu) / f0, err = vc - vel, vopt = CKMS * (F0 - nu) / nu;
+      const lx = [], ly = [], ty = [];
+      for (let x = -60; x <= 60; x += 0.25) { lx.push(x); ly.push(Math.exp(-0.5 * Math.pow((x - err) / 2, 2))); ty.push(Math.exp(-0.5 * Math.pow(x / 2, 2))); }
+      V.plot(cv.ax, { x: { min: -60, max: 60, label: 'velocity in the cube − true velocity (km/s)' }, y: { min: 0, max: 1.2 }, legend: false,
+        series: [{ type: 'line', x: lx, y: ty, color: '--axis', width: 1.5, dash: [4, 3] }, { type: 'line', x: lx, y: ly, color: '--s1', width: 2 }] });
+      const xs = [], ys = [];
+      for (let i = 0; i <= 120; i++) { const vv = i / 120 * 6000, n2 = F0 * (1 - vv / CKMS); xs.push(vv); ys.push(CKMS * (F0 - n2) / n2 - vv); }
+      V.plot(cv.vt, { x: { min: 0, max: 6000, label: 'radio velocity (km/s)' }, y: { min: 0, max: 130, label: 'optical − radio' }, legend: false,
+        series: [{ type: 'line', x: xs, y: ys, color: '--s1' }, { type: 'scatter', x: [Math.max(0, vel)], y: [Math.max(0, vopt - vel)], size: 12, color: '--accent' }] });
+      ro.set('vc', kms(vc) + (Math.abs(err) > 60 ? ': off the plot' : ''));
+      ro.set('err', kms(err), Math.abs(err) < 0.05 ? 'good' : Math.abs(err) < 10 ? 'warn' : 'bad');
+      ro.set('dvo', (vopt - vel).toFixed(vel > 500 ? 1 : 4) + ' km/s');
+    }));
+  },
+
+  contsub(s) {
+    const cv = canv(s), n = 1920, x = new Float64Array(n), y = new Float64Array(n), r = S.rng(8);
+    const broad = c => 14 * Math.exp(-0.5 * Math.pow((c - 520) / 55, 2)), narrow = c => 6 * Math.exp(-0.5 * Math.pow((c - 1400) / 10, 2));
+    const cont = c => 20 + 3.0 * (c - n / 2) / n;
+    for (let c = 0; c < n; c++) { x[c] = c; y[c] = cont(c) + broad(c) + narrow(c) + 0.9 * r.normal(); }
+    const PRE = [[[0, 299], [760, 1339], [1460, 1919]], [[0, 430], [610, 1370], [1430, 1919]], [[1500, 1700]], [[0, 1919]]];
+    const STR = PRE.map(w => '25:' + w.map(([a, b]) => `${a}~${b}`).join(';'));
+    const ro = V.readouts($(s, '.ro'), [{ k: 'off', label: 'Residual continuum' }, { k: 'flux', label: 'Broad-line flux error' }]);
+    V.call($(s, '.ctl'), 'uvcontsub', [
+      { k: 'vis', v: "'target.ms'" }, { k: 'outputvis', v: "'target_line.ms'" },
+      { k: 'fitspec', type: 'choice', options: STR, value: STR[0], labels: ['cont.dat ranges', 'touches wings', 'one window', 'all channels'] },
+      { k: 'fitorder', type: 'choice', options: [0, 1, 2], value: 1, quote: false }
+    ], v => {
+      const win = PRE[STR.indexOf(v.fitspec)], X = [], Y = [];
+      win.forEach(([a, b]) => { for (let c = a; c <= b; c++) { X.push((c - n / 2) / n); Y.push(y[c]); } });
+      const ord = v.fitorder, M = ord + 1, A = Array.from({ length: M }, () => new Float64Array(M)), B = new Float64Array(M);
+      for (let i = 0; i < X.length; i++) { const p = []; for (let k = 0; k < M; k++) p.push(Math.pow(X[i], k)); for (let a = 0; a < M; a++) { B[a] += p[a] * Y[i]; for (let b = 0; b < M; b++) A[a][b] += p[a] * p[b]; } }
+      for (let a = 0; a < M; a++) for (let b = a + 1; b < M; b++) { const f = A[b][a] / A[a][a]; for (let c = a; c < M; c++) A[b][c] -= f * A[a][c]; B[b] -= f * B[a]; }
+      const coef = new Float64Array(M); for (let a = M - 1; a >= 0; a--) { let t = B[a]; for (let c = a + 1; c < M; c++) t -= A[a][c] * coef[c]; coef[a] = t / A[a][a]; }
+      const fit = x.map(c => { const t = (c - n / 2) / n; let f = 0; for (let k = 0; k < M; k++) f += coef[k] * Math.pow(t, k); return f; });
+      const res = y.map((v2, i) => v2 - fit[i]);
+      V.plot(cv.fit, { x: { min: 0, max: n - 1, label: 'channel' }, y: { min: 14, max: 38, label: 'mJy' }, legend: false, spans: win.map(([a, b]) => ({ x0: a, x1: b })),
+        series: [{ type: 'line', x, y, color: '--s1', width: 1 }, { type: 'line', x, y: fit, color: '--accent', width: 2.5 }] });
+      V.plot(cv.res, { x: { min: 0, max: n - 1, label: 'channel' }, y: { min: -6, max: 16, label: 'mJy' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x, y: res, color: '--s1', width: 1 }, { type: 'line', x, y: Array.from(x, c => broad(c) + narrow(c)), color: '--ink-2', width: 1.5, dash: [4, 3] }] });
+      let off = 0, cnt = 0; for (let c = 900; c < 1300; c++) { off += res[c] - 0; cnt++; }
+      let fl = 0, ft = 0; for (let c = 300; c < 740; c++) { fl += res[c]; ft += broad(c); }
+      ro.set('off', (off / cnt).toFixed(2) + ' mJy', Math.abs(off / cnt) < 0.15 ? 'good' : Math.abs(off / cnt) < 0.6 ? 'warn' : 'bad');
+      ro.set('flux', K.pct(fl / ft - 1).replace(/^(\d)/, '+$1'), Math.abs(fl / ft - 1) < 0.05 ? 'good' : Math.abs(fl / ft - 1) < 0.2 ? 'warn' : 'bad');
+    });
+  },
+
+  chanwidth(s) {
+    const cv = $(s, 'canvas'), nat = 0.16, fw = 0.4, sig = fw / 2.3548, r = S.rng(4), Nn = 400, v0 = -32;
+    // native channels: the true line seen through a Hanning response, with noise correlated the same way
+    const white = Array.from({ length: Nn + 2 }, () => r.normal()), noise = [];
+    for (let i = 1; i <= Nn; i++) noise.push((0.25 * white[i - 1] + 0.5 * white[i] + 0.25 * white[i + 1]) / Math.sqrt(0.375));
+    const vel = Array.from({ length: Nn }, (_, i) => v0 + (i + 0.5) * nat);
+    const truth = v => Math.exp(-0.5 * v * v / (sig * sig)), rms = 0.12;
+    const natSpec = vel.map((v, i) => 0.25 * truth(v - nat) + 0.5 * truth(v) + 0.25 * truth(v + nat) + rms * noise[i]);
+    const resample = w => {
+      const ox = [], oy = [];
+      for (let c = Math.ceil(-30 / w); c <= Math.floor(30 / w); c++) {
+        const vc = c * w;
+        let sum = 0, n = 0; for (let i = 0; i < Nn; i++) if (vel[i] >= vc - w / 2 && vel[i] < vc + w / 2) { sum += natSpec[i]; n++; } oy.push(n ? sum / n : NaN);
+        ox.push(vc);
+      }
+      return { ox, oy };
+    };
+    const ro = V.readouts($(s, '.ro'), [{ k: 'n', label: 'Channels per FWHM' }, { k: 'rms', label: 'Noise per channel' }, { k: 'snr', label: 'Peak S/N' }, { k: 'int', label: 'Integrated S/N' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'specmode', v: "'cube'" },
+      { k: 'start', v: "'-30km/s'" },
+      { k: 'width', type: 'choice', options: [0.16, 0.32, 0.64, 1.28], value: 0.16, fmt: v => `'${v}km/s'`, note: '≥ native 0.16' },
+      { k: 'nchan', vf: v => String(Math.round(60 / v.width)), note: '±30 km/s' },
+      { k: 'interpolation', v: "'linear'", note: 'default' }
+    ], v => {
+      const w = v.width, R = resample(w);
+      const tx = [], ty = []; for (let i = 0; i <= 300; i++) { const vv = -3 + i * 0.02; tx.push(vv); ty.push(truth(vv)); }
+      V.plot(cv, { x: { min: -3, max: 3, label: 'velocity (km/s)' }, y: { min: -0.5, max: 1.4, label: 'Jy/beam' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: tx, y: ty, color: '--axis', width: 1.5 }, { type: 'step', x: R.ox, y: R.oy, color: '--s1' }, { type: 'scatter', x: R.ox, y: R.oy, size: 4, color: '--s1' }] });
+      // noise measured in the line-free channels; integrated S/N against the same integral over empty windows
+      const free = R.oy.filter((y, i) => Math.abs(R.ox[i]) > 2 && y === y), mu = free.reduce((a, b) => a + b, 0) / free.length;
+      const chRms = Math.sqrt(free.reduce((a, b) => a + (b - mu) * (b - mu), 0) / free.length);
+      const integ = c0 => R.oy.reduce((a, y, i) => a + (Math.abs(R.ox[i] - c0) <= 0.6 && y === y ? y * w : 0), 0);
+      const ref = []; for (let c0 = -27; c0 <= 27; c0 += 1.5) if (Math.abs(c0) > 3) ref.push(integ(c0));
+      const rm = ref.reduce((a, b) => a + b, 0) / ref.length, rs = Math.sqrt(ref.reduce((a, b) => a + (b - rm) * (b - rm), 0) / ref.length);
+      let pk = -1; R.ox.forEach((vc, i) => { if (Math.abs(vc) < 1 && R.oy[i] > pk) pk = R.oy[i]; });
+      ro.set('n', (fw / w).toFixed(1), fw / w >= 3 ? 'good' : fw / w >= 2 ? 'warn' : 'bad');
+      ro.set('rms', (chRms * 1e3).toFixed(0) + ' mJy/bm');
+      ro.set('snr', (pk / chRms).toFixed(1)); ro.set('int', (integ(0) / rs).toFixed(1));
+    });
+  },
+
+  cubemask(s) {
+    const cv = canv(s), C = cubeFor(DISK0), T = cubeFor(Object.assign({}, DISK0, { rms: 0 })), N = C.N, NN = N * N, rms = DISK0.rms;
+    const bA = S.beamArea(C.beam, C.cell), SHOW = [19, 24, 29], NB4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const ALL = new Uint8Array(NN).fill(1), CIRC = S.circleMask(N, C.cell, 3.0);
+    const pad = (m, r) => { const o = new Uint8Array(NN); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (m[y * N + x]) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < N && Y < N) o[Y * N + X] = 1; } return o; };
+    // auto-multithresh, simplified: seeds above noisethreshold, drop islands smaller than minbeamfrac beams,
+    // grow into pixels above lownoisethreshold, pad a little (the mask smoothing)
+    const amt = c => K.memo('cm:amt' + c, () => {
+      const x = C.cube.subarray(c * NN, (c + 1) * NN), seen = new Uint8Array(NN), m = new Uint8Array(NN);
+      for (let i = 0; i < NN; i++) if (x[i] > 4.25 * rms && !seen[i]) {
+        const st = [i], isl = []; seen[i] = 1;
+        while (st.length) { const j = st.pop(), jx = j % N, jy = (j / N) | 0; isl.push(j);
+          for (const [dx, dy] of NB4) { const X = jx + dx, Y = jy + dy, q = Y * N + X; if (X >= 0 && Y >= 0 && X < N && Y < N && !seen[q] && x[q] > 4.25 * rms) { seen[q] = 1; st.push(q); } } }
+        if (isl.length >= 0.3 * bA) isl.forEach(j => { m[j] = 1; });
+      }
+      const st = []; for (let i = 0; i < NN; i++) if (m[i]) st.push(i);
+      while (st.length) { const j = st.pop(), jx = j % N, jy = (j / N) | 0;
+        for (const [dx, dy] of NB4) { const X = jx + dx, Y = jy + dy, q = Y * N + X; if (X >= 0 && Y >= 0 && X < N && Y < N && !m[q] && x[q] > 1.5 * rms) { m[q] = 1; st.push(q); } } }
+      return pad(m, 2);
+    });
+    // by hand: a generous outline around what is visible (above 3 sigma) in each channel
+    const hand = c => K.memo('cm:hand' + c, () => { const t = T.cube.subarray(c * NN, (c + 1) * NN), m = new Uint8Array(NN); for (let i = 0; i < NN; i++) m[i] = t[i] > 3 * rms ? 1 : 0; return pad(m, 4); });
+    const MASK = { pb: () => ALL, one: () => CIRC, hand, amt };
+    const stats = kind => K.memo('cm:st' + kind, () => {
+      let tin = 0, tot = 0, empty = 0, used = 0;
+      for (let c = 0; c < C.nchan; c++) {
+        const m = MASK[kind](c), t = T.cube.subarray(c * NN, (c + 1) * NN); let e = 0, any = 0;
+        for (let i = 0; i < NN; i++) { tot += t[i]; if (!m[i]) continue; any = 1; tin += t[i]; if (t[i] < 0.5 * rms) e++; }
+        empty += e / bA; used += any;
+      }
+      return { kept: tin / tot, empty: empty / C.nchan, used };
+    });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'kept', label: 'Line flux inside the masks' }, { k: 'empty', label: 'Empty mask, per channel' }, { k: 'draw', label: 'Masks you draw' }]);
+    const LAB = { pb: "'pb'", one: "'user'", hand: "'user'", amt: "'auto-multithresh'" };
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'specmode', v: "'cube'" },
+      { k: 'usemask', type: 'choice', options: ['pb', 'one', 'hand', 'amt'], labels: ['pb', 'one region', 'by hand', 'auto-multithresh'], value: 'one', fmt: v => LAB[v] },
+      { k: 'pbmask', v: '0.2', show: v => v.usemask === 'pb' },
+      { k: 'mask', v: "'circle[[64pix,64pix],3arcsec]'", show: v => v.usemask === 'one' },
+      { k: 'interactive', v: 'True', note: 'Mac: iclean()', show: v => v.usemask === 'hand' },
+      { k: 'noisethreshold', v: '4.25', show: v => v.usemask === 'amt' },
+      { k: 'lownoisethreshold', v: '1.5', show: v => v.usemask === 'amt' },
+      { k: 'minbeamfrac', v: '0.3', show: v => v.usemask === 'amt' }
+    ], v => {
+      ['c0', 'c1', 'c2'].forEach((key, j) => {
+        const ch = SHOW[j];
+        V.image(cv[key], C.cube.subarray(ch * NN, (ch + 1) * NN), N, { cell: C.cell, vmin: -3 * rms, vmax: 0.0675, beam: C.beam, mask: MASK[v.usemask](ch) });
+      });
+      const st = stats(v.usemask);
+      ro.set('kept', K.pct(st.kept), st.kept >= 0.9 ? 'good' : st.kept >= 0.7 ? 'warn' : 'bad');
+      ro.set('empty', `${v.usemask === 'pb' ? '≥ ' : ''}${Math.round(st.empty)} beams`, st.empty < 30 ? 'good' : st.empty < 150 ? 'warn' : 'bad');
+      ro.set('draw', { pb: 'none: the primary beam', one: `1, for all ${C.nchan} channels`, hand: `${st.used}: one per channel with line`, amt: 'none: tclean, per channel' }[v.usemask]);
+    });
+  },
+
+  chanmaps(s) {
+    const cv = canv(s), ap = S.circleMask(DISK0.N, DISK0.cell, 3.2);
+    const C = cubeFor(DISK0);
+    let pick = { x: 0.6, y: 0.5 }, cur = 24;
+    // the whole-disk spectrum does not depend on the channel or the clicked pixel: compute it, and its axis, once
+    const tot = [], NN = C.N * C.N, bA = S.beamArea(C.beam, C.cell);
+    for (let c = 0; c < C.nchan; c++) { let t = 0; for (let i = 0; i < NN; i++) if (ap[i]) t += C.cube[c * NN + i]; tot.push(t / bA); }
+    const totMax = Math.max(0.5, Math.max.apply(null, tot) * 1.15);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'v', label: 'Channel velocity' }, { k: 'pk', label: 'Peak / rms' }, { k: 'span', label: 'Line spans' }]);
+    const render = () => {
+      const N = C.N, base = cur * N * N, ch = C.cube.subarray(base, base + N * N);
+      V.image(cv.map, ch, N, { cell: C.cell, vmin: -3 * C.rms, vmax: 0.75 * 0.09, beam: C.beam, cbar: { label: 'Jy/beam', scale: 1 },
+        overlay: (ctx, m) => { ctx.strokeStyle = V.css('--sky'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(m.X(pick.x), m.Y(pick.y), 5, 0, 2 * Math.PI); ctx.stroke(); } });
+      $(s, '.vlab').textContent = `Channel ${cur}: ${C.vel[cur].toFixed(2)} km/s`;
+      const px = Math.round(N / 2 + pick.x / C.cell), py = Math.round(N / 2 + pick.y / C.cell), sp = [];
+      for (let c = 0; c < C.nchan; c++) {
+        sp.push(C.cube[c * N * N + py * N + px]);
+      }
+      const vel = Array.from(C.vel);
+      V.plot(cv.spec, { x: { min: vel[0], max: vel[vel.length - 1], label: 'LSRK velocity (km/s)' }, y: { min: -0.02, max: 0.1, label: 'Jy/beam' }, legend: false, vlines: [{ x: C.vel[cur], color: '--accent' }], hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'step', x: vel, y: sp, color: '--s1' }] });
+      V.plot(cv.tot, { x: { min: vel[0], max: vel[vel.length - 1], label: 'LSRK velocity (km/s)' }, y: { min: -0.1, max: totMax, label: 'Jy' }, legend: false, vlines: [{ x: C.vel[cur], color: '--accent' }], hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'step', x: vel, y: tot, color: '--s2' }] });
+      let pk = 0; for (const v of ch) if (v > pk) pk = v;
+      ro.set('v', C.vel[cur].toFixed(2) + ' km/s'); ro.set('pk', (pk / C.rms).toFixed(1));
+      let lo = null, hi = null; tot.forEach((t, c) => { if (t > 0.05) { if (lo == null) lo = c; hi = c; } });
+      ro.set('span', lo == null ? '–' : `${(C.vel[hi] - C.vel[lo]).toFixed(1)} km/s`);
+    };
+    cv.map.addEventListener('click', e => {
+      const m = cv.map._map; if (!m) return;
+      const r = cv.map.getBoundingClientRect(), c = (e.clientX - r.left - m.ox) / m.px - 0.5, rr = (e.clientY - r.top - m.oy) / m.px - 0.5;
+      pick = { x: (m.M / 2 - c) * m.cell, y: (m.M / 2 - rr) * m.cell }; render();
+    });
+    V.call($(s, '.ctl'), 'cube', [
+      { k: 'chan', label: 'channel shown (as in CARTA)', type: 'range', min: 0, max: DISK0.nchan - 1, step: 1, value: 24, live: true, scenario: true }
+    ], V.rafThrottle(v => { cur = v.chan; render(); }));
+  },
+
+  moments(s) {
+    const cv = canv(s), C = cubeFor(DISK0), N = C.N, ap = S.circleMask(N, C.cell, 3.2), off = S.circleMask(N, C.cell, 3.6).map(x => 1 - x);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'flux', label: 'Flux from moment 0' }, { k: 'ref', label: 'Flux from cube' }, { k: 'm1n', label: 'Off-disk pixels in moment 1' }]);
+    const full = (() => { let t = 0; for (let c = 0; c < C.nchan; c++) for (let i = 0; i < N * N; i++) if (ap[i]) t += C.cube[c * N * N + i]; return t * C.o.dv / S.beamArea(C.beam, C.cell); })();
+    // fixed colour scales: from the unclipped moments over the line channels, computed once
+    const ref = K.memo('mom:ref', () => { const M = moments(C, 0, 4, 44); return { m0: S.max(M.m0).v, m8: S.max(M.m8).v }; });
+    V.call($(s, '.ctl'), 'immoments', [
+      { k: 'imagename', v: "'disk_co21.image'" },
+      { k: 'outfile', v: "'disk_co21.mom'", note: 'a new name each run' },
+      { k: 'moments', v: '[0, 1, 2, 8]' },
+      { k: 'includepix', type: 'choice', options: [0, 2, 3, 5], labels: ['no clip', '2σ', '3σ', '5σ'], value: 3, fmt: v => (v ? `[${(v * 4e-3).toFixed(3)}, 1e9]` : '-1'), note: 'Jy/beam; σ = 4 mJy/beam' },
+      { k: 'chans', type: 'choice', options: ['all', 'line'], labels: ["'' (all)", "'4~44'"], value: 'line', fmt: v => (v === 'all' ? "''" : "'4~44'") }
+    ], v => {
+      const M = moments(C, v.includepix, v.chans === 'all' ? 0 : 4, v.chans === 'all' ? C.nchan - 1 : 44);
+      V.image(cv.m0, M.m0, N, { cell: C.cell, vmin: 0, vmax: ref.m0, beam: C.beam, cbar: { label: 'Jy/bm·km/s', scale: 1 } });
+      V.image(cv.m1, M.m1, N, { cell: C.cell, cmap: 'rdbu', vmin: C.o.vsys - 4, vmax: C.o.vsys + 4, cbar: { label: 'km/s', scale: 1 } });
+      V.image(cv.m2, M.m2, N, { cell: C.cell, cmap: 'viridis', vmin: 0, vmax: 2.5, cbar: { label: 'km/s', scale: 1 } });
+      V.image(cv.m8, M.m8, N, { cell: C.cell, vmin: 0, vmax: ref.m8, cbar: { label: 'Jy/beam', scale: 1 } });
+      const f = S.sumIn(M.m0, ap) / S.beamArea(C.beam, C.cell);
+      ro.set('flux', f.toFixed(2) + ' Jy km/s', Math.abs(f / full - 1) < 0.05 ? 'good' : Math.abs(f / full - 1) < 0.15 ? 'warn' : 'bad');
+      ro.set('ref', full.toFixed(2) + ' Jy km/s');
+      const vals = []; for (let i = 0; i < N * N; i++) if (off[i] && M.m1[i] === M.m1[i]) vals.push(M.m1[i]);
+      let nOff = 0; for (let i = 0; i < N * N; i++) nOff += off[i] ? 1 : 0;
+      const fr = v.includepix ? vals.length / nOff : 1;                 // no clip: every noise pixel enters moment 1
+      ro.set('m1n', `${K.pct(fr)} kept`, fr < 0.1 ? 'good' : fr < 0.3 ? 'warn' : 'bad');
+    });
+  },
+
+  srf(s) {
+    const cvs = $$(s, 'canvas'), ro = V.readouts($(s, '.ro'), [{ k: 'res', label: 'Resolution (FWHM)' }, { k: 'rho', label: 'Neighbour correlation' }, { k: 'noise', label: 'Noise vs native' }]);
+    const OS = 20;                                               // samples per native channel
+    const hann = x => { const a = Math.abs(x); return a < 1 ? 0.5 * (1 + Math.cos(Math.PI * a)) : 0; };   // FWHM = 1 native channel per side? see below
+    V.call($(s, '.ctl'), 'correlator', [
+      { k: 'window', type: 'choice', options: ['hanning', 'none'], value: 'hanning', labels: ['Hanning (default)', 'none (sinc)'] },
+      { k: 'averaging', type: 'choice', options: [1, 2, 4, 8], value: 1, quote: false, note: 'online' }
+    ], v => {
+      const Nav = v.averaging, xs = [], ks = [];
+      // response of one native channel: Hanning taper of the lag spectrum = [1/4, 1/2, 1/4] smoothing of sinc channels
+      const sinc = x => (Math.abs(x) < 1e-9 ? 1 : Math.sin(Math.PI * x) / (Math.PI * x));
+      const nat = x => (v.window === 'hanning' ? 0.5 * sinc(x) + 0.25 * sinc(x - 1) + 0.25 * sinc(x + 1) : sinc(x));
+      const out = x => { let t = 0; for (let j = 0; j < Nav; j++) t += nat(x - (j - (Nav - 1) / 2)); return t / Nav; };
+      for (let i = -8 * OS; i <= 8 * OS; i++) { const x = i / OS; xs.push(x); ks.push(out(x)); }
+      let pk = Math.max.apply(null, ks), left = 0, right = 0;
+      const cross = (i, j) => xs[i] + (pk / 2 - ks[i]) / (ks[j] - ks[i]) * (xs[j] - xs[i]);      // interpolate the half-power point
+      for (let i = 1; i < ks.length; i++) if (ks[i] >= pk / 2) { left = cross(i - 1, i); break; }
+      for (let i = ks.length - 2; i >= 0; i--) if (ks[i] >= pk / 2) { right = cross(i + 1, i); break; }
+      const fw = right - left;
+      // noise correlation between adjacent output channels (spacing Nav) for white noise in the lag domain
+      let c0 = 0, c1 = 0; for (let i = 0; i < ks.length; i++) { c0 += ks[i] * ks[i]; const j = i + Nav * OS; if (j < ks.length) c1 += ks[i] * ks[j]; }
+      const rho = c1 / c0, sincE = 1 / OS * (function () { let t = 0; for (let i = -400 * OS; i <= 400 * OS; i++) t += sinc(i / OS) ** 2; return t; })();
+      V.plot(cvs[0], { x: { min: -8, max: 8, label: 'offset (native channels)' }, y: { min: -0.25, max: 1.05 }, hlines: [{ y: 0, color: '--axis' }], legend: false,
+        spans: [{ x0: -Nav / 2, x1: Nav / 2 }], series: [{ type: 'line', x: xs, y: ks.map(k => k / pk), color: '--s1' }] });
+      // a narrow line (FWHM 1.5 native channels) seen through this response, sampled every Nav channels
+      const tl = x => Math.exp(-4 * Math.LN2 * x * x / (1.5 * 1.5)), lx = [], ly = [], ox = [], oy = [];
+      for (let i = -10 * OS; i <= 10 * OS; i++) { lx.push(i / OS); ly.push(tl(i / OS)); }
+      for (let c = -Math.floor(10 / Nav); c <= Math.floor(10 / Nav); c++) {
+        const x0 = c * Nav; let t = 0, n = 0;
+        for (let i = -8 * OS; i <= 8 * OS; i++) { const x = i / OS; t += out(x) * tl(x0 - x); n += out(x); }
+        ox.push(x0); oy.push(t / n);
+      }
+      V.plot(cvs[1], { x: { min: -10, max: 10, label: 'native channels' }, y: { min: -0.1, max: 1.05 }, legend: false,
+        series: [{ type: 'line', x: lx, y: ly, color: '--axis', width: 1.5 }, { type: 'step', x: ox, y: oy, color: '--s2' }, { type: 'scatter', x: ox, y: oy, size: 6, color: '--s2' }] });
+      ro.set('res', `${fw.toFixed(2)} native = ${(fw / Nav).toFixed(2)} × output`);
+      ro.set('rho', rho.toFixed(2), Math.abs(rho) < 0.1 ? 'good' : 'warn');
+      ro.set('noise', '×' + Math.sqrt(c0 / OS / sincE).toFixed(2));
+    });
+  },
+
+  frames(s) {
+    const cv = canv(s), DEG = S.DEG, eps = 23.4393 * DEG, ra = 165.4658 * DEG, dec = -34.7047 * DEG;
+    const sb = Math.sin(dec) * Math.cos(eps) - Math.cos(dec) * Math.sin(eps) * Math.sin(ra), beta = Math.asin(sb);
+    const lam = Math.atan2(Math.sin(ra) * Math.cos(eps) + Math.tan(dec) * Math.sin(eps), Math.cos(ra));
+    const vEarth = d => 29.78 * Math.cos(beta) * Math.sin((280.46 + 0.98565 * (d - 1)) * DEG - lam);     // km/s toward the source
+    const apex = [Math.cos(30 * DEG) * Math.cos(271 * DEG), Math.cos(30 * DEG) * Math.sin(271 * DEG), Math.sin(30 * DEG)];
+    const nsrc = [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
+    const vsunLSR = 20 * (apex[0] * nsrc[0] + apex[1] * nsrc[1] + apex[2] * nsrc[2]);                    // standard solar motion
+    const vLSR = 2.86, vBary = vLSR - vsunLSR, half = 29.78 * Math.cos(beta) + 3;                         // fixed span: every day of the year fits
+    const ro = V.readouts($(s, '.ro'), [{ k: 'v1', label: 'Line in TOPO, EB 1' }, { k: 'v2', label: 'Line in TOPO, EB 2' }, { k: 'shift', label: 'Offset in TOPO frequency' }]);
+    const days = [], ve = []; for (let d = 1; d <= 365; d += 2) { days.push(d); ve.push(vEarth(d)); }
+    const line = (vc, w, c0) => { const x = [], y = []; for (let v = c0 - half; v <= c0 + half; v += 0.05) { x.push(v); y.push(Math.exp(-0.5 * Math.pow((v - vc) / w, 2))); } return { x, y }; };
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'eb1', type: 'range', min: 1, max: 365, step: 1, value: 60, fmt: v => `day ${v}`, note: 'execution 1' },
+      { k: 'eb2', type: 'range', min: 1, max: 365, step: 1, value: 60, fmt: v => `day ${v}`, note: 'execution 2' }
+    ], V.rafThrottle(v => {
+      const t1 = vBary - vEarth(v.eb1), t2 = vBary - vEarth(v.eb2), w = 0.6;
+      V.plot(cv.year, { x: { min: 1, max: 365, label: 'day of year' }, y: { min: -30, max: 30, label: 'km/s' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: days, y: ve, color: '--axis', width: 1.5 }, { type: 'scatter', x: [v.eb1], y: [vEarth(v.eb1)], size: 11, color: '--s1' }, { type: 'scatter', x: [v.eb2], y: [vEarth(v.eb2)], size: 11, color: '--s2' }] });
+      const a = line(t1, w, vBary), b = line(t2, w, vBary), sumT = a.y.map((y, i) => (y + b.y[i]) / 2);
+      V.plot(cv.topo, { x: { min: vBary - half, max: vBary + half, label: 'TOPO velocity (km/s)' }, y: { min: 0, max: 1.1 }, legend: false,
+        series: [{ type: 'line', x: a.x, y: a.y, color: '--s1', width: 1.5 }, { type: 'line', x: b.x, y: b.y, color: '--s2', width: 1.5 }, { type: 'area', x: a.x, y: sumT, color: '--ink-2', width: 2 }] });
+      const c = line(vLSR, w, vLSR);
+      V.plot(cv.lsrk, { x: { min: vLSR - half, max: vLSR + half, label: 'LSRK velocity (km/s)' }, y: { min: 0, max: 1.1 }, legend: false,
+        series: [{ type: 'line', x: c.x, y: c.y, color: '--s1', width: 1.5 }, { type: 'line', x: c.x, y: c.y, color: '--s2', width: 1.5, dash: [5, 4] }, { type: 'area', x: c.x, y: c.y, color: '--ink-2', width: 2 }] });
+      ro.set('v1', t1.toFixed(2) + ' km/s'); ro.set('v2', t2.toFixed(2) + ' km/s');
+      const sh = Math.abs(t1 - t2); ro.set('shift', `${sh.toFixed(1)} km/s = ${(sh / CKMS * 230538).toFixed(1)} MHz`);
+    }));
+  },
+
+  cuberms(s) {
+    const n = 480, x = [], rmsC = [], r = S.rng(2);
+    for (let c = 0; c < n; c++) { x.push(c); const atm = 1 + 1.4 * Math.exp(-0.5 * Math.pow((c - 300) / 18, 2)), edge = c < 15 || c > n - 16 ? 1.8 : 1; rmsC.push(3.0 * atm * edge * (1 + 0.04 * r.normal())); }
+    const ro = V.readouts($(s, '.ro'), [{ k: 'deep', label: 'Cleaned into noise (< 2σ)' }, { k: 'shallow', label: 'Stopped early (> 4σ)' }, { k: 'stop', label: 'Stop: quiet / ozone chan.' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'specmode', v: "'cube'" },
+      { k: 'niter', v: '100000' },
+      { k: 'threshold', type: 'choice', options: ['0mJy', '6mJy', '9mJy', '15mJy'], value: '0mJy' },
+      { k: 'nsigma', type: 'choice', options: [0, 2, 3, 5], value: 3, quote: false },
+      { k: 'usemask', v: "'auto-multithresh'" }
+    ], v => {
+      const thr = parseFloat(v.threshold), stop = rmsC.map(q => Math.max(thr, v.nsigma * q));
+      const deep = stop.filter((q, i) => q < 2 * rmsC[i]).length, shallow = stop.filter((q, i) => q > 4 * rmsC[i]).length;
+      V.plot($(s, 'canvas'), { x: { min: 0, max: n - 1, label: 'channel' }, y: { min: 0, max: 40, label: 'mJy/beam' },
+        series: [{ type: 'line', x, y: rmsC, color: '--s1', width: 1.5, label: 'rms per channel' }, { type: 'line', x, y: stop, color: '--s2', width: 2.5, label: 'CLEAN stops here' }] });
+      ro.set('deep', `${deep} of ${n}`, deep ? 'bad' : 'good');
+      ro.set('shallow', `${shallow} of ${n}`, shallow ? 'warn' : 'good');
+      ro.set('stop', `${stop[150].toFixed(0)} / ${stop[300].toFixed(0)} mJy`);
+    });
+  },
+
+  pv(s) {
+    const cv = canv(s), C = cubeFor(DISK0), N = C.N, h = N / 2;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'm', label: 'Model M sin²i' }, { k: 'true', label: 'True M sin²i' }]);
+    const M8 = moments(C, 0, 0, C.nchan - 1).m8, m8max = S.max(M8).v;          // M8 does not change with the controls
+    V.call($(s, '.ctl'), 'impv', [
+      { k: 'imagename', v: "'disk_co21.image'" },
+      { k: 'outfile', v: "'disk_co21.pv'" },
+      { k: 'mode', v: "'length'" },
+      { k: 'center', v: '[64, 64]', note: 'pixels: the star' },
+      { k: 'length', v: "'6arcsec'" },
+      { k: 'pa', type: 'range', min: 40, max: 220, step: 5, value: 130, fmt: v => `'${v}deg'`, note: 'major axis = 130' },
+      { k: 'width', v: '5', note: 'pixels' },
+      { k: 'overwrite', v: 'True' },
+      { k: 'model_mass', label: 'Keplerian model, M sin²i', type: 'range', min: 0.2, max: 2.0, step: 0.05, value: 0.5, fmt: v => v.toFixed(2) + ' M☉', scenario: true }
+    ], V.rafThrottle(v => {
+      const npos = 120, half = 3.0, pa = v.pa * S.DEG, sp = Math.sin(pa), cp = Math.cos(pa), pvimg = new Float64Array(npos * npos).fill(NaN);
+      // PV image: rows = velocity (resampled to npos), cols = position
+      const vmin = C.vel[0], vmax = C.vel[C.nchan - 1];
+      for (let j = 0; j < npos; j++) {
+        const vv = vmin + (vmax - vmin) * j / (npos - 1), cf = (vv - C.vel[0]) / (C.vel[1] - C.vel[0]), c0 = Math.floor(cf), tc = cf - c0;
+        for (let i = 0; i < npos; i++) {
+          const off = -half + 2 * half * i / (npos - 1);
+          let acc = 0;
+          for (let w = -2; w <= 2; w++) {
+            const px = h + (off * sp + w * C.cell * cp) / C.cell, py = h + (off * cp - w * C.cell * sp) / C.cell, x0 = Math.round(px), y0 = Math.round(py);
+            if (x0 < 0 || y0 < 0 || x0 >= N || y0 >= N) continue;
+            const a = C.cube[c0 * N * N + y0 * N + x0], b = c0 + 1 < C.nchan ? C.cube[(c0 + 1) * N * N + y0 * N + x0] : a;
+            acc += (1 - tc) * a + tc * b;
+          }
+          pvimg[j * npos + i] = acc / 5;
+        }
+      }
+      // display: x = offset along the cut, y = velocity (row 0 left empty so nothing wraps at the edge)
+      const arr = new Float64Array(npos * npos).fill(NaN);
+      for (let j = 1; j < npos; j++) for (let i = 0; i < npos; i++) arr[j * npos + i] = pvimg[Math.round((j - 1) * (npos - 1) / (npos - 2)) * npos + i];
+      V.image(cv.pv, arr, npos, { cell: 2 * half / npos, flipX: false, extent: [-half, half, vmin, vmax], vmin: 0, vmax: 0.08, xlabel: 'offset along the cut (″)', ylabel: 'LSRK velocity (km/s)',
+        overlay: (ctx, m) => {
+          ctx.lineWidth = 2; ctx.strokeStyle = V.css('--sky');
+          [1, -1].forEach(sg => {
+            ctx.beginPath(); let pen = false;
+            for (let i = 2; i <= 150; i++) { const off = sg * i / 150 * half, rau = Math.abs(off) * C.o.dist, vv = C.o.vsys + Math.sign(off) * 29.78 * Math.sqrt(v.model_mass / rau); if (vv < vmin || vv > vmax) { pen = false; continue; } const xx = m.EX(off), yy = m.EY(vv); if (!pen) { ctx.moveTo(xx, yy); pen = true; } else ctx.lineTo(xx, yy); }
+            ctx.stroke();
+          });
+          ctx.strokeStyle = V.css('--axis'); ctx.setLineDash([4, 4]); ctx.beginPath(); ctx.moveTo(m.ox, m.EY(C.o.vsys)); ctx.lineTo(m.ox + m.size, m.EY(C.o.vsys)); ctx.stroke(); ctx.setLineDash([]);
+        } });
+      V.image(cv.m8, M8, N, { cell: C.cell, vmin: 0, vmax: m8max, beam: C.beam, overlay: (ctx, m) => {
+        ctx.strokeStyle = V.css('--sky'); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(m.X(-half * sp), m.Y(-half * cp)); ctx.lineTo(m.X(half * sp), m.Y(half * cp)); ctx.stroke();
+      } });
+      const rr = [], v1 = [], v2 = [];
+      for (let i = 1; i <= 100; i++) { const rau = i * 4; rr.push(rau); v1.push(29.78 * Math.sqrt(v.model_mass / rau)); v2.push(29.78 * Math.sqrt(C.o.mstar / rau) * Math.sin(C.o.inc * S.DEG)); }
+      V.plot(cv.rc, { x: { min: 0, max: 400, label: 'radius (au)' }, y: { min: 0, max: 8, label: 'v sin i (km/s)' },
+        series: [{ type: 'line', x: rr, y: v2, color: '--axis', width: 1.5, label: 'true' }, { type: 'line', x: rr, y: v1, color: '--sky', label: 'model' }] });
+      ro.set('m', v.model_mass.toFixed(2) + ' M☉');
+      const t = C.o.mstar * Math.pow(Math.sin(C.o.inc * S.DEG), 2); ro.set('true', t.toFixed(2) + ' M☉ (1.0 M☉, i = 40°)');
+    }));
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

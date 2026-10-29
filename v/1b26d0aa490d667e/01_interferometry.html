@@ -1,0 +1,493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Introduction to interferometry</title>
+<meta name="deck-title" content="Introduction to interferometry · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="uv tracks of a 5-hour ALMA observation"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 1 of 8 · 9:45–10:00</p>
+  <h1>Introduction to<br>interferometry</h1>
+  <p class="sub">What an interferometer measures and which properties of your data are fixed by the observation.</p>
+  <div class="meta"><span>15 min</span><span>Fringes · uv coverage · missing short spacings · the dirty beam · field of view · sensitivity</span><span>All figures are simulated live</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part</p><h2>Outline</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>1 · What an interferometer measures</h3><p>Fringes from one pair of antennas. Visibilities as the Fourier transform of the sky, sampled at discrete points. Gaps in uv coverage and the dirty image.</p></div>
+    <div class="card"><h3>2 · What else the observation fixes</h3><p>Field of view (the primary beam) and sensitivity (the noise). Parameters fixed by the observation and parameters you choose.</p></div>
+    <div class="card"><h3><span class="tag check">Takeaway</span></h3><p>Reference numbers for resolution, maximum recoverable scale, field of view and noise in Bands 3, 6 and 7.</p></div>
+  </div>
+  <div class="card"><h3>Slide labels</h3>
+    <div class="grid3">
+      <p><span class="tag fixed">Concept</span><br>how it works</p>
+      <p><span class="tag fixed">Fixed by the observation</span><br>set when the data were taken (no CASA parameter changes it)</p>
+      <p><span class="tag fixed">Set once</span><br>a CASA parameter you work out once from the data (cell, imsize)</p>
+      <p><span class="tag choice">Your choice</span><br>a CASA parameter you tune and judge</p>
+      <p><span class="tag fixed">Leave at default</span><br>keep the default for now</p>
+      <p><span class="tag check">Check</span><br>something to verify</p>
+    </div>
+    <p class="small ink2"><span class="tag check">Takeaway</span> slides list reference values. <span class="tag check">Follow along</span> slides (Parts 4 and 5) are the hands-on steps.</p>
+  </div>
+  <p class="lede">Every figure is simulated live in your browser. Colour scales and axes are fixed.</p>
+</section>
+<section class="slide section" id="part-measure">
+  <p class="num">1</p>
+  <h2>What an interferometer measures</h2>
+  <p>Fringes, the uv-plane and the dirty image.</p>
+</section>
+<section class="slide" id="fringe" data-demo="fringe">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>one baseline · the interference pattern</p><h2>One baseline: the fringe pattern</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <p class="small ink2">One <b>visibility</b> (amplitude, phase) = the sum of the sky weighted by fringes λ/B apart.</p>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Gauss 2″, 15 m → 1 km. |V| falls as λ/B nears the source size (0.15 at 100 m), ≈ 0 once two fringes fit. Point 1″ east has |V| = 1, only the phase changes. The angle rotates the fringes.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Fringe pattern on the sky</b><span>230 GHz · outline: the source</span></figcaption><canvas class="img cb" data-k="fr"></canvas></figure>
+      <figure class="panel"><figcaption><b>Sky × fringes</b><span>red minus blue = Re V</span></figcaption><canvas class="img short" data-k="prod"></canvas></figure>
+      <figure class="panel"><figcaption><b>Visibility vs length</b><span>dot: the current length</span></figcaption><canvas class="plot" data-k="amp"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fourier" data-demo="fourier">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>all baselines · van Cittert–Zernike</p><h2>The visibilities are the Fourier transform of the sky</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <p class="small ink2">V(u,v) = ∬ A(l,m) I(l,m) e<sup>−2πi(ul+vm)</sup> dl dm (van Cittert–Zernike). Each baseline is one point (u, v) = B/λ. A baseline B at wavelength λ responds to structure on scales of ≈ λ/B.</p>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Grow the Gaussian from 0.1″ to 4″. Its visibilities move to the centre of the uv-plane, where the array has no baselines. On the sky it fades (the same 1 Jy, spread thinner).</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>|V(u, v)|</b><span>dots: 1 h of C-4 baselines</span></figcaption><canvas class="img" data-k="uv"></canvas></figure>
+      <figure class="panel"><figcaption><b>Sky I(l, m)</b><span>same 1 Jy, fixed scale: bigger = fainter</span></figcaption><canvas class="img short" data-k="sky"></canvas></figure>
+      <figure class="panel"><figcaption><b>Cut along u</b><span>grey: baselines</span></figcaption><canvas class="plot" data-k="cut"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="uvcov" data-demo="uvcov">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>uv coverage · the PSF</p><h2>The array samples the uv-plane only at discrete points</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Compare 2 min with 4 h, then C-2 with C-6. Earth rotation turns each baseline into a track. The ≈15 m central hole is too small to see here (next slide).</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Projected baselines</b><span>u, v in km, fixed ±2.7 km</span></figcaption><canvas class="plot sq"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF (dirty beam)</b><span>±5″, natural weighting</span></figcaption><canvas class="img short"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF cuts</b><span>major / minor axis</span></figcaption><canvas class="plot"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="mrs" data-demo="mrs">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>missing short spacings · maximum recoverable scale</p><h2>Missing short spacings and the maximum recoverable scale</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Make the source bigger than the MRS. Flux is lost and a negative bowl appears. This is missing short spacings, not a ring. No imaging parameter recovers it. The 7-m array (ACA) recovers part of the flux, Total Power the rest.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Image of the source</b><span>scale: fraction of the true peak</span></figcaption><canvas class="img cb" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Visibility amplitude</b><span>dots: data averaged in uv bins</span></figcaption><canvas class="plot" data-k="vis"></canvas></figure>
+      <figure class="panel"><figcaption><b>Cut through the source</b><span>grey: true sky ⊛ beam</span></figcaption><canvas class="plot" data-k="cut"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="gaps" data-demo="gaps">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>gaps in the uv-plane · why we deconvolve</p><h2>Gaps in uv coverage: why we clean</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <p class="small ink2"><b>Dirty image</b> = true sky ⊛ <b>dirty beam</b> (PSF). Gaps in the uv-plane produce PSF sidelobes around every source.</p>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>16 antennas, 2 min gives large sidelobes, stripes and holes. CLEAN (Part 4) removes most of them using the PSF. 43 antennas, 4 h gives smaller sidelobes. CLEAN cannot recover unmeasured data.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>The sky</b><span>input model</span></figcaption><canvas class="img short" data-k="sky"></canvas></figure>
+      <figure class="panel"><figcaption><b>Dirty beam (PSF)</b><span>natural weighting</span></figcaption><canvas class="img short" data-k="psf"></canvas></figure>
+      <figure class="panel"><figcaption><b>Dirty image</b><span>tclean with niter=0</span></figcaption><canvas class="img short" data-k="dirty"></canvas></figure>
+      <figure class="panel"><figcaption><b>After CLEAN</b><span>preview of Part 4</span></figcaption><canvas class="img short" data-k="clean"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-fixed">
+  <p class="num">2</p>
+  <h2>What else the observation fixes</h2>
+  <p>Field of view, sensitivity, and the parameters you choose.</p>
+</section>
+<section class="slide" id="pb" data-demo="pbfov">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>field of view · the primary beam</p><h2>Field of view: the primary beam</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Go from Band 3 to Band 9. The field shrinks from about 60″ to under 10″ (FWHM ≈ 1.13 λ/D). Sources away from the centre appear fainter because the primary beam response is lower there. Larger areas need a mosaic of pointings.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Observed sky</b><span>eight equal sources × primary beam</span></figcaption><canvas class="img cb" data-k="sky"></canvas></figure>
+      <figure class="panel"><figcaption><b>Primary beam response</b><span>bold: this band</span></figcaption><canvas class="plot sq" data-k="prof"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sens" data-demo="sens">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>sensitivity · the radiometer equation</p><h2>Sensitivity: the radiometer equation</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+    </div>
+    <div class="stack">
+      <div class="eq">σ ≈ 2<i>k</i>T<sub>sys</sub> / ( η A<sub>eff</sub> √(<i>N</i>(<i>N</i>−1) <i>n</i><sub>pol</sub> Δν <i>t</i>) )</div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>4× the time on source halves the noise (σ ∝ 1/√t). Halving the beam at fixed rms raises the brightness-temperature noise 4×. Your images should reach roughly this rms. The weblog lists the same theoretical value.</p>
+      <figure class="panel"><figcaption><b>Image noise vs time on source</b><span>dot: these settings</span></figcaption><canvas class="plot wide"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fixed">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>two kinds of parameters</p><h2>Fixed parameters and your choices</h2></header>
+  <div class="cols">
+    <div class="card"><h3><span class="tag fixed">Fixed by the observation</span></h3>
+      <table class="t">
+        <tr><td>Configuration</td><td>resolution, MRS, beam shape</td></tr>
+        <tr><td>Band, frequency</td><td>field of view, which lines</td></tr>
+        <tr><td>Time on source, bandwidth, antennas, weather</td><td>the theoretical noise</td></tr>
+        <tr><td>Spectral setup</td><td>channel width and resolution</td></tr>
+        <tr><td>Calibrators and cycle time</td><td>how well phases can be tracked</td></tr>
+      </table>
+      <p>You cannot change these later. Check them before you start (listobs in Part 2, the weblog in Part 3, the proposal).</p>
+    </div>
+    <div class="card"><h3><span class="tag choice">Your choice</span></h3>
+      <table class="t">
+        <tr><td>Imaging (Part 4)</td><td><code>cell</code>, <code>imsize</code>, <code>weighting</code>, <code>robust</code>, <code>uvtaper</code>, <code>niter</code>, <code>nsigma</code>, masks, <code>deconvolver</code></td></tr>
+        <tr><td>Line imaging (Part 5)</td><td><code>start</code>, <code>width</code>, <code>nchan</code>, continuum subtraction, moments</td></tr>
+        <tr><td>Calibration (Part 3)</td><td><code>solint</code>, <code>combine</code>, <code>refant</code>, <code>minsnr</code>, flagging</td></tr>
+        <tr><td>Self-calibration (Part 6)</td><td>whether, how often, with which solint</td></tr>
+      </table>
+      <p>These trade resolution, noise and fidelity within the limits on the left. Parts 3–6 cover them.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="takeaway" data-demo="reftable">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>reference numbers</p><h2>Rules of thumb</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+      <div class="tscroll"><table class="t" id="ref-table"></table></div>
+      <p class="small muted">Approximate values from the simulated 43-antenna layouts. Real numbers: ALMA Technical Handbook and the Sensitivity Calculator.</p>
+      <div class="card"><h3>Dirty image = sky ⊛ PSF</h3><p>Stripes and negative holes before CLEAN are normal (Part 4). Artifacts after CLEAN may point to a data problem (Part 3).</p></div>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Resolution</h3><p>θ ≈ 0.574 λ / L<sub>80</sub> (80th-percentile baseline).</p></div>
+      <div class="card"><h3>Maximum recoverable scale</h3><p>θ<sub>MRS</sub> ≈ 0.983 λ / L<sub>5</sub>. Larger structures are resolved out. No imaging parameter recovers them.</p></div>
+      <div class="card"><h3>Field of view</h3><p>Primary beam FWHM ≈ 1.13 λ / D (≈ 25″ at 230 GHz, 12-m dishes).</p></div>
+      <div class="card"><h3>Noise</h3><p>σ ∝ T<sub>sys</sub> / √(N(N−1) Δν t). 4× the time on source halves σ.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">B</p>
+  <h2>Backup</h2>
+  <p>Extra material if there is time, or for later reading.</p>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>discussion</p><h2>Four questions</h2></header>
+  <ol class="quiz">
+    <li>Your 6″ cloud was observed only in C-4 at Band 6. Which tclean parameter recovers its smooth emission?<details><summary>Answer</summary>None. It is larger than the MRS (≈5″), so these scales were not measured. You need ACA (and Total Power) data or a more compact configuration.</details></li>
+    <li>Why does the same configuration give a smaller beam at Band 7 than at Band 3?<details><summary>Answer</summary>Resolution scales with λ/B. The same baselines are 3.5× longer in wavelengths at 345 GHz than at 100 GHz.</details></li>
+    <li>You need half the noise of an existing 1-hour observation. How long must the new one be?<details><summary>Answer</summary>Four hours (σ ∝ 1/√t), with the same setup and similar weather.</details></li>
+    <li>Your dirty image shows negative holes and stripes around a bright source. Are the data bad?<details><summary>Answer</summary>Not necessarily. The dirty image is the sky convolved with the dirty beam, sidelobes included. Deconvolve first (Part 4). Artifacts left after CLEAN may point to a data problem (Part 3, weblogs).</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const STD = { cfg: 'C-4', freq: 230, dec: -30, ha0: -0.5, ha1: 0.5, dt: 60, band: 6 };
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const hoverFlux = (cv, el) => el && V.hover(cv, el, (v, x, y) => `${(v * 1e3).toFixed(3)} mJy/bm at (${x.toFixed(2)}″, ${y.toFixed(2)}″)`);
+
+window.DEMOS = {
+  titleArt(s) {
+    const cfg = S.config('C-4'), tr = S.uvTracks(cfg, { freq: 230, dec: -35, ha0: -2.5, ha1: 2.5, dt: 300 });
+    const x = [], y = [], c = [];
+    for (let k = 0; k < tr.n; k++) { const f = tr.ti[k] / (tr.nt - 1); x.push(tr.u[k] / 1e3, -tr.u[k] / 1e3); y.push(tr.v[k] / 1e3, -tr.v[k] / 1e3); c.push(f, f); }
+    V.plot($(s, 'canvas'), { x: { min: -620, max: 620 }, y: { min: -620, max: 620 }, axes: false, equal: true, legend: false,
+      series: [{ type: 'scatter', x, y, c, cmap: 'viridis', size: 1.5, alpha: 0.85 }] });
+  },
+
+  fringe(s) {
+    const cv = canv(s), N = 160, cell = 0.05, h = N / 2, LAM = S.C / 230e9, NB = 200;
+    const SKY = {
+      point: [{ type: 'point', flux: 1 }], east: [{ type: 'point', flux: 1, x: 1 }],
+      g05: [{ type: 'gauss', flux: 1, fwhm: 0.5 }], g2: [{ type: 'gauss', flux: 1, fwhm: 2 }]
+    };
+    const sky = k => K.memo('fr-sky:' + k, () => { const a = S.smoothModel(S.skyImage(SKY[k], N, cell), N, cell, { maj: 0.15, min: 0.15, pa: 0 }), pk = S.max(a).v; return a.map(x => x / pk); });
+    const BL = Array.from({ length: NB }, (_, i) => 15 * Math.pow(1000 / 15, i / (NB - 1)));
+    const ro = V.readouts($(s, '.ro'), [{ k: 'sp', label: 'Fringe spacing λ/B' }, { k: 'amp', label: '|V| / total flux' }, { k: 'ph', label: 'Phase' }]);
+    const outline = (ctx, m, comps) => comps.forEach(c => {
+      const r = c.type === 'point' ? 0.12 : c.fwhm / 2;
+      [[5, '--slide'], [2, '--ink']].forEach(([w, col]) => { ctx.lineWidth = w; ctx.strokeStyle = V.css(col); ctx.beginPath(); ctx.arc(m.X(c.x || 0), m.Y(c.y || 0), r * m.k, 0, 2 * Math.PI); ctx.stroke(); });
+    });
+    V.call($(s, '.ctl'), 'baseline', [
+      { k: 'length', type: 'range', min: 15, max: 1000, value: 40, scale: 'log', fmt: v => `'${v}m'` },
+      { k: 'angle', type: 'range', min: 0, max: 180, step: 15, value: 30, fmt: v => `'${v}deg'` },
+      { k: 'sky', label: 'sky', type: 'choice', options: ['point', 'east', 'g05', 'g2'], labels: ['point', 'point 1″ east', 'Gauss 0.5″', 'Gauss 2″'], value: 'g2', scenario: true }
+    ], V.rafThrottle(v => {
+      const th = v.angle * Math.PI / 180, uu = v.length * Math.cos(th) / LAM, vv = v.length * Math.sin(th) / LAM, sk = sky(v.sky);
+      const fr = new Float64Array(N * N), prod = new Float64Array(N * N);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const i = y * N + x; fr[i] = Math.cos(2 * Math.PI * (uu * (x - h) + vv * (y - h)) * cell * S.AS); prod[i] = fr[i] * sk[i];
+      }
+      V.image(cv.fr, fr, N, { cell, cmap: 'rdbu', vmin: -1, vmax: 1, cbar: { label: 'fringe response', scale: 1 }, overlay: (ctx, m) => outline(ctx, m, SKY[v.sky]) });
+      V.image(cv.prod, prod, N, { cell, cmap: 'rdbu', vmin: -1, vmax: 1 });
+      const bu = BL.map(b => b * Math.cos(th) / LAM), bv = BL.map(b => b * Math.sin(th) / LAM), re = new Float64Array(NB), im = new Float64Array(NB);
+      S.visModel(SKY[v.sky], bu, bv, re, im);
+      const r1 = new Float64Array(1), i1 = new Float64Array(1);
+      S.visModel(SKY[v.sky], [uu], [vv], r1, i1);
+      const a = Math.hypot(r1[0], i1[0]);
+      V.plot(cv.amp, { x: { min: 15, max: 1000, log: true, ticks: [20, 50, 100, 200, 500, 1000], fmt: String, label: 'baseline length (m)' }, y: { min: -1.05, max: 1.05, label: 'V / total flux' }, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: BL, y: Array.from(re), color: '--s2', width: 1.5, dash: [5, 4], label: 'Re V' },
+                 { type: 'line', x: BL, y: BL.map((_, i) => Math.hypot(re[i], im[i])), color: '--s1', label: '|V|' },
+                 { type: 'scatter', x: [v.length], y: [a], size: 9, color: '--s1' }] });
+      ro.set('sp', K.as(LAM / v.length / S.AS));
+      ro.set('amp', a.toFixed(2));
+      ro.set('ph', (Math.round(a < 1e-3 ? 0 : Math.atan2(i1[0], r1[0]) * 180 / Math.PI) + 0) + '°');   // + 0 turns −0 into 0
+    }));
+  },
+
+  fourier(s) {
+    const N = 128, cell = 0.05, M = 128, ext = 800e3, du = 2 * ext / M, cv = canv(s);
+    const gu = new Float64Array(M * M), gv = new Float64Array(M * M);
+    for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) { gu[y * M + x] = (x - M / 2) * du; gv[y * M + x] = (y - M / 2) * du; }
+    const tr = K.obs(STD).tr, nb = 64, hist = new Float64Array(nb), qx = new Float64Array(nb);
+    for (let k = 0; k < tr.n; k++) { const b = Math.floor(Math.hypot(tr.u[k], tr.v[k]) / ext * nb); if (b < nb) hist[b]++; }
+    const hmax = Math.max.apply(null, hist);
+    for (let i = 0; i < nb; i++) { hist[i] = 0.35 * hist[i] / hmax; qx[i] = (i + 0.5) * ext / nb / 1e3; }
+    const du2 = [], dv2 = [];
+    for (let k = 0; k < tr.n; k += 2) { du2.push(tr.u[k] / 1e3, -tr.u[k] / 1e3); dv2.push(tr.v[k] / 1e3, -tr.v[k] / 1e3); }
+    const cu = new Float64Array(241), cv0 = new Float64Array(241), cq = new Float64Array(241);
+    for (let i = 0; i <= 240; i++) { cu[i] = i / 240 * ext; cq[i] = cu[i] / 1e3; }
+    const SH = {
+      point: () => [{ type: 'point', flux: 1 }],
+      double: sz => [{ type: 'point', flux: 0.5, x: -sz / 2 }, { type: 'point', flux: 0.5, x: sz / 2 }],
+      gauss: sz => [{ type: 'gauss', flux: 1, fwhm: sz }],
+      disk: sz => [{ type: 'disk', flux: 1, fwhm: sz }],
+      ring: sz => [{ type: 'ring', flux: 1, r: sz / 2, width: sz / 8 }]
+    };
+    const ro = V.readouts($(s, '.ro'), [{ k: 'half', label: '|V| drops to ½ at' }, { k: 'see', label: 'Data with |V| > 0.2' }]);
+    V.call($(s, '.ctl'), 'sky_model', [
+      { k: 'shape', type: 'choice', options: ['point', 'double', 'gauss', 'disk', 'ring'], value: 'gauss' },
+      { k: 'size', type: 'range', min: 0.1, max: 4, value: 0.8, scale: 'log', fmt: v => `'${v}arcsec'`, show: v => v.shape !== 'point' }
+    ], V.rafThrottle(v => {
+      const comps = SH[v.shape](v.size);
+      const sky = S.smoothModel(S.skyImage(comps, N, cell), N, cell, { maj: 0.08, min: 0.08, pa: 0 });
+      V.image(cv.sky, sky, N, { cell, vmin: 0, stretch: 'sqrt', vmax: K.memo('fourier-skymax', () => S.max(S.smoothModel(S.skyImage(SH.gauss(0.8), N, cell), N, cell, { maj: 0.08, min: 0.08, pa: 0 })).v) });
+      const re = new Float64Array(M * M), im = new Float64Array(M * M);
+      S.visModel(comps, gu, gv, re, im);
+      const amp = re.map((r, i) => Math.hypot(r, im[i]));
+      V.image(cv.uv, amp, M, { cell: du / 1e3, flipX: false, xlabel: 'u (kλ)', ylabel: 'v (kλ)', cmap: 'viridis', vmin: 0, vmax: 1,
+        overlay: (ctx, m) => { ctx.fillStyle = 'rgba(255,255,255,0.35)'; for (let k = 0; k < du2.length; k += 6) ctx.fillRect(m.X(du2[k]) - 0.5, m.Y(dv2[k]) - 0.5, 1, 1); } });
+      const r1 = new Float64Array(241), i1 = new Float64Array(241);
+      S.visModel(comps, cu, cv0, r1, i1);
+      const a1 = r1.map((r, i) => Math.hypot(r, i1[i]));
+      V.plot(cv.cut, { x: { min: 0, max: 800, label: 'baseline length (kλ)' }, y: { min: 0, max: 1.05, label: '|V| / total flux' },
+        series: [{ type: 'area', x: qx, y: hist, color: '--axis', width: 1 }, { type: 'line', x: cq, y: a1, color: '--s1', label: '|V(u, 0)|' }] });
+      let half = null; for (let i = 0; i < a1.length; i++) if (a1[i] < 0.5) { half = cq[i]; break; }
+      ro.set('half', half == null ? '> 800 kλ' : `${half.toFixed(0)} kλ (${(half * 1e3 * tr.lam).toFixed(0)} m)`);
+      const rr = new Float64Array(tr.n), ii = new Float64Array(tr.n); S.visModel(comps, tr.u, tr.v, rr, ii);
+      let c = 0; for (let k = 0; k < tr.n; k++) if (Math.hypot(rr[k], ii[k]) > 0.2) c++;
+      ro.set('see', K.pct(c / tr.n), c / tr.n > 0.5 ? 'good' : c / tr.n > 0.1 ? 'warn' : 'bad');
+    }));
+  },
+
+  uvcov(s) {
+    const cvs = $$(s, 'canvas'), N = 512, cell = 0.025, LKM = 2.7;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'beam', label: 'Beam' }, { k: 'pa', label: 'PA' }, { k: 'sl', label: 'Peak sidelobe' }, { k: 'lmax', label: 'Longest baseline' }, { k: 'mrs', label: 'MRS' }]);
+    const DUR = { '2min': [-1 / 60, 1 / 60, 20], '15min': [-0.125, 0.125, 30], '1h': [-0.5, 0.5, 60], '4h': [-2, 2, 120] };
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'config', type: 'choice', options: ['C-2', 'C-4', 'C-6'], value: 'C-4' },
+      { k: 'duration', type: 'choice', options: ['2min', '15min', '1h', '4h'], value: '1h' },
+      { k: 'dec', type: 'choice', options: ['-70deg', '-45deg', '-23deg', '0deg', '+20deg'], labels: ['−70°', '−45°', '−23°', '0°', '+20°'], value: '-23deg' },
+      { k: 'band', type: 'choice', options: [3, 6, 7], value: 6, quote: false }
+    ], v => {
+      const dd = DUR[v.duration], ghz = S.BANDS[v.band].ghz, cfg = S.config(v.config);
+      const tr = S.uvTracks(cfg, { freq: ghz, dec: parseFloat(v.dec), ha0: dd[0], ha1: dd[1], dt: dd[2] });
+      const d = Object.assign({}, tr, { re: new Float64Array(tr.n), im: new Float64Array(tr.n), wt: new Float64Array(tr.n).fill(1), flag: new Uint8Array(tr.n) });
+      const im = S.image(d, { N, cell, weighting: 'natural' }), km = tr.lam / 1e3;
+      const step = Math.max(1, Math.floor(tr.n / 45000)), ux = [], vy = [];
+      for (let k = 0; k < tr.n; k += step) { ux.push(tr.u[k] * km, -tr.u[k] * km); vy.push(tr.v[k] * km, -tr.v[k] * km); }
+      V.plot(cvs[0], { x: { min: -LKM, max: LKM, label: 'u (km)' }, y: { min: -LKM, max: LKM, label: 'v (km)' }, equal: true, legend: false,
+        series: [{ type: 'scatter', x: ux, y: vy, size: 1.5, color: '--s1', alpha: 0.7 }] });
+      V.image(cvs[1], im.psf, N, { cell, crop: 400, cmap: 'rdbu', vmin: -0.35, vmax: 0.35, beam: im.beam });
+      const a = K.cut(im.psf, N, cell, im.beam.pa, 5), b = K.cut(im.psf, N, cell, im.beam.pa + 90, 5);
+      V.plot(cvs[2], { x: { min: -5, max: 5, label: 'offset (″)' }, y: { min: -0.3, max: 1.02 }, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: a.x, y: a.y, color: '--s1', label: 'major axis' }, { type: 'line', x: b.x, y: b.y, color: '--s2', label: 'minor axis' }] });
+      const sl = K.sidelobe(im), st = S.baselineStats(cfg);
+      ro.set('beam', K.beamStr(im.beam)); ro.set('pa', im.beam.pa.toFixed(0) + '°');
+      ro.set('sl', K.pct(sl), sl < 0.15 ? 'good' : sl < 0.3 ? 'warn' : 'bad');
+      ro.set('lmax', (st.lmax / 1000).toFixed(2) + ' km'); ro.set('mrs', K.as(S.mrs(cfg, ghz)));
+    });
+  },
+
+  mrs(s) {
+    const cv = canv(s), N = 256, cell = 0.12, HALF = 14, QMAX = 620;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'mrs', label: 'MRS' }, { k: 'rec', label: 'Flux recovered' }, { k: 'short', label: 'Shortest baseline' }]);
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'config', type: 'choice', options: ['C-2', 'C-4'], value: 'C-4' },
+      { k: 'aca', type: 'toggle', value: false, note: 'add the 7-m array' },
+      { k: 'size', label: 'source FWHM', type: 'range', min: 0.3, max: 12, value: 2, scale: 'log', fmt: v => v + '″', live: false, scenario: true }
+    ], v => {
+      const ob = K.obs({ cfg: v.config, aca: v.aca, freq: 230, dec: -30, ha0: -1, ha1: 1, dt: 90, band: 6 });
+      const res = S.resolution(S.config(v.config), 230), comps = [{ type: 'gauss', flux: 0.01, fwhm: v.size }];
+      const d = S.observe(ob.tr, comps, { sigma: ob.sigma, seed: 5 });
+      const im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 });
+      const c = K.clean(im, { niter: 3000, threshold: 2 * im.sigma, mask: S.circleMask(N, cell, Math.min(HALF, 1.2 * v.size + 2 * res)), gain: 0.15 });
+      const truth = S.smoothModel(S.skyImage(comps, N, cell), N, cell, im.beam), tpk = S.max(truth).v;
+      const rap = Math.min(v.size, HALF), ap = S.circleMask(N, cell, rap), frac = 1 - Math.pow(2, -4 * rap * rap / (v.size * v.size));
+      const rec = S.sumIn(c.restored, ap) / S.beamArea(im.beam, cell) / (0.01 * frac);
+      const nb = 48, sr = new Float64Array(nb), sn = new Float64Array(nb), qq = [], aa = [];
+      for (let k = 0; k < d.n; k++) { const b = Math.floor(Math.hypot(d.u[k], d.v[k]) / 1e3 / QMAX * nb); if (b < nb) { sr[b] += d.re[k]; sn[b]++; } }
+      for (let b = 0; b < nb; b++) if (sn[b] > 3) { qq.push((b + 0.5) * QMAX / nb); aa.push(sr[b] / sn[b] / 0.01); }
+      const tq = [], ta = [], kk = Math.PI * Math.PI / (4 * Math.LN2);
+      for (let i = 0; i <= 200; i++) { const q = i / 200 * QMAX; tq.push(q); ta.push(Math.exp(-kk * Math.pow(v.size * S.AS * q * 1e3, 2))); }
+      V.plot(cv.vis, { x: { min: 0, max: QMAX, label: 'uv distance (kλ)' }, y: { min: -0.05, max: 1.05, label: 'amplitude / total flux' },
+        series: [{ type: 'line', x: tq, y: ta, color: '--axis', width: 1.5, label: 'true |V|' }, { type: 'scatter', x: qq, y: aa, size: 6, color: '--s1', label: 'measured' }] });
+      V.image(cv.img, c.restored.map(x => x / tpk), N, { cell, crop: 2 * Math.round(HALF / cell), vmin: -0.5, vmax: 1.1, beam: im.beam, cbar: { label: 'fraction of true peak', scale: 1 } });
+      const a = K.cut(c.restored, N, cell, 90, HALF), b = K.cut(truth, N, cell, 90, HALF);
+      V.plot(cv.cut, { x: { min: -HALF, max: HALF, label: 'offset (″)' }, y: { min: -0.6, max: 1.2, label: 'fraction of true peak' }, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: b.x, y: Array.from(b.y, x => x / tpk), color: '--axis', width: 1.5 }, { type: 'line', x: a.x, y: Array.from(a.y, x => x / tpk), color: '--s1', label: 'image' }] });
+      const mrs = S.mrs(ob.cfg, 230);
+      ro.set('mrs', K.as(mrs), v.size < mrs ? 'good' : v.size < 2 * mrs ? 'warn' : 'bad');
+      ro.set('rec', K.pct(Math.max(0, rec)), rec > 0.85 ? 'good' : rec > 0.5 ? 'warn' : 'bad');
+      ro.set('short', S.baselineStats(ob.cfg).lmin.toFixed(0) + ' m');
+    });
+  },
+
+  gaps(s) {
+    const cv = canv(s), N = 160, NI = 256, cell = 0.08, CROP = 84;   // image on a padded NI grid (no PSF wrap), CLEAN the central N (PSF half-width 80 px > the 65-px disk mask)
+    const DUR = { '2min': [-1 / 60, 1 / 60, 20], '1h': [-0.5, 0.5, 60], '4h': [-2, 2, 120] }, INC = { ratio: Math.cos(35 * Math.PI / 180), pa: 120 };
+    const SKY = {
+      point: { c: [{ type: 'point', flux: 0.1 }], r: [[0, 0, 0.6]] },
+      two: { c: [{ type: 'point', flux: 0.1, x: -1.2, y: 0.8 }, { type: 'point', flux: 0.06, x: 1.0, y: -1.1 }], r: [[-1.2, 0.8, 0.6], [1.0, -1.1, 0.6]] },
+      disk: { c: [Object.assign({ type: 'gauss', flux: 0.03, fwhm: 0.3 }, INC), Object.assign({ type: 'ring', flux: 0.09, r: 0.9, width: 0.2 }, INC), Object.assign({ type: 'ring', flux: 0.15, r: 2.0, width: 0.3 }, INC)], r: [[0, 0, 2.6]] }
+    };
+    const sub = n => { const c = S.config('C-4'), idx = Array.from({ length: n }, (_, i) => Math.round(i * (c.nAnt - 1) / (n - 1)));   // spread over the whole array
+      return Object.assign({}, c, { e: idx.map(i => c.e[i]), n: idx.map(i => c.n[i]), names: idx.map(i => c.names[i]), nAnt: n }); };
+    const run = (na, dur, k) => K.memo(`gaps:${na}:${dur}:${k}`, () => {
+      const dd = DUR[dur], tr = K.memo(`gaps-tr:${na}:${dur}`, () => S.uvTracks(sub(na), { freq: 230, dec: -23, ha0: dd[0], ha1: dd[1], dt: dd[2] }));
+      const comps = SKY[k].c, d = S.observe(tr, comps, { sigma: S.sigmaVis(6, 7.5e9, dd[2]), seed: 3 }), big = S.image(d, { N: NI, cell, weighting: 'natural' }), o = (NI - N) / 2;
+      const cut = a => { const b = new Float64Array(N * N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) b[y * N + x] = a[(y + o) * NI + x + o]; return b; };
+      const im = Object.assign({}, big, { N, dirty: cut(big.dirty), psf: cut(big.psf) });
+      const mask = new Uint8Array(N * N);
+      SKY[k].r.forEach(([x, y, r]) => { const m = S.circleMask(N, cell, r, x, y); for (let i = 0; i < m.length; i++) mask[i] |= m[i]; });
+      const c = K.clean(im, { niter: 10000, threshold: 2 * im.sigma, mask, gain: 0.15 });
+      const tpk = S.max(S.smoothModel(S.skyImage(comps, N, cell), N, cell, im.beam)).v;   // true sky at this resolution
+      return { im, dirty: im.dirty.map(x => x / tpk), clean: c.restored.map(x => x / tpk), sl: K.sidelobe(im), stop: c.stop };
+    });
+    const sky = k => K.memo('gaps-sky:' + k, () => { const w = k === 'disk' ? 0.15 : 0.3, a = S.smoothModel(S.skyImage(SKY[k].c, N, cell), N, cell, { maj: w, min: w, pa: 0 }), pk = S.max(a).v; return a.map(x => x / pk); });
+    const lo = N / 2 - CROP / 2 + 1, hi = N / 2 + CROP / 2;   // the pixels V.image shows with crop: CROP
+    const viewMin = a => { let m = Infinity; for (let y = lo; y <= hi; y++) for (let x = lo; x <= hi; x++) m = Math.min(m, a[y * N + x]); return Math.round(m * 100) / 100 + 0; };   // + 0: no "-0%"
+    const ro = V.readouts($(s, '.ro'), [{ k: 'sl', label: 'PSF: highest sidelobe' }, { k: 'nd', label: 'Dirty: deepest hole' }, { k: 'nc', label: 'CLEAN: deepest hole' }]);
+    const SC = { cell, crop: CROP, vmin: -0.4, vmax: 1.15, cbar: { label: 'fraction of true peak', scale: 1 } };
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'config', v: "'C-4'" },
+      { k: 'antennas', type: 'choice', options: [8, 16, 43], value: 16, quote: false },
+      { k: 'duration', type: 'choice', options: ['2min', '1h', '4h'], value: '2min' },
+      { k: 'sky', label: 'sky', type: 'choice', options: ['point', 'two', 'disk'], labels: ['point', 'two points', 'disk with rings'], value: 'disk', scenario: true }
+    ], v => {
+      const r = run(v.antennas, v.duration, v.sky);
+      V.image(cv.sky, sky(v.sky), N, { cell, crop: CROP, vmin: 0, vmax: 1, stretch: 'sqrt' });
+      V.image(cv.psf, r.im.psf, N, { cell, crop: CROP, cmap: 'rdbu', vmin: -0.35, vmax: 0.35, beam: r.im.beam });
+      V.image(cv.dirty, r.dirty, N, Object.assign({ beam: r.im.beam }, SC));
+      V.image(cv.clean, r.clean, N, Object.assign({ beam: r.im.beam }, SC));
+      ro.set('sl', K.pct(r.sl), r.sl < 0.15 ? 'good' : r.sl < 0.3 ? 'warn' : 'bad');
+      ro.set('nd', K.pct(viewMin(r.dirty))); ro.set('nc', K.pct(viewMin(r.clean)));
+    });
+  },
+
+  pbfov(s) {
+    const cv = canv(s), M = 200, EXT = 60, cellA = 2 * EXT / M;
+    const SRC = [[0, 0], [9, 6], [-17, 10], [24, -18], [-33, -26], [40, 28], [-48, 12], [6, -42]];
+    const ro = V.readouts($(s, '.ro'), [{ k: 'fwhm', label: 'Primary beam FWHM' }, { k: 'r20', label: 'Radius at 20% response' }, { k: 'n', label: 'Sources above 50%' }]);
+    const BANDS = [3, 4, 6, 7, 9];
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'band', type: 'choice', options: BANDS, value: 6, quote: false },
+      { k: 'dish', type: 'choice', options: [12, 7], labels: ['12 m', '7 m (ACA)'], value: 12, fmt: v => v + ' m' }
+    ], v => {
+      const ghz = S.BANDS[v.band].ghz, fw = S.pbFWHM(ghz, v.dish), img = new Float64Array(M * M), h = M / 2;
+      for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) {
+        const l = (x - h) * cellA, m = (y - h) * cellA, pb = S.pb(Math.hypot(l, m), ghz, v.dish);
+        let t = 0; for (const [sx, sy] of SRC) { const r2 = (l - sx) * (l - sx) + (m - sy) * (m - sy); t += Math.exp(-4 * Math.LN2 * r2 / 36); }
+        img[y * M + x] = t * pb;
+      }
+      const r20 = fw / 2 * Math.sqrt(Math.log(5) / Math.LN2);
+      V.image(cv.sky, img, M, { cell: cellA, vmin: 0, vmax: 1, cbar: { label: 'response (true = 1)', scale: 1 }, overlay: (ctx, m) => {
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.75)'; ctx.setLineDash([5, 4]);
+        ctx.beginPath(); ctx.arc(m.X(0), m.Y(0), fw / 2 * m.k, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.arc(m.X(0), m.Y(0), r20 * m.k, 0, 2 * Math.PI); ctx.stroke();
+      } });
+      const rx = Array.from({ length: 121 }, (_, i) => i / 2);
+      V.plot(cv.prof, { x: { min: 0, max: 60, label: 'distance from the pointing centre (″)' }, y: { min: 0, max: 1.05, label: 'response' },
+        series: BANDS.map((b, i) => ({ type: 'line', x: rx, y: rx.map(r => S.pb(r, S.BANDS[b].ghz, v.dish)), color: `--s${i + 1}`, width: b === v.band ? 3.5 : 1.2, label: 'Band ' + b })) });
+      ro.set('fwhm', K.as(fw)); ro.set('r20', K.as(r20));
+      ro.set('n', String(SRC.filter(([x, y]) => S.pb(Math.hypot(x, y), ghz, v.dish) > 0.5).length) + ' of 8');
+    });
+  },
+
+  sens(s) {
+    const cvs = $$(s, 'canvas');
+    const ro = V.readouts($(s, '.ro'), [{ k: 'sefd', label: 'SEFD per antenna' }, { k: 'sig', label: 'Image noise' }, { k: 'tb', label: 'Noise in T_b' }, { k: 't10', label: 'Time for 10 μJy' }]);
+    V.call($(s, '.ctl'), 'sensitivity', [
+      { k: 'band', type: 'choice', options: [3, 4, 6, 7, 9], value: 6, quote: false },
+      { k: 'nant', type: 'range', min: 10, max: 50, step: 1, value: 43 },
+      { k: 'bw', type: 'range', min: 0.05, max: 7.5, value: 7.5, scale: 'log', fmt: v => `'${v}GHz'` },
+      { k: 'time', type: 'range', min: 1, max: 600, value: 60, scale: 'log', fmt: v => `'${Math.round(v)}min'` },
+      { k: 'beam', type: 'range', min: 0.03, max: 2, value: 0.4, scale: 'log', fmt: v => `'${v}arcsec'`, note: 'from the configuration' }
+    ], V.rafThrottle(v => {
+      const sig = t => S.sigmaImage(v.band, v.bw * 1e9, t * 60, v.nant);
+      const s0 = sig(v.time), ghz = S.BANDS[v.band].ghz, t = K.tb(s0, { maj: v.beam, min: v.beam }, ghz);
+      const tx = [], ty = []; for (let i = 0; i <= 60; i++) { const tt = Math.pow(10, i / 60 * 3); tx.push(tt); ty.push(sig(tt) * 1e6); }
+      V.plot(cvs[0], { x: { min: 1, max: 1000, label: 'time on source (min)', log: true }, y: { min: 1, max: 3000, label: 'σ (μJy/beam)', log: true },
+        series: [{ type: 'line', x: tx, y: ty, color: '--s1', label: `Band ${v.band}, ${v.nant} antennas` }, { type: 'scatter', x: [v.time], y: [s0 * 1e6], size: 12, color: '--accent' }] });
+      ro.set('sefd', (S.sefd(v.band) / 1000).toFixed(1) + ' kJy');
+      ro.set('sig', K.uJy(s0)); ro.set('tb', t >= 1 ? t.toFixed(2) + ' K' : (t * 1e3).toFixed(1) + ' mK');
+      const t10 = v.time * Math.pow(s0 / 10e-6, 2);
+      ro.set('t10', t10 < 60 ? t10.toFixed(0) + ' min' : (t10 / 60).toFixed(1) + ' h');
+    }));
+  },
+
+  reftable(s) {
+    const T = $(s, '#ref-table'), bands = [3, 6, 7], cfgs = ['C-2', 'C-4', 'C-6'];
+    const head = '<tr><th></th>' + bands.map(b => `<th>Band ${b} (${S.BANDS[b].ghz} GHz)</th>`).join('') + '</tr>';
+    const row = (lab, f) => `<tr><td>${lab}</td>` + bands.map(b => `<td>${f(b)}</td>`).join('') + '</tr>';
+    const rows = [];
+    cfgs.forEach(c => rows.push(row(`${c}: resolution / MRS`, b => `${K.as(S.resolution(S.config(c), S.BANDS[b].ghz))} / ${K.as(S.mrs(S.config(c), S.BANDS[b].ghz))}`)));
+    rows.push(row('Primary beam FWHM (12 m)', b => K.as(S.pbFWHM(S.BANDS[b].ghz, 12))));
+    rows.push(row('Continuum σ, 1 h, 43 antennas', b => K.uJy(S.sigmaImage(b, 7.5e9, 3600, 43)).replace('/bm', '/beam')));
+    T.innerHTML = head + rows.join('');
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

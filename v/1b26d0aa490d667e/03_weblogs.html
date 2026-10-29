@@ -1,0 +1,1432 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inspecting Weblogs</title>
+<meta name="deck-title" content="Inspecting weblogs · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+#sequence svg.diagram text.on { fill: var(--on-accent); }
+#takeaway-seq pre.code { font-size: .55em; }
+#pipeline .cols { grid-template-columns: 1.2fr 1fr; gap: 1.6em; }
+.key { display: flex; align-items: center; }
+.key i { display: inline-block; width: .7em; height: .7em; border-radius: 50%; margin: 0 .25em 0 .6em; }
+.wl .panel { gap: .4em; }
+.wl canvas, .wl-list { aspect-ratio: 2.05; width: 100%; }
+.wl-list { overflow: auto; justify-content: space-between; border: 1px solid var(--rule); border-radius: .4em; background: var(--panel); padding: .5em .8em; display: flex; flex-direction: column; font-size: .72em; }
+.wl-row { display: grid; grid-template-columns: 1.6em 10.5em 7em 2.4em minmax(0, 1fr); gap: .7em; align-items: center; padding: .12em 0; border-bottom: 1px solid var(--grid); }
+.wl-row:last-child { border-bottom: 0; }
+.wl-row .n, .wl-row .sc { color: var(--muted); font-variant-numeric: tabular-nums; }
+.wl-row .m { color: var(--ink-2); }
+.wl-bar { height: .75em; background: var(--grid); border-radius: .375em; overflow: hidden; }
+.wl-bar i { display: block; height: 100%; border-radius: .375em; }
+.wl-bar.g i { background: var(--good); } .wl-bar.b i { background: var(--s1); } .wl-bar.y i { background: var(--warn); } .wl-bar.r i { background: var(--bad); }
+.wl-key { display: flex; flex-wrap: wrap; gap: .3em 1.2em; padding-top: .45em; color: var(--muted); }
+.wl-key i { display: inline-block; width: .9em; height: .6em; border-radius: .3em; margin-right: .35em; vertical-align: middle; }
+#delivery pre.code { font-size: .64em; }
+#calstages table.t td, #checklist table.t td, #sd table.t td { padding: .28em .5em; }
+.wl .key { flex-wrap: wrap; margin: 0; }
+#obsinfo .wl-list { font-size: .95em; justify-content: center; }
+#obsinfo .wl-list table.t { font-size: .8em; }
+#pipeline ul { margin: 0; padding-left: 1.1em; }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="Antenna gain phases drifting over an hour"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 3 of 8 · 11:30–12:00</p>
+  <h1>Inspecting<br>weblogs</h1>
+  <p class="sub">What the ALMA pipeline did to your data, which weblog pages to open, and what healthy and problematic calibration and imaging look like.</p>
+  <div class="meta"><span>30 min</span><span>ALMA pipeline · CASA 6</span><span>Simulated weblog figures with live controls</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part · 11:30–12:00</p><h2>Outline</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>1 · <span class="tag fixed">Concept</span></h3><p><b>Context</b>: what the pipeline and a weblog are, which data one weblog covers, where it sits in your delivery, and QA2.</p></div>
+    <div class="card"><h3>2 · <span class="tag fixed">Fixed by the observation</span></h3><p><b>The observation</b>: fields and scans, spectral windows, elevation. Then the QA scores and the flagging summary.</p></div>
+    <div class="card"><h3>3 · <span class="tag check">Check</span></h3><p><b>Calibration stages</b>: Tsys, WVR, bandpass, phase rms, gains, applycal, check source. Healthy and problematic pages.</p></div>
+    <div class="card"><h3>4 · <span class="tag check">Check</span></h3><p><b>Imaging stages</b>: which images the pipeline makes, continuum ranges, image noise, the <code>tclean</code> command to copy. Then a weblog checklist.</p></div>
+  </div>
+  <p class="lede">Every weblog figure here is simulated, with a healthy and a problematic dataset on fixed axes. Manual calibration is needed only in rare cases (parameter demos in Backup).</p>
+</section>
+<section class="slide section" id="part-context">
+  <p class="num">1</p>
+  <h2>The pipeline and its weblog</h2>
+  <p>What the pipeline is, which data one weblog covers, and where it sits in what you download.</p>
+</section>
+<section class="slide" id="pipeline">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>the CASA pipeline and its weblog</p><h2>What are the pipeline and the weblog?</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <ul class="small">
+        <li><b>Recipe</b>: a fixed sequence of stages that calibrate the raw data, then image them. One recipe for ALMA interferometry (12-m and 7-m), others for total power and the VLA.</li>
+        <li><b>Heuristics</b>: determine which steps are needed and their parameters, then run the core CASA tasks (<code>flagdata</code>, <code>gaincal</code>, <code>tclean</code>, …).</li>
+        <li><b>Weblog</b>: one HTML page per stage with plots, tables, images and a QA score. Written as the pipeline runs. Holds most QA2 diagnostics.</li>
+      </ul>
+      <div class="tscroll"><table class="t">
+        <tr><th>Stage prefix</th><th>Stages for</th></tr>
+        <tr><td><code>h_</code></td><td>any data (generic)</td></tr>
+        <tr><td><code>hif_</code></td><td>interferometry</td></tr>
+        <tr><td><code>hifa_</code></td><td>ALMA interferometry</td></tr>
+        <tr><td><code>hsd_</code></td><td>single dish (total power)</td></tr>
+      </table></div>
+      <div class="card"><h3>QA2</h3><p>ALMA staff check every weblog and add flags, recalibrate or reimage as needed to reach the PI's requested rms and beam. Pipeline scores are conservative (set for automatic delivery). The QA2 report in <code>qa/</code> explains yellow and red scores.</p></div>
+    </div>
+    <div class="stack">
+      <svg class="diagram" viewBox="0 0 440 200" role="img" aria-label="Nested data units: project, science goal, group, member. One member is one pipeline run and one weblog, and holds the execution blocks.">
+        <g font-size="13">
+          <rect class="box" x="2" y="2" width="436" height="196" rx="8"/><text x="14" y="22" font-weight="700">Project</text><text x="72" y="22" class="muted">e.g. 2023.1.01234.S</text>
+          <rect class="box" x="12" y="32" width="416" height="158" rx="7"/><text x="24" y="52" font-weight="700">SOUS</text><text x="68" y="52" class="muted">science goal</text>
+          <rect class="box" x="22" y="62" width="396" height="120" rx="6"/><text x="34" y="82" font-weight="700">GOUS</text><text x="78" y="82" class="muted">group</text>
+          <rect class="box hot" x="32" y="92" width="376" height="82" rx="6"/><text x="44" y="112" font-weight="700">MOUS</text><text x="92" y="112" class="muted">member: one pipeline run, one weblog</text>
+          <rect class="box" x="44" y="124" width="108" height="40" rx="5"/><text x="98" y="149" text-anchor="middle">EB 1</text>
+          <rect class="box" x="166" y="124" width="108" height="40" rx="5"/><text x="220" y="149" text-anchor="middle">EB 2</text>
+          <rect class="box" x="288" y="124" width="108" height="40" rx="5"/><text x="342" y="149" text-anchor="middle">EB 3</text>
+        </g>
+      </svg>
+      <p class="small ink2">EB: one execution of the scheduling block. One weblog includes all EBs. Targets and calibrators are imaged with all EBs combined, the check source per EB.</p>
+      <p class="small muted">Early-cycle data, such as the Cycle 0 TW Hya set of Parts 4 and 5, were calibrated manually, with no weblog.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="delivery">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>archive data structure</p><h2>Archive delivery: what to open first</h2></header>
+  <div class="cols">
+<pre class="code"><span class="f">2023.1.01234.S/</span>  <span class="c"># project</span>
+└── science_goal.uid___A001_X…/
+    └── group.uid___A001_X…/
+        └── member.uid___A001_X…/   <span class="c"># MOUS: one pipeline run</span>
+            ├── README              <span class="c"># what is where</span>
+            ├── calibration/        <span class="c"># cal tables, flags</span>
+            ├── log/                <span class="c"># casa_commands.log</span>
+            ├── product/            <span class="c"># pipeline FITS images</span>
+            ├── qa/                 <span class="c"># weblog.tgz, QA0/QA2 reports</span>
+            ├── raw/                <span class="c"># ASDMs (download separately)</span>
+            ├── script/
+            │   └── <span class="em">scriptForPI.py</span>    <span class="c"># restores calibrated MS</span>
+            └── calibrated/         <span class="c"># appears after scriptForPI</span>
+                └── uid___….ms      <span class="c"># one per EB, calibrated</span></pre>
+    <div class="stack">
+      <div class="card"><h3>1 · Open the weblog</h3><p>In <code>qa/</code>: <code>tar -xzf *.weblog.tgz</code>, then open <code>pipeline-*/html/index.html</code> (Firefox works best). Delivered only for pipeline-processed data. Read it and the QA2 report before you download raw data.</p></div>
+      <div class="card"><h3>2 · Restore with the right CASA</h3><p>From <code>script/</code>: <code>casa --pipeline -c scriptForPI.py</code> with the version named in the QA2 report and weblog. It applies the delivered calibration to the raw data.</p></div>
+      <div class="card"><h3>3 · Inspect, then image</h3><p><code>listobs</code>, a few <code>plotms</code> plots, then your own <code>tclean</code>. The <code>product/</code> images show what to expect.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-obs">
+  <p class="num">2</p>
+  <h2>Observation info and navigation</h2>
+  <p>What was observed, with which antennas and spectral windows, and where the pipeline lists its warnings.</p>
+</section>
+<section class="slide" id="obsinfo" data-demo="obsinfo" data-pages="time,spw,el">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>home page · EB overview</p><h2>EB overview: fields, spectral windows, elevation</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This page</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+        <p class="key small muted"><i style="background:var(--s1)"></i>bandpass + flux cal<i style="background:var(--s3)"></i>phase cal<i style="background:var(--s2)"></i>target<i style="background:var(--s4)"></i>check source</p>
+      </figure>
+      <p class="try"><b>In the weblog</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="bytopic" data-demo="wlTopic">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>By Topic · By Task</p><h2>QA scores and flagging summary</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-cal">
+  <p class="num">3</p>
+  <h2>Calibration stages</h2>
+  <p>The calibration pages in processing order: what each stage measures, healthy pages and typical issues.</p>
+</section>
+<section class="slide" id="calstages">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>By Task · calibration</p><h2>Overview of the calibration stages</h2></header>
+  <div class="tscroll"><table class="t">
+    <tr><th>Stage</th><th>Measures or corrects</th><th>A healthy page</th></tr>
+    <tr><td><code>hifa_importdata</code></td><td>reads the raw data; calibrator fluxes from the ALMA catalogue</td><td>flux calibrator measured within ±14 days</td></tr>
+    <tr><td><code>hifa_flagdata</code></td><td>online, shadowing, edge-channel flags; your flag template</td><td>a few per cent flagged</td></tr>
+    <tr><td><code>h_tsyscal</code>, <code>hifa_tsysflag</code></td><td>Tsys vs frequency: opacity and receiver, the amplitude scale</td><td>smooth spectra; bad antennas and spikes flagged</td></tr>
+    <tr><td><code>hifa_antpos</code>, <code>hifa_wvrgcalflag</code></td><td>antenna positions; water-vapour phase (12-m only)</td><td>phase rms clearly lower with WVR</td></tr>
+    <tr><td><code>hifa_bandpass</code></td><td>amplitude and phase vs frequency, per antenna</td><td>smooth, same shape everywhere, features &lt; 15%</td></tr>
+    <tr><td><code>hifa_spwphaseup</code></td><td>phase offsets between spws; spw mapping for a weak calibrator</td><td>phase rms &lt; 30°, one trend with baseline</td></tr>
+    <tr><td><code>hifa_gfluxscale</code></td><td>flux scale transferred to the other calibrators</td><td>spws on one spectral index, near the catalogue</td></tr>
+    <tr><td><code>hifa_timegaincal</code></td><td>phase and amplitude vs time: atmosphere, electronics</td><td>slow, smooth drifts; no jumps or steep slopes</td></tr>
+    <tr><td><code>hifa_renorm</code></td><td>strong lines in the autocorrelation that lower the amplitude</td><td>applied only where the correction is &gt; 2%</td></tr>
+    <tr><td><code>hif_applycal</code></td><td>applies every table; plots the calibrated data</td><td>calibrators flat, phase ≈ 0, no outliers</td></tr>
+    <tr><td><code>hif_makeimages</code> (cal)</td><td>images of the calibrators and the check source</td><td>point sources; check source in place, flux ratio ≈ 1</td></tr>
+  </table></div>
+  <p class="small muted">A circled ?, ! or × next to a stage in By Task marks QA messages on its page. Calibrator images: “No automatic tclean mask found, switched to pb-based mask” is common on 7-m data (no action needed). “tclean reached niter limit” or “RMS noise exceeds … sensitivity” may mean bad data. Check <code>hif_applycal</code>. Newer stages: <code>hifa_polcal</code>, <code>hifa_diffgaincal</code>.</p>
+</section>
+<section class="slide" id="tsyswvr" data-demo="wlTsys">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>h_tsyscal · hifa_tsysflag · hifa_wvrgcalflag</p><h2>Tsys and WVR</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="bpflux" data-demo="wlBp">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hifa_bandpass · hifa_spwphaseup · hifa_timegaincal</p><h2>Bandpass, phase rms and gains</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="applydata" data-demo="wlApply">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_applycal · check-source images</p><h2>Calibrated data and check source imaging</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-img">
+  <p class="num">4</p>
+  <h2>Imaging stages</h2>
+  <p>The pipeline images in this order: one mfs image per spw (a diagnostic) → one continuum image of all spws, in the <code>cont.dat</code> ranges → self-calibration (<code>hif_selfcal</code>) → the cube of every spw, made once after self-cal (<code>datatype='best'</code>, Cycle 11+), plus a repBW cube at the PI's resolution. Images made after self-cal use its solutions.</p>
+</section>
+<section class="slide" id="imaging" data-demo="wlImg">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_findcont · hif_makeimages</p><h2>Continuum ranges and image noise</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="numbers">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_makeimlist · hif_makeimages</p><h2>Imaging parameters from the weblog</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Weblog page</th><th>Write down</th><th>You need it for</th></tr>
+      <tr><td>Home (Overview)</td><td>CASA and pipeline version; execution blocks; time on source; mosaic or single pointing</td><td>running <code>scriptForPI.py</code>; <code>gridder</code></td></tr>
+      <tr><td><code>hifa_imageprecheck</code></td><td>predicted beam and rms for several <code>robust</code> values; the requested resolution and sensitivity</td><td><code>robust</code>, <code>cell</code>, expected noise</td></tr>
+      <tr><td><code>hif_findcont</code></td><td>line-free frequency ranges per spw (also in <code>cont.dat</code>)</td><td>the continuum <code>spw</code> selection</td></tr>
+      <tr><td><code>hif_makeimages</code></td><td>beam and achieved rms of each pipeline image; previews</td><td>what your own image should at least reach</td></tr>
+      <tr><td><code>hif_makeimages</code> tclean command (also <code>log/casa_commands.log</code>)</td><td><code>cell</code>, <code>imsize</code>, <code>robust</code>, mask thresholds the pipeline used</td><td>a tested starting point for your own call</td></tr>
+      <tr><td>QA messages, flagging pages</td><td>antennas or spws that are flagged or flagged heavily</td><td>knowing which data are missing</td></tr>
+    </table></div>
+    <div class="stack">
+<pre class="code tight"><span class="c"># hif_makeimages: the "tclean command" link,</span>
+<span class="c"># also in log/casa_commands.log</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=[<span class="s">'uid___A002_X1_targets.ms'</span>, …],
+       <span class="k">field</span>=<span class="s">'my_target'</span>, <span class="k">specmode</span>=<span class="s">'mfs'</span>,
+       <span class="c"># the cont.dat ranges (hif_findcont)</span>
+       <span class="k">spw</span>=[<span class="s">'25:223.1~223.8GHz;224.1~224.9GHz,'</span>
+            <span class="s">'27:225.1~225.5GHz;225.6~226.3GHz;…'</span>, …],
+       <span class="k">imsize</span>=<span class="em">[576, 576]</span>,
+       <span class="k">cell</span>=<span class="em">['0.07arcsec']</span>, <span class="k">weighting</span>=<span class="s">'briggs'</span>,
+       <span class="k">robust</span>=<span class="em">0.5</span>, <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,
+       <span class="k">threshold</span>=<span class="em">'0.12mJy'</span>, <span class="k">niter</span>=<span class="s">30000</span>, …)</pre>
+      <div class="card"><h3>Why robust may not be 0.5</h3><p><code>hifa_imageprecheck</code> picks robust 0, 0.5, 1 or 2 to match the PI's requested beam (0.5 if it can). <code>hif_checkproductsize</code> may bin channels (<code>nbins</code>) to keep cubes small. Start from these values, then adjust (Part 4).</p></div>
+      <p class="small muted">Stage names are those of the ALMA pipeline (CASA 6.x). Details change between releases. Pipeline images are a quick look with standard settings, not the final science product.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="checklist">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>weblog checklist</p><h2>Pages to check, in order</h2></header>
+  <div class="tscroll"><table class="t">
+    <tr><th>Page</th><th>Healthy</th><th>Problem</th></tr>
+    <tr><td>1 · QA scores, notifications</td><td>green, or explained in the QA2 report</td><td>unexplained yellow or red (open that stage)</td></tr>
+    <tr><td>2 · Flagging summary</td><td>&lt; 20% per antenna and spw</td><td>one antenna or spw far above the rest</td></tr>
+    <tr><td>3 · <code>h_tsyscal</code>, <code>hifa_tsysflag</code></td><td>smooth; ATM lines on every antenna</td><td>one antenna high; spikes left after flagging</td></tr>
+    <tr><td>4 · <code>hifa_wvrgcalflag</code></td><td>phase rms clearly lower with WVR</td><td>little or no improvement</td></tr>
+    <tr><td>5 · <code>hifa_bandpass</code></td><td>smooth, the same shape on every antenna</td><td>features &gt; 15%; platforming (Backup)</td></tr>
+    <tr><td>6 · <code>hifa_spwphaseup</code></td><td>phase rms &lt; 30°, one trend</td><td>long baselines &gt; 30°; blobs above the trend</td></tr>
+    <tr><td>7 · <code>hifa_gfluxscale</code></td><td>spws on one spectral index</td><td>one spw off by more than 10%</td></tr>
+    <tr><td>8 · <code>hifa_timegaincal</code></td><td>slow, smooth drifts</td><td>jumps, steep slopes, tens of degrees of scatter</td></tr>
+    <tr><td>9 · <code>hif_applycal</code></td><td>flat amplitudes, phase ≈ 0</td><td>low stripes, bad scans, edge channels</td></tr>
+    <tr><td>10 · Check source</td><td>offset ≪ beam, flux ratio ≈ 1</td><td>large offset, ratio &lt; 0.8</td></tr>
+    <tr><td>11 · <code>hif_findcont</code>, <code>hif_makeimages</code></td><td>ranges avoid the lines; line-free mom8 empty; rms ≲ 1.2× expected</td><td>emission in the line-free mom8 (Backup); “RMS … exceeds … by more than 2.7”</td></tr>
+  </table></div>
+  <p class="small muted">Write down first: CASA and pipeline versions, EBs, time on source (home page); refant and spwmap (<code>casa_commands.log</code>); <code>cont.dat</code> ranges, beam, rms and the <code>tclean</code> command (imaging pages).</p>
+</section>
+<section class="slide" id="takeaway">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>when a page shows a problem</p><h2>Re-running the pipeline with extra flags</h2></header>
+  <div class="cols l3">
+<pre class="code"><span class="c"># 1 · restore the pipeline calibration (shell, in script/)</span>
+$ casa --pipeline -c scriptForPI.py   <span class="c"># → ../calibrated/</span>
+<span class="c"># 2 · read the weblog pages (Check), then plot the calibrators</span>
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'uid.ms'</span>, <span class="k">field</span>=<span class="em">'J1037-2934'</span>, <span class="k">xaxis</span>=<span class="s">'uvwave'</span>,
+       <span class="k">yaxis</span>=<span class="s">'amp'</span>, <span class="k">ydatacolumn</span>=<span class="s">'corrected'</span>, <span class="k">avgtime</span>=<span class="s">'60'</span>,
+       <span class="k">avgchannel</span>=<span class="s">'1e8'</span>, <span class="k">coloraxis</span>=<span class="s">'spw'</span>)  <span class="c"># then yaxis='phase'</span>
+<span class="c"># 3 · bad data left? one line per flag in uid*flagtemplate.txt</span>
+<span class="k">mode</span>=<span class="s">'manual'</span> <span class="k">antenna</span>=<span class="em">'DA44'</span> <span class="k">scan</span>=<span class="em">'12~20'</span> <span class="k">reason</span>=<span class="s">'QA2:bad'</span>
+<span class="c"># 4 · rerun the calibration, same pipeline version, in working/</span>
+$ casa --pipeline
+<span class="f">execfile</span>(<span class="s">'casa_pipescript.py'</span>)        <span class="c"># hifa_flagdata reads it</span>
+<span class="c"># also read there: flux.csv (fluxes), antennapos.csv (positions)</span></pre>
+    <div class="stack">
+      <div class="card"><h3>Flagging bad data</h3><p>Most problems on the Check pages are bad data (an antenna, a spw, a time range). Add one line each to <code>uid*flagtemplate.txt</code>, read by <code>hifa_flagdata</code> when you rerun. Flag what the calibrators show is bad. Be conservative with target-only outliers, which may be real emission.</p></div>
+      <div class="card"><h3>Ask the Helpdesk</h3><p>For doubts about the flux scale (<code>flux.csv</code>) or antenna positions (<code>antennapos.csv</code>), or a problem you cannot trace to bad data.</p></div>
+      <p class="small muted">Manual recalibration, parameter by parameter: Backup (the standard sequence and its demos).</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="ahead">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>looking ahead</p><h2>Looking ahead</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>Recent stages</h3><ul><li>Self-calibration and polarization calibration (Cycle 10)</li><li>Band-to-band phase transfer, <code>hifa_diffgaincal</code> (Cycle 11)</li><li>Self-calibration of mosaics, Stokes IQUV images (Cycle 12)</li><li><code>hifa_findROI</code>: candidate line regions before <code>hif_findcont</code> (Cycle 13)</li></ul></div>
+    <div class="card"><h3>Not in the pipeline</h3><ul><li>Solar and VLBI observations and other special modes: calibrated by hand</li><li>RFI flagging: needed at the VLA, not at ALMA</li></ul><p>Single-dish (total power) data have their own weblog: Backup.</p></div>
+    <div class="card"><h3>Next today</h3><ul><li>Part 4, continuum imaging: start from the <code>hif_makeimages</code> tclean command</li><li>Part 5, line imaging: <code>cont.dat</code> from <code>hif_findcont</code></li><li>Part 6, self-calibration: what <code>hif_selfcal</code> does, and doing it yourself</li></ul></div>
+  </div>
+  <p class="small muted">Read more: the Pipeline User's Guide (one section per stage) and the weblog material linked from the pipeline page of the ALMA Science Portal.</p>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">+</p>
+  <h2>Backup</h2>
+  <p>Single-dish weblogs and more weblog pages. Then plotms on the calibration tables, the physics behind each calibration step and the calibration parameters if you recalibrate by hand (one fixed observation: C-6, Band 6, average weather). Then two quizzes.</p>
+</section>
+<section class="slide" id="sd">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>single-dish (total power) weblog</p><h2>Single-dish (total power) weblog</h2></header>
+  <div class="tscroll"><table class="t">
+    <tr><th>Page</th><th>Shows</th><th>Look for</th></tr>
+    <tr><td>Field vs time</td><td>a pointing calibrator, the target (ON) and a reference position (OFF); no bandpass, phase or flux calibrators</td><td>OFF near the target</td></tr>
+    <tr><td>Telescope pointing</td><td>the scan pattern on the sky; flagged data in grey</td><td>flags added to make the map rms uniform</td></tr>
+    <tr><td><code>hsd_skycal</code></td><td>spectra of the OFF position</td><td>smooth and flat; a warning if ON and OFF differ by &gt; 3° in elevation</td></tr>
+    <tr><td><code>hsd_applycal</code></td><td>amplitude vs time; XX−YY difference vs frequency (Cycle 12)</td><td>weather trends; a polarization difference means leakage or an instrument problem</td></tr>
+    <tr><td><code>hsd_atmcor</code></td><td>several atmospheric models tried</td><td>the applied model gives the flattest spectrum</td></tr>
+    <tr><td><code>hsd_baseline</code></td><td>line regions and deviation masks, excluded from the baseline fit</td><td>masks at a spw edge make the fit curve sharply</td></tr>
+    <tr><td><code>hsd_imaging</code></td><td>profile map, channel maps, moment maps</td><td>a line in every region may be an ATM line or OFF-position emission (deep negative)</td></tr>
+  </table></div>
+  <p class="small muted">Most “contamination” warnings are due to edge channels or residual ATM lines and can usually be ignored.</p>
+</section>
+<section class="slide" id="faults" data-demo="wlFault">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hifa_gfluxscale · hifa_bandpass · hif_applycal</p><h2>Flux scale, platforming and delay jumps</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="imgmore" data-demo="wlImgMore">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_makeimages · hif_selfcal</p><h2>Line-free moment 8 and hif_selfcal</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This dataset</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+      </figure>
+      <p class="try"><b>Where to look</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="antsetup" data-demo="obsinfo" data-pages="uv,ants,bl">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>antenna setup · sky setup</p><h2>uv coverage, antennas and baselines</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="wl-h">This page</h3><p class="wl-say"></p></div>
+    </div>
+    <div class="panels wl" style="--cols:1">
+      <figure class="panel"><figcaption><b class="wl-t"></b><span class="wl-s"></span></figcaption>
+        <div class="wl-list" hidden></div>
+        <canvas class="plot"></canvas>
+        <p class="key small muted"><i style="background:var(--s1)"></i>bandpass + flux cal<i style="background:var(--s3)"></i>phase cal<i style="background:var(--s2)"></i>target<i style="background:var(--s4)"></i>check source</p>
+      </figure>
+      <p class="try"><b>In the weblog</b><span class="wl-look"></span></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="tables" data-demo="caltables">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hifa_timegaincal · the calibration tables</p><h2>Inspecting the calibration tables</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="ct"></h3><p class="cd"></p></div>
+<pre class="code tight"><span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'uid.phase_int'</span>, <span class="k">xaxis</span>=<span class="s">'time'</span>,
+       <span class="k">yaxis</span>=<span class="s">'phase'</span>, <span class="k">coloraxis</span>=<span class="s">'antenna1'</span>)
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'uid.amp_inf'</span>, <span class="k">xaxis</span>=<span class="s">'time'</span>,
+       <span class="k">yaxis</span>=<span class="s">'amp'</span>, <span class="k">coloraxis</span>=<span class="s">'antenna1'</span>)
+<span class="c"># solutions, not data. An outlier can be the</span>
+<span class="c"># calibration doing its job. Check the</span>
+<span class="c"># calibrated data (hif_applycal) first.</span></pre>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Phase solutions, solint='int'</b><span class="key"><i style="background:var(--s1)"></i>DA41<i style="background:var(--s2)"></i>DA42<i style="background:var(--s3)"></i>DA43<i style="background:var(--s4)"></i>DA44<i style="background:var(--s5)"></i>DA45<i style="background:var(--s6)"></i>DA46</span></figcaption><canvas class="plot" style="aspect-ratio:2.9" data-k="ph"></canvas></figure>
+      <figure class="panel"><figcaption><b>Amplitude solutions, solint='inf'</b><span>one per calibrator scan · fixed axes</span></figcaption><canvas class="plot" style="aspect-ratio:4.4" data-k="amp"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="aftercal" data-demo="aftercal">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_applycal · calibrated calibrators</p><h2>Calibrated calibrators and the check source</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="card"><h3 class="ct"></h3><p class="cd"></p></div>
+<pre class="code tight"><span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'uid.ms'</span>, <span class="em fld">field='J1037-2934'</span>,
+       <span class="k">xaxis</span>=<span class="s">'uvwave'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>,
+       <span class="k">ydatacolumn</span>=<span class="s">'corrected'</span>, <span class="k">avgtime</span>=<span class="s">'60'</span>,
+       <span class="k">avgchannel</span>=<span class="s">'1e8'</span>, <span class="k">coloraxis</span>=<span class="s">'spw'</span>)</pre>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Calibrated amplitude vs uv distance</b><span class="key">spw <i style="background:var(--s1)"></i>0<i style="background:var(--s2)"></i>1<i style="background:var(--s3)"></i>2<i style="background:var(--s4)"></i>3</span></figcaption><canvas class="plot" style="aspect-ratio:3.1" data-k="amp"></canvas></figure>
+      <figure class="panel"><figcaption><b>Calibrated phase vs uv distance</b><span>fixed axes</span></figcaption><canvas class="plot" style="aspect-ratio:3.6" data-k="ph"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="corruptions">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>between the source and the correlator</p><h2>Signal corruptions and calibration steps</h2></header>
+  <div class="tscroll"><table class="t">
+    <tr><th>Effect</th><th>Changes with</th><th>Corrects</th><th>CASA</th></tr>
+    <tr><td>Water vapour delays the signal (phase)</td><td>seconds, per antenna</td><td>WVR radiometers at 183 GHz</td><td><code>wvrgcal</code></td></tr>
+    <tr><td>Atmospheric opacity and receiver noise (amplitude scale)</td><td>minutes, elevation, frequency</td><td>Tsys from hot/ambient loads</td><td><code>gencal(caltype='tsys')</code></td></tr>
+    <tr><td>Antenna positions slightly wrong (phase vs direction)</td><td>per antenna, per move</td><td>Updated pad positions</td><td><code>gencal(caltype='antpos')</code></td></tr>
+    <tr><td>Receiver and IF frequency response</td><td>frequency, stable in time</td><td>Bandpass calibrator</td><td><code>bandpass</code></td></tr>
+    <tr><td>Remaining atmosphere + electronics drift</td><td>minutes to hours</td><td>Phase calibrator, near the target</td><td><code>gaincal</code></td></tr>
+    <tr><td>Absolute flux scale</td><td>once per execution</td><td>Source of known flux</td><td><code>setjy</code>, <code>fluxscale</code></td></tr>
+    <tr><td>Shadowing, bad antennas, glitches</td><td>anywhere</td><td>Flags</td><td><code>flagdata</code></td></tr>
+  </table></div>
+  <p class="small muted">These effects can only be measured and corrected. The ALMA pipeline does this in order: h_tsyscal, hifa_tsysflag, hifa_antpos, hifa_wvrgcalflag, …, hifa_bandpass, hifa_spwphaseup, hifa_gfluxscale, hifa_timegaincal, hif_applycal. Its weblog has a page for each stage.</p>
+</section>
+<section class="slide" id="atmosphere" data-demo="screen">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>the atmosphere · WVR, gaincal</p><h2>Phase fluctuations from water vapour</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Excellent → poor weather. The screen and the phases grow (fixed colour scale). Band 3 → Band 9 gives 7× more phase for the same path. Phase noise grows roughly as b<sup>5/6</sup> on short baselines, more slowly beyond ~1 km, and levels off at a few km. With <code>time</code> the screen moves over the array.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Excess path over the array</b><span>no WVR · wind → east · fixed scale</span></figcaption><canvas class="img" data-k="screen"></canvas></figure>
+      <figure class="panel"><figcaption><b>Antenna phase vs time</b><span>relative to refant</span></figcaption><canvas class="plot" data-k="ts"></canvas></figure>
+      <figure class="panel"><figcaption><b>Phase rms vs baseline length</b><span>grey: ∝ b<sup>5/6</sup></span></figcaption><canvas class="plot" data-k="sf"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sequence">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>how ALMA observes</p><h2>Observing sequence: calibrator and target scans</h2></header>
+  <div class="body">
+    <svg class="diagram" viewBox="0 0 1000 150" role="img" aria-label="Execution timeline: bandpass and flux calibrator first, then the phase calibrator alternating with the target, with a check source.">
+      <g font-size="13">
+        <rect x="10" y="40" width="120" height="44" rx="6" fill="var(--s1)"/><text x="70" y="67" text-anchor="middle" class="on" font-weight="700">bandpass/flux</text>
+        <rect x="140" y="40" width="30" height="44" rx="5" fill="var(--s3)"/>
+        <rect x="175" y="40" width="130" height="44" rx="6" fill="var(--s2)"/><text x="240" y="67" text-anchor="middle" class="on" font-weight="700">target</text>
+        <rect x="310" y="40" width="30" height="44" rx="5" fill="var(--s3)"/>
+        <rect x="345" y="40" width="130" height="44" rx="6" fill="var(--s2)"/><text x="410" y="67" text-anchor="middle" class="on" font-weight="700">target</text>
+        <rect x="480" y="40" width="30" height="44" rx="5" fill="var(--s3)"/>
+        <rect x="515" y="40" width="50" height="44" rx="6" fill="var(--s4)"/><text x="540" y="67" text-anchor="middle" class="on" font-weight="700" font-size="11">check</text>
+        <rect x="570" y="40" width="30" height="44" rx="5" fill="var(--s3)"/>
+        <rect x="605" y="40" width="130" height="44" rx="6" fill="var(--s2)"/><text x="670" y="67" text-anchor="middle" class="on" font-weight="700">target</text>
+        <rect x="740" y="40" width="30" height="44" rx="5" fill="var(--s3)"/>
+        <text x="790" y="67" class="muted">… ≈ 1 h per execution</text>
+        <text x="155" y="30" text-anchor="middle" fill="var(--s3)" font-weight="700">phase cal</text>
+        <path d="M141 93 V107 M141 100 H309 M309 93 V107" stroke="var(--ink-2)" stroke-width="1.5" fill="none"/><text x="141" y="126" class="muted">cycle time, one phase-cal scan to the next: 1–10 min (shorter on long baselines and at high frequency)</text>
+      </g>
+    </svg>
+    <div class="grid4">
+      <div class="card"><h3>1 · A priori</h3><p>WVR, Tsys and antenna-position tables. No calibrator needed.</p></div>
+      <div class="card"><h3>2 · Bandpass</h3><p>Bright quasar, once. Frequency response of every antenna.</p></div>
+      <div class="card"><h3>3 · Gains</h3><p>Phase calibrator every few minutes. Interpolate to the target.</p></div>
+      <div class="card"><h3>4 · Flux scale</h3><p>Calibrator of known flux. Others are scaled to it.</p></div>
+    </div>
+    <p class="small muted">The observatory sets this schedule (which calibrators, how long, how often). The check source is a second quasar imaged with the target's calibration. If it is point-like and at the right position, phase transfer worked.</p>
+  </div>
+</section>
+<section class="slide" id="me" data-demo="closure">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>the measurement equation</p><h2>Antenna-based gains: N antennas, N(N−1)/2 baselines</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="eq" style="font-size:.9em">V<sub>ij</sub><sup>obs</sup> = B<sub>i</sub>B<sub>j</sub><sup>*</sup> G<sub>i</sub>G<sub>j</sub><sup>*</sup> V<sub>ij</sub><sup>true</sup> + noise</div>
+      <p class="small ink2">B(ν): bandpass, G(t): complex gain of each antenna, both measured on calibrators.</p>
+      <div class="ctl"></div>
+      <p class="try"><b>Try</b>Turn the phase of antenna 3. Every baseline with antenna 3 changes. The closure phase of each triangle stays the same. This is why calibration (and self-calibration) can solve for antenna gains.</p>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Observed baseline phases</b><span>grey: the source's true phases</span></figcaption><canvas class="plot" style="aspect-ratio:3.5"></canvas></figure>
+      <figure class="panel"><figcaption><b>Closure phases</b><span>φ<sub>ij</sub> + φ<sub>jk</sub> + φ<sub>ki</sub>, free of antenna errors</span></figcaption><canvas class="plot" style="aspect-ratio:3.5"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="phaseref" data-demo="phaseref">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>phase referencing · cycle time, separation</p><h2>Phase referencing: cycle time and separation</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Shorten the cycle from 6 to 1 min. The residual drops from 26° to 15° and the peak rises from 86% to 95%, with less time on target. Beyond ~3 min the calibrator no longer follows the atmosphere, so longer cycles change little. A more distant calibrator gives larger direction-dependent errors. The observatory set all three (Band 7 here).</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Target (0.1 Jy point source)</b><span>dirty image, fixed scale</span></figcaption><canvas class="img" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>DV18: phase vs time</b><span>grey: true · blue: interpolated</span></figcaption><canvas class="plot" data-k="ph"></canvas></figure>
+      <figure class="panel"><figcaption><b>Residual on the target</b><span>residual phase, DV18</span></figcaption><canvas class="plot" data-k="res"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="flux" data-demo="fluxcal">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Fixed by the observation</span>flux calibrators</p><h2>Flux scale: quasars and resolved planets</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Titan, C-2 → C-6. The baselines with less than half its flux go from 2% to 91%. Uranus (3.6″) is resolved even in C-2 (93%). <code>setjy</code> models the disk. The pipeline limits <code>uvrange</code> for it. Quasars are points but vary, so ALMA monitors them for its catalogue. Fixed x axis.</p>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>Calibrator visibility amplitude</b><span>dots: baselines of this configuration</span></figcaption><canvas class="plot" style="aspect-ratio:2.4"></canvas></figure>
+<pre class="code tight"><span class="c"># the pipeline sets the model (hif_setmodels), then transfers the scale (hifa_gfluxscale)</span>
+<span class="f">setjy</span>(<span class="k">vis</span>=<span class="s">'uid.ms'</span>, <span class="k">field</span>=<span class="s sjf">'Titan'</span>, <span class="k">standard</span>=<span class="s sjs">'Butler-JPL-Horizons 2012'</span>)<span class="c sjc"></span>
+<span class="f">fluxscale</span>(<span class="k">vis</span>=<span class="s">'uid.ms'</span>, <span class="k">caltable</span>=<span class="s">'uid.amp_inf'</span>, <span class="k">fluxtable</span>=<span class="s">'uid.flux_inf'</span>,
+          <span class="k">reference</span>=<span class="s sjf">'Titan'</span>, <span class="k">transfer</span>=<span class="s">'J1037-2934'</span>)
+<span class="c"># Flux density for J1037-2934 in SpW=0 is: 0.712 +/- 0.004 (SNR = 178)</span></pre>
+    </div>
+  </div>
+</section>
+<section class="slide" id="setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>bandpass, gaincal, applycal</p><h2>Calibration parameters set once</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td>the MS with Tsys, WVR and antenna positions applied</td><td>these a-priori tables come first (takeaway)</td></tr>
+      <tr><td><code>caltable</code></td><td>a new name per solve: <code>'uid.bp'</code>, <code>'uid.phase_int'</code></td><td>the name records what and which <code>solint</code>; an existing table is overwritten</td></tr>
+      <tr><td><code>field</code></td><td>the calibrator for this step, from <code>listobs</code></td><td>its intent: BANDPASS, FLUX, PHASE, CHECK</td></tr>
+      <tr><td><code>refant</code></td><td>the first antenna in the <code>hif_refant</code> list</td><td>all phases are relative to it (its phase is 0 in every solution). It must be in every scan, near the array centre</td></tr>
+      <tr><td><code>gaintable</code></td><td>every table solved before, in order</td><td>each solve needs data corrected for the earlier steps</td></tr>
+      <tr><td><code>calmode</code></td><td><code>'p'</code> first, then <code>'ap'</code></td><td>phase first, so scatter does not average the amplitudes down</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>If refant drops out</h3><p>Give a list, as the pipeline does: <code>refant='DV17,DA45,DA41'</code>. Where the first is missing, CASA uses the next one for that solution (<code>refantmode='flex'</code>).</p></div>
+      <div class="card"><h3>From the weblog</h3><p>Field names, <code>refant</code> and <code>spwmap</code> are in the weblog and in <code>casa_commands.log</code>. Use the same ones.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="bandpass" data-demo="bandpass">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>bandpass · solint, combine</p><h2>Choosing bandpass parameters</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>One scan, <code>solint='inf'</code>. The bright target's spectrum is noisier than thermal (readout). <code>combine='scan'</code> uses both scans. <code>'inf,4ch'</code> averages 4 channels and lowers the noise. At <code>'inf,16ch'</code> the blue line misses the steep band edges. The pipeline averages until S/N ≈ 50 (solint on the <code>hifa_bandpass</code> page).</p>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Bandpass solution, DA45, amplitude</b><span>dashed: true · blue: solution · calibrator 0.5 Jy, 2 × 4 min</span></figcaption><canvas class="plot" style="aspect-ratio:5.7" data-k="amp"></canvas></figure>
+      <figure class="panel"><figcaption><b>Phase</b><span>FDM, 960 × 1.95 MHz · fixed axes</span></figcaption><canvas class="plot" style="aspect-ratio:5.7" data-k="ph"></canvas></figure>
+      <figure class="panel"><figcaption><b>A 0.2 Jy continuum target after calibration</b><span>blue: calibrated · red: thermal noise alone · ±5%</span></figcaption><canvas class="plot" style="aspect-ratio:4.6" data-k="tgt"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="gaincal" data-demo="gaincal">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>gaincal · solint, gaintype, combine, minsnr</p><h2>Choosing gaincal parameters</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>At <code>'int'</code> solutions scatter, low-S/N ones most (red: below <code>minsnr</code>, flagged). <code>'inf'</code> is less noisy but flat per scan (zoom). Lowest error: <code>'int'</code> or <code>'18s'</code> with <code>gaintype='T'</code> (×1.4) and <code>combine='spw'</code> (×2, needs <code>hifa_spwphaseup</code>).</p>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Phase solutions, one antenna, one hour</b><span>grey: true · blue: solutions · red: flagged, S/N &lt; minsnr</span></figcaption><canvas class="plot" style="aspect-ratio:2.7" data-k="all"></canvas></figure>
+      <figure class="panel"><figcaption><b>Zoom: one 60-s calibrator scan</b><span>fixed axes · bars: one solution each</span></figcaption><canvas class="plot" style="aspect-ratio:3.6" data-k="zoom"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="applycal">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>applycal</p><h2>Choosing applycal parameters</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+<pre class="code"><span class="f">applycal</span>(<span class="k">vis</span>=<span class="s">'uid.ms'</span>, <span class="k">field</span>=<span class="s">'TW_Hya'</span>,
+         <span class="k">gaintable</span>=[<span class="s">'uid.tsys'</span>, <span class="s">'uid.wvr'</span>, <span class="s">'uid.bp'</span>,
+                    <span class="s">'uid.phase_inf'</span>, <span class="s">'uid.flux_inf'</span>],
+         <span class="k">gainfield</span>=[<span class="em">'TW_Hya'</span>, <span class="s">''</span>, <span class="em">'J1058+0133'</span>,
+                    <span class="em">'J1037-2934'</span>, <span class="em">'J1037-2934'</span>],
+         <span class="k">interp</span>=[<span class="s">'linear,linear'</span>, <span class="s">''</span>, <span class="s">'linear,linearflag'</span>,
+                 <span class="em">'linear'</span>, <span class="s">'linear'</span>],
+         <span class="k">spwmap</span>=[<span class="em">tsysmap</span>, [], [], [], []],  <span class="c"># Tsys: TDM spws</span>
+         <span class="k">calwt</span>=<span class="s">True</span>, <span class="k">applymode</span>=<span class="em">'calflag'</span>,
+         <span class="k">flagbackup</span>=<span class="s">True</span>)</pre>
+      <div class="card"><h3>calwt, applymode</h3><p><code>calwt</code> updates weights. <code>'calflag'</code> (default) flags data whose solutions are flagged. A spw with no solution at all passes <b>uncalibrated</b> unless you use <code>'calflagstrict'</code>. <code>'calonly'</code> ignores solution flags.</p></div>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>gaintable + gainfield</h3><p>All tables are applied together in measurement-equation order. List position only pairs each table with its <code>gainfield</code>, <code>interp</code> and <code>spwmap</code>.</p></div>
+      <div class="card"><h3>interp</h3><p>In time: <code>'linear'</code> between calibrator scans is phase referencing. <code>'nearest'</code> copies the closest solution. After a comma, in frequency: <code>'linearflag'</code> for the bandpass.</p></div>
+      <div class="card"><h3>spwmap</h3><p>Reuses solutions from one spw for others: the Tsys table (measured in TDM windows), or gains solved with <code>combine='spw'</code>.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="interp" data-demo="interp">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>applycal · interp, gainfield, spwmap</p><h2>Applying solutions to the target</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Table solved with <code>combine='spw'</code>. <code>'nearest'</code>: the gain jumps halfway between scans. <code>gainfield</code> = bandpass cal (one old solution, 20° away) smears the target. <code>spwmap=[]</code>: spws 1–3 find no solution and, with the default <code>applymode='calflag'</code>, pass <b>uncalibrated and unflagged</b>. The target fades. <code>'calflagstrict'</code> would flag them.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Target (0.1 Jy point source)</b><span>dirty image, fixed scale</span></figcaption><canvas class="img" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>DV18, spw 1: applied phase</b><span class="ps">grey: true · dots: solved</span></figcaption><canvas class="plot" data-k="ph"></canvas></figure>
+      <figure class="panel"><figcaption><b>Residual on the target</b><span class="rs">residual phase, DV18</span></figcaption><canvas class="plot" data-k="res"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="leave">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Leave at default</span>leave it to the pipeline</p><h2>When to redo a pipeline step</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Step (weblog stage)</th><th>The pipeline</th><th>Redo only if</th></tr>
+      <tr><td>Tsys (<code>h_tsyscal</code>, <code>hifa_tsysflag</code>)</td><td>scales amplitudes for opacity; flags bad Tsys</td><td>a Tsys spike or antenna was left unflagged: add it to <code>uid*flagtsystemplate.txt</code></td></tr>
+      <tr><td>WVR (<code>hifa_wvrgcalflag</code>)</td><td>removes most water-vapour phase; skips it if it does not help</td><td>never by hand</td></tr>
+      <tr><td>Antenna positions (<code>hifa_antpos</code>)</td><td>applies the observatory's position corrections</td><td><code>hifa_timegaincal</code> phases show steady slopes or wraps: ask the Helpdesk for <code>antennapos.csv</code></td></tr>
+      <tr><td>Reference antenna (<code>hif_refant</code>)</td><td>ranks antennas: near the centre, little flagged</td><td>the first one has gaps or jumps: use the next in its list</td></tr>
+      <tr><td>Flux scale (<code>hif_setmodels</code>, <code>hifa_gfluxscale</code>)</td><td>flux calibrator from the ALMA catalogue or a planet model</td><td>derived fluxes disagree with the catalogue, or spws disagree</td></tr>
+      <tr><td><code>minblperant</code> (4), <code>calwt</code> (True), <code>applymode</code> (<code>'calflag'</code>)</td><td>CASA defaults, as the pipeline</td><td>almost never</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Note</h3><p>Redo a step only when a weblog page or your own plot shows a problem that this step can fix. Flag bad data instead.</p></div>
+      <div class="card"><h3>Extra flags</h3><p>The pipeline reads extra flags from <code>uid*flagtemplate.txt</code> in <code>hifa_flagdata</code>. Add the bad antenna or time range there and rerun the calibration, with the same CASA and pipeline version.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="takeaway-seq">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>manual calibration</p><h2>Standard calibration sequence</h2></header>
+<pre class="code tight"><span class="k">ms0</span>, <span class="k">ms</span> = <span class="s">'uid.ms'</span>, <span class="s">'uid.cal.ms'</span>                          <span class="c"># the pipeline's MS (working/), your calibrated copy</span>
+<span class="k">ref</span>, <span class="k">bpc</span>, <span class="k">phc</span> = <span class="em">'DV17,DA45,DA41'</span>, <span class="s">'J1058+0133'</span>, <span class="s">'J1037-2934'</span>  <span class="c"># refants (hif_refant), bandpass/flux cal, phase cal</span>
+<span class="k">sci</span>, <span class="k">tsysmap</span> = <span class="em">'17,19,21,23'</span>, <span class="em">TSYSMAP</span>                    <span class="c"># science spws, Tsys spw map: copy both from casa_commands.log</span>
+<span class="c"># 1 · a-priori tables from the pipeline: Tsys (measured on each field), WVR, antenna positions; keep the science spws</span>
+<span class="k">for</span> f <span class="k">in</span> [bpc, phc, <span class="s">'TARGET'</span>]:
+    <span class="f">applycal</span>(<span class="k">vis</span>=ms0, <span class="k">field</span>=f, <span class="k">spw</span>=sci, <span class="k">gaintable</span>=[<span class="s">'uid.tsys'</span>, <span class="s">'uid.wvr'</span>, <span class="s">'uid.antpos'</span>], <span class="k">gainfield</span>=[f, <span class="s">''</span>, <span class="s">''</span>],
+             <span class="k">interp</span>=<span class="s">'linear,linear'</span>, <span class="k">spwmap</span>=[tsysmap, [], []], <span class="k">calwt</span>=<span class="s">True</span>, <span class="k">flagbackup</span>=<span class="s">False</span>)
+<span class="f">split</span>(<span class="k">vis</span>=ms0, <span class="k">outputvis</span>=ms, <span class="k">spw</span>=sci, <span class="k">datacolumn</span>=<span class="s">'corrected'</span>)                    <span class="c"># the science spws are now 0–3</span>
+<span class="c"># 2 · bandpass</span>
+<span class="f">setjy</span>(<span class="k">vis</span>=ms, <span class="k">field</span>=bpc, <span class="k">standard</span>=<span class="s">'manual'</span>, <span class="k">fluxdensity</span>=[<span class="em">1.2</span>, 0, 0, 0], <span class="k">spix</span>=<span class="em">-0.6</span>, <span class="k">reffreq</span>=<span class="s">'233GHz'</span>)  <span class="c"># catalogue</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=ms, <span class="k">caltable</span>=<span class="s">'bp.ph'</span>, <span class="k">field</span>=bpc, <span class="k">solint</span>=<span class="em">'int'</span>, <span class="k">calmode</span>=<span class="s">'p'</span>, <span class="k">refant</span>=ref)                <span class="c"># phase-up</span>
+<span class="f">bandpass</span>(<span class="k">vis</span>=ms, <span class="k">caltable</span>=<span class="s">'uid.bp'</span>, <span class="k">field</span>=bpc, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">combine</span>=<span class="em">'scan'</span>, <span class="k">refant</span>=ref,
+         <span class="k">solnorm</span>=<span class="em">True</span>, <span class="k">gaintable</span>=[<span class="s">'bp.ph'</span>])                                  <span class="c"># solnorm as the pipeline (CASA default False)</span>
+<span class="c"># 3 · gains and flux scale</span>
+<span class="f">gaincal</span>(<span class="k">vis</span>=ms, <span class="k">caltable</span>=<span class="s">'uid.phase_int'</span>, <span class="k">field</span>=bpc + <span class="s">','</span> + phc, <span class="k">solint</span>=<span class="em">'int'</span>, <span class="k">calmode</span>=<span class="s">'p'</span>, <span class="k">refant</span>=ref,
+        <span class="k">gaintable</span>=[<span class="s">'uid.bp'</span>])
+<span class="f">gaincal</span>(<span class="k">vis</span>=ms, <span class="k">caltable</span>=<span class="s">'uid.amp_inf'</span>, <span class="k">field</span>=bpc + <span class="s">','</span> + phc, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">calmode</span>=<span class="s">'ap'</span>, <span class="k">refant</span>=ref,
+        <span class="k">gaintable</span>=[<span class="s">'uid.bp'</span>, <span class="s">'uid.phase_int'</span>])
+<span class="f">fluxscale</span>(<span class="k">vis</span>=ms, <span class="k">caltable</span>=<span class="s">'uid.amp_inf'</span>, <span class="k">fluxtable</span>=<span class="s">'uid.flux_inf'</span>, <span class="k">reference</span>=bpc, <span class="k">transfer</span>=phc)
+<span class="f">gaincal</span>(<span class="k">vis</span>=ms, <span class="k">caltable</span>=<span class="s">'uid.phase_inf'</span>, <span class="k">field</span>=phc, <span class="k">solint</span>=<span class="em">'inf'</span>, <span class="k">calmode</span>=<span class="s">'p'</span>, <span class="k">refant</span>=ref, <span class="k">gaintable</span>=[<span class="s">'uid.bp'</span>])
+<span class="c"># 4 · apply to the target: bandpass, then the phase cal's solutions interpolated in time</span>
+<span class="f">applycal</span>(<span class="k">vis</span>=ms, <span class="k">field</span>=<span class="s">'TARGET'</span>, <span class="k">gaintable</span>=[<span class="s">'uid.bp'</span>, <span class="s">'uid.phase_inf'</span>, <span class="s">'uid.flux_inf'</span>], <span class="k">gainfield</span>=[<span class="s">''</span>, phc, phc],
+         <span class="k">interp</span>=[<span class="s">'linear,linearflag'</span>, <span class="em">'linear'</span>, <span class="em">'linear'</span>], <span class="k">calwt</span>=<span class="s">True</span>)</pre>
+  <p class="small muted">Weak phase calibrator: first <code>gaintype='T'</code> or a longer <code>solint</code>, then <code>combine='spw'</code> with <code>spwmap=[0,0,0,0]</code> in <code>applycal</code>, after <code>hifa_spwphaseup</code> removed the spw offsets. Plot every table (Check slides) before the next step.</p>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>questions</p><h2>Four weblog questions</h2></header>
+  <ol class="quiz">
+    <li>Every antenna's Tsys has the same bump at one frequency. Should you flag it?<details><summary>Answer</summary>No. A bump on every antenna and field at one frequency is an atmospheric line, handled by the Tsys calibration. A bump on one field only is line emission from that source. Flag those Tsys channels.</details></li>
+    <li>In <code>hifa_timegaincal</code> one antenna's phase climbs a steady 8° per minute and wraps round. Weather?<details><summary>Answer</summary>Unlikely. The atmosphere does not drift steadily for an hour. Suspect a wrong antenna position. Check that antenna in <code>hif_applycal</code>. Flag it, or ask the Helpdesk for corrected positions (<code>antennapos.csv</code>).</details></li>
+    <li>The check source is 150 mas off with 60% of its flux. The phase calibrator looks fine. What does that say about the target?<details><summary>Answer</summary>Phase transfer to nearby sources was poor (atmosphere, separation, cycle time: fixed by the observation), so the target is probably smeared too. If it is bright, self-calibration (Part 6) can help.</details></li>
+    <li><code>hif_makeimages</code>: continuum rms 3.1× the expected value. Will cleaning deeper fix it?<details><summary>Answer</summary>Not if calibration errors cause the noise. Look upstream: phase rms (<code>hifa_spwphaseup</code>, <code>hifa_timegaincal</code>), bad data left in <code>hif_applycal</code>, the check source. Check the mask too. Self-calibration may help a bright target.</details></li>
+  </ol>
+</section>
+<section class="slide" id="quiz-cal">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>questions</p><h2>Four calibration questions</h2></header>
+  <ol class="quiz">
+    <li>How can 43 antennas be calibrated from 903 baselines, each with its own errors?<details><summary>Answer</summary>The errors are antenna-based, so 43 complex gains explain 903 baselines. The system is over-determined (closure quantities are free of antenna gains).</details></li>
+    <li>Your Band 9 long-baseline data lose half the flux of the check source. Which calibration parameter fixes that?<details><summary>Answer</summary>None. The same water-vapour path gives 7× more phase at Band 9 than at Band 3, and the cycle time was fixed by the observation. Phase noise faster than the cycle cannot be interpolated. Only self-calibration on a bright target (Part 6) can help.</details></li>
+    <li>The weblog's bandpass solutions are noisy, and your target is bright continuum with a faint line. What can you change?<details><summary>Answer</summary>Not the calibrator. Average channels in the solution (<code>solint='inf,4ch'</code>), and use every bandpass scan (<code>combine='scan'</code>). Do not average so much that the band edges are smoothed away. The pipeline averages until S/N ≈ 50 (<code>hifa_bandpass</code>). Average more only if your bright target needs it.</details></li>
+    <li>You solved the phases with <code>combine='spw'</code> and ran <code>applycal</code> without <code>spwmap</code>. Spws 1–3 of the target look smeared, and nothing was flagged. Why?<details><summary>Answer</summary>The table only holds solutions labelled with the first spw (0). With the default <code>applymode='calflag'</code>, spws without solutions pass through uncalibrated and unflagged (only <code>'calflagstrict'</code> flags them). Set <code>spwmap=[0,0,0,0]</code>.</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const wrapDeg = x => { const d = x / S.DEG; return ((d + 180) % 360 + 360) % 360 - 180; };
+const WEATHER = { excellent: 40, good: 80, average: 160, poor: 320 };
+const scene = o => K.memo('scene:' + JSON.stringify(o), () => K.atmScene(o));
+const ANT = 42;                          // DV18, one of the longest baselines from the reference antenna
+// break a wrapped phase line where it jumps across ±180°, so no vertical strokes are drawn
+const brk = (x, y) => { const X = [], Y = []; Array.from(y).forEach((q, i) => { if (i && Math.abs(q - Y[Y.length - 1]) > 180) { X.push(NaN); Y.push(NaN); } X.push(x[i]); Y.push(q); }); return { X, Y }; };
+
+// ---------- Part 3: simulated weblog pages, one healthy and one problematic dataset, fixed axes ----------
+const WA = ['DA41', 'DA42', 'DA44', 'DA45', 'DA48', 'DA51', 'DA55', 'DA59', 'DV03', 'DV07', 'DV11', 'DV15'], WB = 4, WV = 11, WX = WA.map((_, i) => i + 1);
+const w180 = v => ((v + 180) % 360 + 360) % 360 - 180;
+const rmsOf = a => { const m = a.reduce((s, q) => s + q, 0) / a.length; return Math.sqrt(a.reduce((s, q) => s + (q - m) * (q - m), 0) / a.length); };
+const greyS = (x, y, i) => ({ type: 'scatter', x, y, size: 2.2, color: '--axis', label: i ? undefined : 'other antennas' });
+const antLine = (a, j, x, y) => (a === WB ? { type: 'line', x, y, color: '--s1', width: 2, label: 'DA48' } : { type: 'line', x, y, color: '--axis', width: 1.2, label: j ? undefined : 'other antennas' });
+const CH = Array.from({ length: 240 }, (_, i) => i * 2);                 // a 480-channel spw, every second channel
+// the execution: [field, start, end] in minutes; fields 0 bandpass+flux cal, 1 phase cal, 2 target, 3 check source
+const SCANS = (() => {
+  const o = [[0, 1, 6]];
+  for (let k = 0; k < 8; k++) {
+    const p = 7 + 7.5 * k; o.push([1, p, p + 1]);
+    if (k === 7) break;
+    if (k === 2 || k === 5) { o.push([3, p + 1.2, p + 2]); o.push([2, p + 2.2, p + 7.3]); } else o.push([2, p + 1.2, p + 7.3]);
+  }
+  return o;
+})();
+const TS = SCANS.filter(c => c[0] === 1).flatMap(c => [0, 1, 2, 3, 4].map(j => c[1] + 0.1 + 0.2 * j));   // phase-cal integrations (min), same timeline as fields vs time
+const FIELDS = ['bandpass + flux cal', 'phase cal', 'target', 'check source'], FCOL = ['--s1', '--s3', '--s2', '--s4'];
+const QA = [
+  ['hifa_importdata', 1.0, 1.0], ['hifa_flagdata', 0.97, 0.95], ['hifa_tsysflag', 0.82, 0.60, 'A few Tsys channels of DV15 flagged in spw 25', 'Tsys of DV15 flagged in spw 29; DA48 edge channels'],
+  ['hifa_wvrgcalflag', 1.0, 0.80, '', 'WVR correction improves phase rms by only 10%'], ['hif_lowgainflag', 1.0, 0.62, '', 'DA48: 62% of its data flagged'],
+  ['hifa_bandpass', 1.0, 0.75, '', 'Low bandpass S/N on several antennas'], ['hifa_spwphaseup', 1.0, 0.72, '', 'High phase rms; DA48 an outlier'],
+  ['hifa_gfluxscale', 1.0, 0.70, '', 'spw 31: flux 24% below the other spws'], ['hifa_timegaincal', 0.96, 0.45, '', 'High phase rms on the phase calibrator'],
+  ['hif_applycal', 1.0, 1.0], ['hifa_imageprecheck', 1.0, 1.0], ['hif_findcont', 1.0, 0.85, '', 'Few line-free channels in spw 27'],
+  ['hif_makeimages', 0.93, 0.40, '', 'Continuum rms 3.1× the expected value']
+];
+const qcls = q => (q >= 0.9 ? 'g' : q >= 0.66 ? 'b' : q >= 0.33 ? 'y' : 'r');
+const WLP = {
+  qa: { b: 'QA scores', t: 'By Task: every stage with its QA score',
+    look: 'Every stage in order with its score. By Topic lists the lowest score per topic and every warning. Read each message that is not green, earliest first. At the bottom of By Task: the CASA logs and casa_commands.log (every CASA call with its parameters).',
+    ok: 'One blue score. The pipeline flagged the Tsys of one antenna in one spw, no action needed. For a blue or yellow score, read the message.',
+    bad: 'Nine stages below standard (five blue, four yellow): DA48 and its data flagged, noisy bandpass and phases, one spw low in flux, image noise too high. Open them from the top.',
+    list: ok => QA.map((q, i) => {
+      const sc = ok ? q[1] : q[2], m = ok ? (q[3] || '') : (q[4] != null ? q[4] : q[3] || '');
+      return `<div class="wl-row"><span class="n">${i + 1}.</span><code>${q[0]}</code><span class="wl-bar ${qcls(sc)}"><i style="width:${sc * 100}%"></i></span><span class="sc">${sc.toFixed(2)}</span><span class="m">${m}</span></div>`;
+    }).join('') + '<div class="wl-key"><span><i style="background:var(--good)"></i>≥ 0.90 standard</span><span><i style="background:var(--s1)"></i>0.66–0.90 below standard</span><span><i style="background:var(--warn)"></i>0.33–0.66 warning</span><span><i style="background:var(--bad)"></i>&lt; 0.33 error</span></div>' },
+  flag: { b: 'flagging', t: 'By Topic: fraction of data flagged per antenna',
+    look: 'How much of each antenna (also each EB, source and spw) was flagged after calibration, and why: online flags, shadowing, edge channels, low gain. Under 20% is normal. 7-m data shadow more.',
+    ok: '3–8% per antenna, mostly edge channels and online flags. No action needed.',
+    bad: 'DA48 lost 62% of its data in hif_lowgainflag, DV15 a quarter (its spw 29 Tsys was flagged). The image has fewer baselines and slightly more noise. Check in plotms that the rest of DA48 looks like the other antennas.',
+    draw: (cv, ok) => {
+      const y = WA.map((_, i) => 3 + 5 * S.rng(11 + i)());
+      if (!ok) { y[WB] = 62; y[WV] = 27; }
+      V.plot(cv, { x: { min: 0.3, max: 12.7, ticks: WX, fmt: t => WA[t - 1] || '', label: 'antenna' }, y: { min: 0, max: 100, label: 'flagged (%)' },
+        hlines: [{ y: 20, color: '--ink-2', dash: [4, 4], label: '20%' }],
+        series: [{ type: 'bars', x: WX.filter((_, i) => i !== WB && i !== WV), y: y.filter((_, i) => i !== WB && i !== WV), color: '--axis', barWidth: 16, label: 'other antennas' },
+          { type: 'bars', x: [WB + 1], y: [y[WB]], color: '--s1', barWidth: 16, label: 'DA48' }, { type: 'bars', x: [WV + 1], y: [y[WV]], color: '--s2', barWidth: 16, label: 'DV15' }] });
+    } },
+  tsys: { b: 'Tsys', t: 'h_tsyscal: Tsys vs channel, spw 29 (TDM), all antennas',
+    look: 'One spectrum per antenna. Tsys converts correlator units to an amplitude scale. A bump on every antenna at the same channel is an ATM line, handled by calibration. Do not flag.',
+    ok: 'All antennas 95–115 K and smooth. The bump at channel 58 on every antenna is an atmospheric ozone line, handled by calibration. No action needed.',
+    bad: 'DV15 is 3× above the others over the whole band, and DA48 spikes at the band edge. hifa_tsysflag flags both (its page shows the spectra before and after). A bump on one field only is source contamination. Flag those Tsys channels.',
+    draw: (cv, ok) => {
+      const ch = Array.from({ length: 128 }, (_, i) => i), ser = [];
+      [0, 2, 7, 10, WV, WB].forEach((a, j) => {
+        const r = S.rng(130 + a), lvl = 96 + 16 * r();
+        const y = ch.map(c => lvl * (1 + 0.22 * Math.pow(2 * c / 127 - 1, 6) + 0.4 * Math.exp(-0.5 * Math.pow((c - 58) / 2.5, 2))) + 1.2 * r.normal());
+        if (!ok && a === WV) for (let i = 0; i < 128; i++) y[i] *= 3;
+        if (!ok && a === WB) for (let i = 0; i < 6; i++) y[i] += 280 * Math.exp(-i / 1.8);
+        ser.push(a === WV ? { type: 'line', x: ch, y, color: '--s2', width: 2, label: 'DV15' } : antLine(a, j, ch, y));
+      });
+      V.plot(cv, { x: { min: 0, max: 127, label: 'channel (128 × 15.6 MHz)' }, y: { min: 0, max: 500, label: 'Tsys (K)' }, spans: [{ x0: 54, x1: 62 }],
+        vlines: [{ x: 58, color: '--axis', dash: [3, 3], label: 'ATM line' }], series: ser });
+    } },
+  wvr: { b: 'WVR', t: 'hifa_wvrgcalflag: DA45 phase on the bandpass calibrator',
+    look: 'Phase of each antenna during the bandpass scan, without and with the correction from the 183-GHz water-vapour radiometers (12-m antennas only). The pipeline applies WVR only if it helps. Where the phase noise comes from: Backup · the atmosphere.',
+    ok: 'With WVR the phase rms falls about 5×, so most of the fluctuation was water vapour. The pipeline applies the correction.',
+    bad: 'WVR removes only about 10% of the phase rms, so most of the fluctuation is not from water vapour. The score drops. The rest is left to hifa_timegaincal, and long baselines lose coherence.',
+    draw: (cv, ok) => {
+      const t = Array.from({ length: 121 }, (_, i) => i * 0.05), r = S.rng(150), q = Array.from({ length: 6 }, () => r() * 6.283);
+      const W = ok ? 1 : 0.4, D = ok ? 0.15 : 1, tp = 2 * Math.PI;
+      const wet = t.map(x => 40 * Math.sin(tp * x / 2.6 + q[0]) + 25 * Math.sin(tp * x / 1.1 + q[1]) + 12 * Math.sin(tp * x / 0.45 + q[2]));
+      const dry = t.map(x => 32 * Math.sin(tp * x / 1.9 + q[3]) + 20 * Math.sin(tp * x / 0.7 + q[4]) + 8 * Math.sin(tp * x / 0.3 + q[5]));
+      const n = t.map(() => 4 * r.normal()), raw = t.map((_, i) => W * wet[i] + D * dry[i] + n[i]), cor = t.map((_, i) => 0.1 * W * wet[i] + D * dry[i] + n[i]);
+      V.plot(cv, { x: { min: 0, max: 6, label: 'time in the bandpass scan (min)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' },
+        series: [{ type: 'line', x: t, y: raw, color: '--axis', width: 1.6, label: 'without WVR' }, { type: 'line', x: t, y: cor, color: '--s1', width: 2, label: 'with WVR' }] });
+      return `rms ${rmsOf(raw).toFixed(0)}° → ${rmsOf(cor).toFixed(0)}°`;
+    } },
+  bp: { b: 'bandpass amp', t: 'hifa_bandpass: amplitude solution vs channel, spw 25',
+    look: 'One plot per antenna (the main page shows the reference antenna, open the others). Solutions should be smooth with the same shape on every antenna. Look for features above 15%.',
+    ok: 'Smooth, the same on every antenna, scatter well below 1%.',
+    bad: 'Noisy on every antenna (weak bandpass calibrator or bad weather), and DA48 drops in the upper half of the band. Bandpass noise is copied into every target channel. DA48 in this spw may need flagging.',
+    draw: (cv, ok) => {
+      const ser = [];
+      [0, 2, 7, 10, WB].forEach((a, j) => {
+        const r = S.rng(40 + a), ph = r() * 6, y = CH.map(c => { const x = c / 479; return 1 - 0.12 * Math.pow(2 * x - 1, 8) + 0.025 * Math.sin(2 * Math.PI * 3 * x + ph) + (ok ? 0.004 : 0.035) * r.normal(); });
+        if (!ok && a === WB) for (let i = 120; i < 240; i++) y[i] *= 0.62;
+        ser.push(antLine(a, j, CH, y));
+      });
+      V.plot(cv, { x: { min: 0, max: 479, label: 'channel' }, y: { min: 0.4, max: 1.2, label: 'bandpass amplitude' }, series: ser });
+    } },
+  bpph: { b: 'bandpass phase', t: 'hifa_bandpass: phase solution vs channel, spw 25',
+    look: 'The same page, phase. Expect smooth curves with gentle slopes, similar on every antenna.',
+    ok: 'Smooth within ±15°, scatter about 1°. No action needed.',
+    bad: 'Noisy everywhere, and DA48 has a flat 35° step over a quarter of the band ("platforming", a known correlator issue). The data are unrecoverable. Flag this spw on DA48 (the step also shows in hif_applycal, phase vs frequency).',
+    draw: (cv, ok) => {
+      const ser = [];
+      [0, 2, 7, 10, WB].forEach((a, j) => {
+        const r = S.rng(60 + a), sl = (r() - 0.5) * 24, q = r() * 6.283;
+        const y = CH.map(c => { const x = c / 479; return sl * (x - 0.5) + 4 * Math.sin(2 * Math.PI * 2 * x + q) + (ok ? 0.8 : 4) * r.normal(); });
+        if (!ok && a === WB) for (let i = 90; i < 150; i++) y[i] += 35;
+        ser.push(antLine(a, j, CH, y));
+      });
+      V.plot(cv, { x: { min: 0, max: 479, label: 'channel' }, y: { min: -60, max: 60, ticks: [-60, -30, 0, 30, 60], label: 'bandpass phase (deg)' }, series: ser });
+    } },
+  spwphase: { b: 'spw phase-up', t: 'hifa_spwphaseup: phase rms vs baseline length',
+    look: 'Phase rms over the bandpass scan for every baseline, against length (log). Points should follow one rising trend below 30°. The page also says whether spws were combined or mapped for a weak calibrator.',
+    ok: 'One tight trend from 2° to about 15°, all below 30°. The atmosphere was stable enough for phase referencing on every baseline.',
+    bad: 'Twice as high, above 30° on the longest baselines (poor phase stability). The baselines to DA48 form a blob above the trend, likely a bad antenna. Expect a smeared check source and a lower image peak.',
+    draw: (cv, ok) => {
+      const cfg = S.config('C-4'), r = S.rng(170), X = [], Y = [], XB = [], YB = [], L = [];
+      for (let i = 0; i < cfg.nAnt; i++) for (let j = i + 1; j < cfg.nAnt; j++) {
+        const b = Math.hypot(cfg.e[j] - cfg.e[i], cfg.n[j] - cfg.n[i]), da = i === 7 || j === 7;            // antenna 7 is DA48
+        const p = (ok ? 8 : 20) * Math.pow(b / 200, 0.55) * Math.exp(0.22 * r.normal()) + (da && !ok ? 28 + 6 * r.normal() : 0);
+        (da ? XB : X).push(b); (da ? YB : Y).push(p); L.push([b, p]);
+      }
+      L.sort((a, c) => a[0] - c[0]);
+      const i80 = Math.floor(0.8 * L.length), top = L.slice(i80).map(q => q[1]).sort((a, c) => a - c), med = top[top.length >> 1];
+      V.plot(cv, { x: { min: 10, max: 1000, log: true, label: 'baseline length (m)' }, y: { min: 0, max: 90, ticks: [0, 30, 60, 90], label: 'phase rms (deg)' }, legendPos: 'left',
+        hlines: [{ y: 30, color: '--ink-2', dash: [5, 4] }],
+        series: [{ type: 'scatter', x: X, y: Y, size: 2.6, color: '--axis', label: 'baselines' }, { type: 'scatter', x: XB, y: YB, size: 2.6, color: '--s1', label: 'baselines to DA48' },
+          { type: 'line', x: [L[i80][0], L[L.length - 1][0]], y: [med, med], color: '--ink', width: 4, label: 'median, longest 20%' }] });
+      return `dashed: 30° limit · median of the longest 20%: ${med.toFixed(0)}°`;
+    } },
+  flux: { b: 'flux scale', t: 'hifa_gfluxscale: derived phase-calibrator flux per spw',
+    look: 'Flux of the phase calibrator, transferred from the flux calibrator, for each spw, with the catalogue value. Old catalogue values can be off, but the spws should follow one spectral index.',
+    ok: 'All four spws within 2% of one power law.',
+    bad: 'spw 31 is 24% low, likely a bad flux-calibrator model or bad data in that spw. All sources in spw 31 are off by this factor. Compare the spws in your image before combining them.',
+    draw: (cv, ok) => {
+      const f = [224, 226, 240, 242], cat = q => 0.68 * Math.pow(q / 233, -0.6);
+      const y = f.map((q, i) => cat(q) * (1 + 0.012 * S.rng(90 + i).normal()) * (!ok && i === 3 ? 0.76 : 1));
+      const fx = Array.from({ length: 41 }, (_, i) => 220 + i * 0.625);
+      V.plot(cv, { x: { min: 220, max: 245, label: 'frequency (GHz)' }, y: { min: 0.4, max: 0.9, label: 'derived flux (Jy)' },
+        series: [{ type: 'line', x: fx, y: fx.map(cat), color: '--axis', width: 1.5, label: 'one spectral index' }, { type: 'scatter', x: f, y, size: 9, color: '--s1', label: 'spws 25, 27, 29, 31' }] });
+    } },
+  gain: { b: 'gains', t: 'hifa_timegaincal: phase vs time on the phase calibrator',
+    look: 'Phase solutions of each antenna on the phase-calibrator scans. They are corrections, not the calibrated data. Phase referencing removes slow, smooth drifts. More cases (one bad antenna, phase wraps): Backup · calibration tables.',
+    ok: 'Drifts of ±20° over the hour, small scatter within each scan. The calibrator cycle follows them.',
+    bad: 'Drifts twice as large and 15° scatter within each scan. Phase referencing cannot follow changes faster than the 7.5-min cycle, so the target decorrelates (self-calibration, Part 6, can help a bright one). Only DA48 jumps by ~120° between the 30- and 37-min scans, likely an antenna fault. Check DA48 after 34 min in hif_applycal.',
+    draw: (cv, ok) => {
+      const ser = [];
+      [0, 2, 7, 10, WB].forEach((a, j) => {
+        // every antenna drifts slowly (problem: twice as far, 5x the scatter); only DA48 steps by 120 deg after 34 min
+        const r = S.rng(70 + a), A = ok ? 20 : 40, f1 = r() * 6, f2 = r() * 6, c0 = a === WB ? -50 : 60 * (r() - 0.5), y = TS.map(t => {
+          let p = c0 + A * 0.6 * Math.sin(2 * Math.PI * t / 55 + f1) + A * 0.4 * Math.sin(2 * Math.PI * t / 13 + f2) + (ok ? 3 : 15) * r.normal();
+          if (!ok && a === WB && t >= 34) p += 120;
+          return w180(p);
+        });
+        if (a !== WB) ser.push(greyS(TS, y, j)); else { const b = brk(TS, y); ser.push({ type: 'line', x: b.X, y: b.Y, color: '--s1', width: 1.4, dots: 2.4, label: 'DA48' }); }
+      });
+      V.plot(cv, { x: { min: 0, max: 62, label: 'time (min)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, series: ser });
+    } },
+  ampt: { b: 'amp vs time', t: 'hif_applycal: calibrated amplitude vs time, spw 25',
+    look: 'Every field after calibration, one point per antenna and integration. Each field should be a flat band. Each weblog plot links to its plotms command.',
+    ok: 'Flat bands: bandpass/flux calibrator 1.0 Jy, phase calibrator 0.7 Jy, check source 0.3 Jy, the faint target near zero. Nothing left to flag.',
+    bad: 'From 34 min on, DA48 is a low stripe at 55% in every field, at the time of its phase jump (gains page). Flag DA48 after 34 min. One integration at 45 min is low on all antennas. Flag that short time range.',
+    draw: (cv, ok) => {
+      const F = [1.0, 0.7, 0.05, 0.3], X = F.map(() => []), Y = F.map(() => []), r = S.rng(190);
+      SCANS.forEach(([f, t0, t1]) => {
+        const dt = f === 2 ? 0.5 : 0.2;
+        for (let k = 0, t = t0 + 0.1; t < t1; k++, t = t0 + 0.1 + k * dt) for (let a = 0; a < WA.length; a++) {
+          let y = F[f] * (1 + 0.03 * r.normal()) + (f === 2 ? 0.008 * r.normal() : 0);
+          if (!ok && a === WB && t > 34) y *= 0.55;
+          if (!ok && f === 1 && t0 === 44.5 && k === 3) y *= 0.3;
+          X[f].push(t); Y[f].push(y);
+        }
+      });
+      V.plot(cv, { x: { min: 0, max: 62, label: 'time (min)' }, y: { min: 0, max: 1.4, label: 'amplitude (Jy)' },
+        series: F.map((_, f) => ({ type: 'scatter', x: X[f], y: Y[f], size: 2.6, color: FCOL[f], label: FIELDS[f] })) });
+    } },
+  ampf: { b: 'amp vs freq', t: 'hif_applycal: phase calibrator, amplitude vs channel, spw 25',
+    look: 'The calibrated phase calibrator, averaged in time, per antenna. A point source is flat across the band. Check the band edges and any antenna that differs.',
+    ok: 'Flat at 0.7 Jy on every antenna, edge to edge.',
+    bad: 'The first and last channels roll off on every antenna (unflagged edge channels). Flag them (or leave them out of your spw selection). DA48 slopes across the band, likely a bandpass change after the bandpass scan. Flag DA48 in this spw.',
+    draw: (cv, ok) => {
+      const ser = [];
+      [0, 2, 7, 10, WB].forEach((a, j) => {
+        const r = S.rng(210 + a), y = CH.map(() => 0.7 * (1 + 0.012 * r.normal()));
+        if (!ok) for (let i = 0; i < 240; i++) { if (i < 6 || i > 233) y[i] *= 0.62 + 0.05 * r.normal(); if (a === WB) y[i] *= 1.18 - 0.4 * i / 239 + 0.03 * r.normal(); }
+        ser.push(antLine(a, j, CH, y));
+      });
+      V.plot(cv, { x: { min: 0, max: 479, label: 'channel' }, y: { min: 0.3, max: 1.0, label: 'amplitude (Jy)' }, series: ser });
+    } },
+  phf: { b: 'phase vs freq', t: 'hif_applycal: phase calibrator, phase vs channel, spw 25',
+    look: 'Same data, phase. After calibration a point source at the phase centre is at 0° on every antenna and channel.',
+    ok: 'Flat around 0° within a few degrees on every antenna.',
+    bad: 'After 34 min DA48 has a phase slope across the band that wraps, a delay jump ("delay clunking"). Calibration in time cannot remove it. Flag DA48 for those scans. Symmetric outliers on one antenna may be due to averaging few unflagged data.',
+    draw: (cv, ok) => {
+      const ser = [];
+      [0, 2, 7, 10].forEach((a, j) => { const r = S.rng(230 + a); ser.push(antLine(a, j, CH, CH.map(() => (ok ? 2 : 3) * r.normal()))); });
+      const r = S.rng(240);
+      ser.push({ type: 'line', x: CH, y: CH.map(() => 3 * r.normal()), color: '--s1', width: 2, label: ok ? 'DA48' : 'DA48, before 34 min' });
+      if (!ok) { const b = brk(CH, CH.map(c => w180(-150 + 400 * c / 479 + 4 * r.normal()))); ser.push({ type: 'line', x: b.X, y: b.Y, color: '--s2', width: 2, label: 'DA48, after 34 min' }); }
+      V.plot(cv, { x: { min: 0, max: 479, label: 'channel' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, legendPos: 'left', series: ser });
+    } },
+  check: { b: 'check source', t: 'hif_makeimages: check source fitted per EB and spw',
+    look: 'The check source is imaged and fitted per EB and spw: offset from its catalogue position, and flux against hifa_gfluxscale. If the offset is small, the flux ratio should be near 1.',
+    ok: 'All 12 fits within 30 mas of the catalogue position (under a tenth of the 0.35″ beam), flux ratios 0.93–1.02. Phase transfer from the phase calibrator worked.',
+    bad: 'Offsets of 80–160 mas and 60–80% of the flux, worst in EB 3, so phase transfer was poor (warnings "large fitted offset", "low Fitted / gfluxscale Flux Density Ratio"). Check hifa_spwphaseup and the calibrator separation. Self-calibration of a bright target can help (Part 6).',
+    draw: (cv, ok) => {
+      const ser = [1, 2, 3].map(e => {
+        const r = S.rng(250 + e), x = [], y = [];
+        for (let k = 0; k < 4; k++) { x.push(ok ? 4 + 22 * r() : 40 + 35 * e + 20 * r()); y.push(ok ? 0.975 + 0.02 * r.normal() : 0.92 - 0.11 * e + 0.03 * r.normal()); }
+        return { type: 'scatter', x, y, size: 9, color: `--s${e}`, label: 'EB ' + e };
+      });
+      V.plot(cv, { x: { min: 0, max: 200, label: 'fitted position offset (mas)' }, y: { min: 0.4, max: 1.2, label: 'fitted / gfluxscale flux' },
+        hlines: [{ y: 1, color: '--axis', dash: [4, 4] }], vlines: [{ x: 35, color: '--axis', dash: [4, 4], label: '0.1 beam' }], series: ser });
+      return 'dashed: flux ratio 1';
+    } },
+  findcont: { b: 'continuum ranges', t: 'hif_findcont: spw 27, ranges found',
+    look: 'The pipeline makes a quick cube, takes a spectrum and marks the line-free ranges (shaded). They go to cont.dat, the continuum images, and the continuum subtraction before the cubes.',
+    ok: 'Two lines. All other channels are continuum. The continuum measured in the shaded ranges matches the true level.',
+    bad: 'A line forest (a hot core). Only 15% of the channels look line-free, in narrow ranges that still hold line wings. The continuum is about 20% too high, so every cube is too low after subtraction. Set the cont.dat ranges manually and rerun (a common reason to reprocess).',
+    draw: (cv, ok) => {
+      const f = Array.from({ length: 480 }, (_, i) => 225.06 + i * 1.875 / 479), r = S.rng(270);
+      const L = ok ? [[225.55, 60, 0.012], [226.42, 38, 0.009]] : Array.from({ length: 60 }, () => [225.06 + 1.875 * r(), 10 + 55 * r() * r(), 0.006 + 0.024 * r()]);
+      const line = f.map(q => L.reduce((s, l) => s + l[1] * Math.exp(-0.5 * Math.pow((q - l[0]) / l[2], 2)), 0)), y = line.map(q => 20 + q + 1.5 * r.normal());
+      // shortcut: a stand-in for findcont: the faintest channels of the line model (all below 0.5 mJy, or the faintest 15% in a forest), in runs
+      const cut = ok ? 0.5 : [...line].sort((a, c) => a - c)[72], run = ok ? 8 : 4, use = line.map(q => q <= cut), spans = [], sel = [];
+      for (let i = 0; i < 480;) { if (!use[i]) { i++; continue; } let j = i; while (j < 480 && use[j]) j++; if (j - i >= run) { spans.push({ x0: f[i], x1: f[j - 1] }); for (let k = i; k < j; k++) sel.push(y[k]); } i = j; }
+      const fit = sel.reduce((s, q) => s + q, 0) / Math.max(1, sel.length);
+      V.plot(cv, { x: { min: 225.06, max: 226.94, label: 'frequency (GHz)' }, y: { min: 0, max: 140, label: 'flux (mJy/beam)' }, spans,
+        series: [{ type: 'line', x: f, y, color: '--ink-2', width: 1.2, label: 'spectrum' }, { type: 'line', x: [225.06, 226.94], y: [20, 20], color: '--axis', width: 2, dash: [5, 4], label: 'true continuum' },
+          { type: 'line', x: [225.06, 226.94], y: [fit, fit], color: '--s1', width: 2, label: 'continuum in the ranges' }] });
+      return `continuum ${fit.toFixed(1)} mJy/beam (true 20)`;
+    } },
+  mom8: { b: 'line-free mom8', t: 'hif_makeimages: line-free moment 8 (mom8_fc), spw 27 cube',
+    look: 'Pixel by pixel, the peak of the continuum-subtracted cube over the channels hif_findcont found line-free (mom0_fc is next to it). It should have little or no emission.',
+    ok: 'Noise only: speckles of 1–4 mJy/beam everywhere, the brightest of 12 noise channels in each pixel. The continuum ranges are line-free.',
+    bad: 'Emission at the centre, about 3× the noise speckles. The "line-free" channels of the line forest still hold line wings (continuum ranges page). Continuum and cubes are both off. Set the cont.dat ranges manually and rerun.',
+    draw: (cv, ok) => {
+      const N = 64, cell = 0.08, bm = { maj: 0.4, min: 0.34, pa: 20 };
+      const m = K.memo('wl:mom8', () => {
+        // 12 line-free channels of beam-correlated noise (1 mJy/beam rms); the problem cube has line wings in 4 of them
+        const r = S.rng(290), kn = S.gaussKernel(N, cell, bm), src = S.gaussKernel(N, cell, { maj: 0.8, min: 0.6, pa: 20 }), A = [0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 9, 6];
+        const g = new Float64Array(N * N).fill(-Infinity), b = g.slice();
+        for (let c = 0; c < 12; c++) {
+          const ch = S.convolve(Float64Array.from({ length: N * N }, () => r.normal()), kn, N), q = rmsOf(ch);
+          for (let i = 0; i < N * N; i++) { const v = ch[i] / q; g[i] = Math.max(g[i], v); b[i] = Math.max(b[i], v + A[c] * src[i]); }
+        }
+        return { g, b };
+      }), img = ok ? m.g : m.b;
+      V.image(cv, img, N, { cell, vmin: 0, vmax: 10, cmap: 'inferno', beam: bm, cbar: { label: 'mJy/beam' } });
+      return `colour 0–10 mJy/beam, fixed · peak ${S.max(img).v.toFixed(1)} mJy/beam`;
+    } },
+  img: { b: 'image rms', t: 'hif_makeimages: measured rms / expected, per image',
+    look: 'For each pipeline image: beam, achieved rms and the rms expected from the observing time (with a dynamic-range correction). Above 2.7× the weblog warns. These set what your own images should reach.',
+    ok: 'Within 20% of expected everywhere (thermal-noise limited). Your images should do as well.',
+    bad: 'Continuum rms 3.1× expected: "Observed RMS noise exceeds DR corrected sensitivity by more than 2.7". Check, in order: calibrator amplitudes per EB (hif_applycal), the mask and cleaning depth, uv coverage and flagging. With noisy gain phases, try self-calibration (Part 6).',
+    draw: (cv, ok) => {
+      const names = ['cont', 'spw 25', 'spw 27', 'spw 29', 'spw 31'], y = ok ? [1.08, 1.12, 1.03, 1.15, 1.06] : [3.1, 1.9, 1.2, 1.1, 1.3], ix = [1, 2, 3, 4, 5];
+      V.plot(cv, { x: { min: 0.4, max: 5.6, ticks: ix, fmt: t => names[t - 1] || '', label: 'continuum image, then one cube per spw' }, y: { min: 0, max: 4, label: 'measured rms / expected' }, legend: false,
+        hlines: [{ y: 1, color: '--axis', dash: [4, 4], label: 'expected' }, { y: 2.7, color: '--ink-2', dash: [5, 4], label: 'warning 2.7×' }],
+        series: [{ type: 'bars', x: ix, y, color: '--s1', barWidth: 22, labels: y.map(q => q.toFixed(1) + '×') }] });
+    } },
+  selfcal: { b: 'self-cal', t: 'hif_selfcal: target S/N after each solution interval',
+    look: 'The pipeline self-calibrates each target\'s continuum with progressively shorter solints. A solint is kept only if the S/N improves and the beam barely changes. A "fail" stops it.',
+    ok: 'S/N 70 → 215 down to 30 s. int failed, so the 30-s solutions were applied and later images use them. Manual self-calibration: Part 6.',
+    bad: 'S/N 22. The first solint (inf_EB, solved per spw and polarization) has too little signal, so nothing was applied. By hand, combining spws and polarizations (combine=\'scan,spw\', gaintype=\'T\') may still give one good solution per EB (Part 6, S/N for self-cal).',
+    draw: (cv, ok) => {
+      const names = ['before', 'inf_EB', 'inf', '30s', 'int'], ix = [1, 2, 3, 4, 5];
+      const y = ok ? [70, 150, 190, 215, 205] : [22, 21, 0, 0, 0], lab = ok ? ['70', '150 pass', '190 pass', '215 pass', '205 fail'] : ['22', '21 fail', 'not run', 'not run', 'not run'];
+      V.plot(cv, { x: { min: 0.4, max: 5.6, ticks: ix, fmt: t => names[t - 1] || '', label: 'solint, longest to shortest' }, y: { min: 0, max: 300, label: 'target image S/N' }, legend: false,
+        series: [{ type: 'bars', x: ix, y, color: '--s1', barWidth: 22, labels: lab }] });
+      return ok ? 'applied: 30s' : 'nothing applied';
+    } }
+};
+const weblogPages = (s, keys) => {
+  const cv = $(s, 'canvas'), list = $(s, '.wl-list');
+  V.call($(s, '.ctl'), 'weblog', [
+    { k: 'page', label: 'weblog page', type: 'choice', options: keys, labels: keys.map(k => WLP[k].b), value: keys[0], scenario: true },
+    { k: 'data', label: 'dataset', type: 'choice', options: ['healthy', 'problem'], value: 'healthy', scenario: true }
+  ], v => {
+    const pg = WLP[v.page], ok = v.data === 'healthy';
+    $(s, '.wl-t').textContent = pg.t; $(s, '.wl-look').textContent = pg.look; $(s, '.wl-say').textContent = ok ? pg.ok : pg.bad;
+    list.hidden = !pg.list; cv.hidden = !pg.draw;
+    let note = '';
+    if (pg.list) list.innerHTML = pg.list(ok); else note = pg.draw(cv, ok) || '';
+    $(s, '.wl-s').textContent = (ok ? 'healthy dataset' : 'problematic dataset') + (note ? ' · ' + note : '');
+  });
+};
+
+window.DEMOS = {
+  titleArt(s) {
+    const A = scene({ cfg: 'C-6', band: 6, rms1km: 120, wvr: true, dur: 60, dt: 60, cycle: 60 }), na = A.na, ants = [22, 30, 36, 42];
+    const series = ants.map((a, i) => ({ type: 'line', x: A.times.map(t => t / 60), y: A.times.map((_, k) => A.truth[k * na + a] / S.DEG), color: `--s${i + 1}`, width: 2.4 }));
+    const all = series.flatMap(s2 => s2.y), lo = Math.min.apply(null, all), hi = Math.max.apply(null, all);
+    V.plot($(s, 'canvas'), { x: { min: 0, max: 60 }, y: { min: lo - 10, max: hi + 10 }, axes: false, legend: false, series });
+  },
+
+  closure(s) {
+    const cvs = $$(s, 'canvas'), BL = [[0, 1], [0, 2], [0, 3], [1, 2], [1, 3], [2, 3]], TRI = [[0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3]];
+    const psi = { '0-1': 20, '0-2': -35, '0-3': 60, '1-2': 15, '1-3': -50, '2-3': 30 };    // the source's own visibility phases
+    const ph = (i, j, th) => wrapDeg((psi[i + '-' + j] + th[i] - th[j]) * S.DEG);
+    V.call($(s, '.ctl'), 'antenna_phases', [
+      { k: 'ant2', type: 'range', min: -180, max: 180, step: 5, value: 0, fmt: v => v + '°' },
+      { k: 'ant3', type: 'range', min: -180, max: 180, step: 5, value: 70, fmt: v => v + '°' },
+      { k: 'ant4', type: 'range', min: -180, max: 180, step: 5, value: -40, fmt: v => v + '°' }
+    ], V.rafThrottle(v => {
+      const th = [0, v.ant2, v.ant3, v.ant4], x = BL.map((_, i) => i + 1);
+      V.plot(cvs[0], { x: { min: 0.4, max: 6.6, ticks: x, fmt: t => BL[t - 1] ? `${BL[t - 1][0] + 1}–${BL[t - 1][1] + 1}` : '' }, y: { min: -180, max: 180, label: 'phase (deg)' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'bars', x: x.map(t => t - 0.17), y: BL.map(([i, j]) => psi[i + '-' + j]), color: '--axis', barWidth: 14 }, { type: 'bars', x: x.map(t => t + 0.17), y: BL.map(([i, j]) => ph(i, j, th)), color: '--s1', barWidth: 14 }] });
+      const clo = t => { const [i, j, k] = t; return wrapDeg((ph(i, j, th) + ph(j, k, th) - ph(i, k, th)) * S.DEG); }, clo0 = t => { const [i, j, k] = t; return wrapDeg((psi[i + '-' + j] + psi[j + '-' + k] - psi[i + '-' + k]) * S.DEG); };
+      const xt = TRI.map((_, i) => i + 1);
+      V.plot(cvs[1], { x: { min: 0.4, max: 4.6, ticks: xt, fmt: t => TRI[t - 1] ? TRI[t - 1].map(a => a + 1).join('–') : '' }, y: { min: -180, max: 180, label: 'closure (deg)' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'bars', x: xt.map(t => t - 0.17), y: TRI.map(clo0), color: '--axis', barWidth: 14 }, { type: 'bars', x: xt.map(t => t + 0.17), y: TRI.map(clo), color: '--s1', barWidth: 14 }] });
+    }));
+  },
+
+  screen(s) {
+    const cv = canv(s), M = 160, ext = 1.6;                // km
+    const ro = V.readouts($(s, '.ro'), [{ k: 'p300', label: 'Phase rms, 300 m' }, { k: 'p2k', label: 'Phase rms, 2 km' }, { k: 'coh', label: 'Coherence, longest' }]);
+    V.call($(s, '.ctl'), 'conditions', [
+      { k: 'weather', type: 'choice', options: Object.keys(WEATHER), value: 'average' },
+      { k: 'band', type: 'choice', options: [3, 6, 7, 9], value: 6, quote: false },
+      { k: 'time', type: 'range', min: 0, max: 30, step: 0.5, value: 0, fmt: v => `'${v}min'`, note: 'marked on the phase plot' }
+    ], V.rafThrottle(v => {
+      const A = scene({ cfg: 'C-6', band: v.band, rms1km: WEATHER[v.weather], wvr: false, dur: 30, dt: 10, cycle: 60 }), na = A.na, sc = A.screen;
+      const f = 1, img = new Float64Array(M * M), cy = sc.ny * sc.dx / 2;
+      for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) img[y * M + x] = f * S.screenAt(sc, (x - M / 2) / M * 2 * ext * 1000 - 10 * v.time * 60, cy + (y - M / 2) / M * 2 * ext * 1000);
+      const lim = 600;                     // μm, the same for every weather and band
+      V.image(cv.screen, img, M, { cell: 2 * ext / M, flipX: false, extent: [-ext, ext, -ext, ext], cmap: 'rdbu', vmin: -lim, vmax: lim, xlabel: 'East (km)', ylabel: 'North (km)', cbar: { label: 'excess path (μm)', scale: 1 },
+        overlay: (ctx, m) => { ctx.fillStyle = V.css('--ink'); A.cfg.e.forEach((e, a) => { ctx.beginPath(); ctx.arc(m.EX(e / 1000), m.EY(A.cfg.n[a] / 1000), 2.6, 0, 2 * Math.PI); ctx.fill(); }); } });
+      // time series of four antennas at increasing distance from the reference
+      const d = A.cfg.e.map((e, a) => Math.hypot(e - A.cfg.e[0], A.cfg.n[a] - A.cfg.n[0])), pick = [150, 600, 1200, 2200].map(L => d.reduce((b, x, a) => (Math.abs(x - L) < Math.abs(d[b] - L) ? a : b), 1));
+      const tt = A.times.map(t => t / 60), phase = (k, a) => (A.pT[k * na + a] - A.pT[k * na]) / S.DEG;
+      V.plot(cv.ts, { x: { min: 0, max: 30, label: 'time (min)' }, y: { min: -200, max: 200, label: 'phase (deg)' }, vlines: [{ x: v.time, color: '--ink', dash: [4, 3] }],
+        series: pick.map((a, i) => { const y = tt.map((_, k) => phase(k, a)), m0 = y.reduce((p, q) => p + q, 0) / y.length; return { type: 'line', x: tt, y: y.map(q => q - m0), color: `--s${i + 1}`, width: 1.6, label: `${(d[a] / 1000).toFixed(1)} km` }; }) });
+      // structure function: rms over time of each baseline's phase
+      const bx = [], by = [];
+      for (let i = 0; i < na; i += 2) for (let j = i + 1; j < na; j += 2) {
+        let s1 = 0, s2 = 0; for (let k = 0; k < A.times.length; k++) { const p = A.pT[k * na + i] - A.pT[k * na + j]; s1 += p; s2 += p * p; }
+        const n = A.times.length, rms = Math.sqrt(Math.max(0, s2 / n - (s1 / n) * (s1 / n))) / S.DEG;
+        bx.push(Math.hypot(A.cfg.e[i] - A.cfg.e[j], A.cfg.n[i] - A.cfg.n[j])); by.push(Math.max(rms, 0.05));
+      }
+      const fit = b => { let num = 0, den = 0; bx.forEach((x, i) => { if (x < 600) { num += by[i] * Math.pow(x, 5 / 6); den += Math.pow(x, 5 / 3); } }); return num / den * Math.pow(b, 5 / 6); };
+      const rx = [15, 30, 100, 300, 1000, 3000];
+      V.plot(cv.sf, { x: { min: 15, max: 3000, log: true, label: 'baseline (m)' }, y: { min: 0.3, max: 300, log: true, label: 'phase rms (deg)' }, legend: false,
+        series: [{ type: 'line', x: rx, y: rx.map(fit), color: '--axis', width: 1.5 }, { type: 'scatter', x: bx, y: by, size: 2.4, color: '--s1', alpha: 0.7 }] });
+      const near = L => { const sel = by.filter((_, i) => Math.abs(bx[i] - L) < 0.2 * L); return sel.reduce((p, q) => p + q, 0) / (sel.length || 1); };
+      ro.set('p300', near(300).toFixed(0) + '°'); ro.set('p2k', near(2000).toFixed(0) + '°');
+      const c = Math.exp(-Math.pow(near(2000) * S.DEG, 2) / 2); ro.set('coh', K.pct(c), c > 0.9 ? 'good' : c > 0.6 ? 'warn' : 'bad');
+    }));
+  },
+
+  phaseref(s) {
+    const cv = canv(s), N = 256;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'rms', label: 'Residual phase rms' }, { k: 'pk', label: 'Peak / true flux' }, { k: 'tos', label: 'Time on target' }]);
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'cycle', type: 'range', min: 0.5, max: 20, value: 6, scale: 'log', fmt: v => `'${v}min'`, live: false },
+      { k: 'separation', type: 'range', min: 0.5, max: 15, value: 3, scale: 'log', fmt: v => `'${v}deg'`, live: false },
+      { k: 'weather', type: 'choice', options: Object.keys(WEATHER), value: 'average', note: 'WVR applied' }
+    ], (v, k, final) => {
+      v.wvrgcal = true;
+      if (!final) return;
+      const calScan = Math.max(6, Math.min(30, 0.2 * v.cycle * 60));
+      const A = scene({ cfg: 'C-6', band: 7, rms1km: WEATHER[v.weather], wvr: v.wvrgcal, dur: 30, dt: 6, cycle: v.cycle, calScan, sep: v.separation }), na = A.na;
+      const d = K.memo('pr-data:' + JSON.stringify([v.cycle, v.separation, v.weather, v.wvrgcal]), () => K.targetData(A, [{ type: 'point', flux: 0.1 }], { noiseScale: 0.5 }));
+      const res = S.resolution(A.cfg, A.ghz), im = S.image(d, { N, cell: res / 5, weighting: 'briggs', robust: 0.5 });
+      V.image(cv.img, im.dirty, N, { cell: res / 5, crop: 80, vmin: -0.02, vmax: 0.105, beam: im.beam, cbar: { label: 'Jy/beam', scale: 1 } });
+      const tt = A.times.map(t => t / 60), tru = A.times.map((_, k) => wrapDeg(A.truth[k * na + ANT])), itp = A.times.map(t => wrapDeg(A.interp(t, ANT)));
+      const sx = A.sol.map(q => q.t / 60), sy = A.sol.map(q => wrapDeg(q.ph[ANT]));
+      const tx = [], ty = [], rx = [], ry = [];
+      A.times.forEach((t, k) => { if (!A.isCal[k]) { rx.push(t / 60); ry.push(A.resid[k * na + ANT] / S.DEG); } });
+      V.plot(cv.ph, { x: { min: 0, max: 30, label: 'time (min)' }, y: { min: -180, max: 180, label: 'phase (deg)' }, legend: false,
+        series: [{ type: 'line', x: brk(tt, tru).X, y: brk(tt, tru).Y, color: '--axis', width: 1.5, label: 'true (target direction)' }, { type: 'line', x: brk(tt, itp).X, y: brk(tt, itp).Y, color: '--s1', width: 2, label: 'interpolated' }, { type: 'scatter', x: sx, y: sy, size: 8, color: '--s1' }] });
+      V.plot(cv.res, { x: { min: 0, max: 30, label: 'time (min)' }, y: { min: -120, max: 120, label: 'residual (deg)' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'scatter', x: rx, y: ry, size: 2.2, color: '--s1' }] });
+      let s2 = 0, n = 0; A.times.forEach((_, k) => { if (!A.isCal[k]) for (let a = 1; a < na; a++) { s2 += A.resid[k * na + a] ** 2; n++; } });
+      const r = Math.sqrt(s2 / n) / S.DEG, pk = S.max(im.dirty).v / 0.1, tos = A.isCal.filter(c => !c).length / A.times.length;
+      ro.set('rms', r.toFixed(0) + '°', r < 20 ? 'good' : r < 40 ? 'warn' : 'bad'); ro.set('pk', K.pct(pk), pk > 0.9 ? 'good' : pk > 0.7 ? 'warn' : 'bad');
+      ro.set('tos', K.pct(tos));
+    });
+  },
+
+  fluxcal(s) {
+    const cv = $(s, 'canvas');
+    const CAL = { 'J1058+0133': { d: 0 }, Titan: { d: 0.8 }, Ganymede: { d: 1.6 }, Neptune: { d: 2.3 }, Uranus: { d: 3.6 } };      // apparent diameters (arcsec), typical
+    const ro = V.readouts($(s, '.ro'), [{ k: 'null', label: 'First null at' }, { k: 'res', label: 'Baselines with |V| < ½ total' }]);
+    V.call($(s, '.ctl'), 'observe', [
+      { k: 'fluxcal', type: 'choice', options: Object.keys(CAL), labels: ['quasar', 'Titan', 'Ganymede', 'Neptune', 'Uranus'], value: 'Titan' },
+      { k: 'config', type: 'choice', options: ['C-2', 'C-4', 'C-6'], value: 'C-2' },
+      { k: 'band', type: 'choice', options: [3, 6, 7], value: 6, quote: false }
+    ], v => {
+      const c = CAL[v.fluxcal], ghz = S.BANDS[v.band].ghz, cfg = S.config(v.config), tr = S.uvTracks(cfg, { freq: ghz, dec: -20, ha0: -0.1, ha1: 0.1, dt: 60 });
+      const vis = q => (c.d === 0 ? 1 : (() => { const z = Math.PI * c.d * S.AS * q; return z < 1e-9 ? 1 : Math.abs(2 * S.j1(z) / z); })());
+      const X = [], Y = []; for (let i = 0; i <= 1500; i++) { const q = 4e3 * Math.pow(1000, i / 1500); X.push(q / 1e3); Y.push(vis(q)); }
+      const px = [], py = []; let nres = 0;
+      for (let k = 0; k < tr.n; k += 3) { const q = Math.hypot(tr.u[k], tr.v[k]), a = vis(q); px.push(q / 1e3); py.push(a); if (a < 0.5) nres++; }
+      V.plot(cv, { x: { min: 4, max: 4000, log: true, label: 'uv distance (kλ, log, fixed)' }, y: { min: 0, max: 1.08, label: 'amplitude / total flux' }, legend: false,
+        series: [{ type: 'line', x: X, y: Y, color: '--axis', width: 2 }, { type: 'scatter', x: px, y: py, size: 3, color: '--s1' }] });
+      const qn = c.d ? 1.22 / (c.d * S.AS) / 1e3 : Infinity;
+      ro.set('null', c.d ? qn.toFixed(0) + ' kλ (' + (qn * 1e3 * S.C / ghz / 1e9).toFixed(0) + ' m)' : 'none (point)');
+      const fr = nres / px.length; ro.set('res', K.pct(fr), fr < 0.1 ? 'good' : fr < 0.5 ? 'warn' : 'bad');
+      $$(s, '.sjf').forEach(e => { e.textContent = `'${v.fluxcal}'`; });                    // what the pipeline's setjy then uses
+      $(s, '.sjs').textContent = c.d ? "'Butler-JPL-Horizons 2012'" : "'manual'"; $(s, '.sjc').textContent = c.d ? '' : '  # + catalogue flux';
+    });
+  },
+
+  bandpass(s) {
+    // fixed observation: FDM spw, bandpass calibrator 0.5 Jy observed in two 4-min scans, a 0.2 Jy continuum target
+    const cv = canv(s), na = 43, n = 960, dnu = 1.953e6, FLUX = 0.5, SCAN = 4, S0 = 0.2;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'snr', label: 'S/N per channel, per antenna' }, { k: 'err', label: 'Phase error' }, { k: 'ratio', label: 'Bandpass / thermal noise in target' }]);
+    const T = K.memo('bp5-true', () => {
+      const r = S.rng(12), amp = [], ph = [];
+      for (let a = 0; a < na; a++) {
+        const A = new Float64Array(n), P = new Float64Array(n), rip = 0.05 + 0.04 * r(), q = 6.28 * r(), dl = (r() - 0.5) * 40, w = 6 + 4 * r();
+        for (let c = 0; c < n; c++) { const x = c / (n - 1); A[c] = (1 + rip * Math.sin(w * x * 6.28 + q) + 0.02 * Math.sin(37 * x + q)) * (1 - 0.6 * Math.exp(-x * 40) - 0.6 * Math.exp(-(1 - x) * 40)); P[c] = dl * (x - 0.5) + 6 * Math.sin(5 * x * 6.28 + q); }
+        amp.push(A); ph.push(P);
+      }
+      return { amp, ph };
+    });
+    V.call($(s, '.ctl'), 'bandpass', [
+      { k: 'field', v: "'J1058+0133'" },
+      { k: 'solint', type: 'choice', options: ['inf', 'inf,4ch', 'inf,8ch', 'inf,16ch'], value: 'inf' },
+      { k: 'combine', type: 'choice', options: ['', 'scan'], labels: ["''", "'scan'"], value: '', note: "default 'scan'" },
+      { k: 'solnorm', v: 'True', note: 'as the pipeline' }
+    ], V.rafThrottle(v => {
+      const avg = v.solint === 'inf' ? 1 : parseInt(v.solint.split(',')[1]), tcal = SCAN * 60 * (v.combine === 'scan' ? 2 : 1);
+      const sig = S.sigmaVis(6, dnu, tcal), snr = FLUX / sig * Math.sqrt(na - 1), se = 1 / (snr * Math.sqrt(avg));
+      const rr = S.rng(99), est = [];
+      for (let a = 0; a < na; a++) {
+        const A = new Float64Array(n), P = new Float64Array(n);
+        const nb = Math.ceil(n / avg), bA = new Float64Array(nb), bP = new Float64Array(nb);
+        for (let b = 0; b < nb; b++) {
+          let ar = 0, ai = 0, c0 = b * avg, c1 = Math.min(n, c0 + avg);
+          for (let c = c0; c < c1; c++) { ar += T.amp[a][c] * Math.cos(T.ph[a][c] * S.DEG); ai += T.amp[a][c] * Math.sin(T.ph[a][c] * S.DEG); }
+          ar /= c1 - c0; ai /= c1 - c0; ar += se * Math.hypot(ar, ai) * rr.normal(); ai += se * Math.hypot(ar, ai) * rr.normal();
+          bA[b] = Math.hypot(ar, ai); bP[b] = Math.atan2(ai, ar) / S.DEG;
+        }
+        for (let c = 0; c < n; c++) {                            // linear interpolation back to every channel
+          const f = (c - (avg - 1) / 2) / avg, b0 = Math.max(0, Math.min(nb - 1, Math.floor(f))), b1 = Math.min(nb - 1, b0 + 1), w = Math.max(0, Math.min(1, f - b0));
+          A[c] = (1 - w) * bA[b0] + w * bA[b1]; P[c] = (1 - w) * bP[b0] + w * bP[b1];
+        }
+        est.push({ A, P });
+      }
+      const x = Array.from({ length: n }, (_, c) => c), a = 4;
+      V.plot(cv.amp, { x: { min: 0, max: n - 1 }, y: { min: 0.3, max: 1.25, label: 'amplitude', ticks: [0.4, 0.7, 1] }, legend: false,
+        series: [{ type: 'line', x, y: Array.from(est[a].A), color: '--s1', width: 1.3 }, { type: 'line', x, y: Array.from(T.amp[a]), color: '--ink', width: 1, dash: [4, 3] }] });
+      V.plot(cv.ph, { x: { min: 0, max: n - 1 }, y: { min: -40, max: 40, label: 'phase (deg)', ticks: [-40, -20, 0, 20, 40] }, legend: false,
+        series: [{ type: 'line', x, y: Array.from(est[a].P), color: '--s1', width: 1.3 }, { type: 'line', x, y: Array.from(T.ph[a]), color: '--ink', width: 1, dash: [4, 3] }] });
+      // calibrated target spectrum, 30 min: bandpass errors multiply the source, thermal noise adds
+      const sigT = S.sigmaVis(6, dnu, 60) / Math.sqrt(na * (na - 1) / 2 * 30), spec = new Float64Array(n), therm = new Float64Array(n), rt = S.rng(5);
+      for (let c = 0; c < n; c++) {
+        let sr = 0, cnt = 0;
+        for (let i = 0; i < na; i++) for (let j = i + 1; j < na; j++) {
+          const gi = T.amp[i][c] / est[i].A[c], gj = T.amp[j][c] / est[j].A[c], dp = (T.ph[i][c] - est[i].P[c] - (T.ph[j][c] - est[j].P[c])) * S.DEG;
+          sr += gi * gj * Math.cos(dp); cnt++;
+        }
+        const nz = sigT * rt.normal(); spec[c] = S0 * sr / cnt + nz; therm[c] = S0 + nz;
+      }
+      const bpn = (() => { let m = 0, q = 0; for (let c = 10; c < n - 10; c++) { const d2 = spec[c] - therm[c]; m += d2; q += d2 * d2; } const k = n - 20; return Math.sqrt(q / k - (m / k) ** 2); })();
+      V.plot(cv.tgt, { x: { min: 0, max: n - 1, label: 'channel' }, y: { min: S0 * 0.95 * 1e3, max: S0 * 1.05 * 1e3, label: 'mJy' }, legend: false,
+        series: [{ type: 'line', x, y: Array.from(spec, q => q * 1e3), color: '--s1', width: 1.2 }, { type: 'line', x, y: Array.from(therm, q => q * 1e3), color: '--s2', width: 1 }] });
+      const sn = snr * Math.sqrt(avg);
+      ro.set('snr', sn.toFixed(0), sn > 50 ? 'good' : sn > 20 ? 'warn' : 'bad');
+      ro.set('err', (se / S.DEG).toFixed(1) + '°');
+      const ratio = bpn / sigT; ro.set('ratio', '×' + ratio.toFixed(2), ratio < 0.5 ? 'good' : ratio < 1 ? 'warn' : 'bad');
+    }));
+  },
+
+  gaincal(s) {
+    // fixed observation: C-6, Band 6, average weather, a weak 15 mJy phase calibrator in 60-s scans every 6 min, 4 spws of 1.875 GHz
+    const cv = canv(s), FLUX = 0.015, DT = 6;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'snr', label: 'S/N per solution' }, { k: 'err', label: 'Error vs truth' }, { k: 'flag', label: 'Flagged' }]);
+    const A = scene({ cfg: 'C-6', band: 6, rms1km: WEATHER.average, dur: 60, dt: DT, cycle: 6, calScan: 60, wvr: true }), na = A.na, ANT2 = 30, ref = A.truth[ANT2];
+    const rel = k => wrapDeg(A.truth[k * na + ANT2] - ref), cal = A.scans.filter(q => q.kind === 'cal');      // true phase (deg), relative to the start
+    const inScan = (t0, t1) => A.times.map((u, k) => k).filter(k => A.times[k] >= t0 && A.times[k] < t1 - 1e-6);
+    const TL = K.memo('gc5:line', () => { const x = [], y = []; let prev = null; A.times.forEach((u, k) => { const q = rel(k); if (prev != null && Math.abs(q - prev) > 180) { x.push(NaN); y.push(NaN); } x.push(u / 60); y.push(q); prev = q; }); return { x, y }; });
+    // zoom: the calibrator scan in which the true phase changes most (one fixed scan, fixed axes)
+    const Z = K.memo('gc5:zoom', () => {
+      let best = null;
+      cal.forEach(q => { const ks = inScan(q.t0, q.t1), d = ks.map(k => wrapDeg((rel(k) - rel(ks[0])) * S.DEG)), rg = Math.max(...d) - Math.min(...d); if (!best || rg > best.rg) best = { q, ks, d, rg }; });
+      const m = best.d.reduce((p, x) => p + x, 0) / best.d.length;
+      return Object.assign(best, { mid: rel(best.ks[0]) + m, y: best.d.map(x => x - m), x: best.ks.map(k => A.times[k] - best.q.t0 + DT / 2) });
+    });
+    V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'field', v: "'J1047-3000'", note: '15 mJy, weak' },
+      { k: 'calmode', v: "'p'" },
+      { k: 'solint', type: 'choice', options: ['int', '18s', '30s', 'inf'], labels: ['int (6 s)', '18s', '30s', 'inf (scan)'], value: 'int' },
+      { k: 'gaintype', type: 'choice', options: ['G', 'T'], value: 'G' },
+      { k: 'combine', type: 'choice', options: ['', 'spw'], labels: ["''", "'spw'"], value: '' },
+      { k: 'minsnr', type: 'choice', options: [2, 3, 5], value: 3, quote: false, fmt: v => v.toFixed(1) }
+    ], V.rafThrottle(v => {
+      const sl = v.solint === 'int' ? DT : v.solint === 'inf' ? 60 : parseInt(v.solint), r = S.rng(3);
+      const bw = v.combine === 'spw' ? 7.5e9 : 7.5e9 / 4;
+      const snr = FLUX / S.sigmaVis(6, bw, sl) * Math.sqrt(na - 1) / (v.gaintype === 'G' ? Math.SQRT2 : 1);   // 'G': one solution per polarization
+      const sx = [], sy = [], fx = [], fy = [], zk = { x: [], y: [] }, zf = { x: [], y: [] };
+      let e2 = 0, en = 0;
+      cal.forEach(q => {
+        for (let t = q.t0; t + sl <= q.t1 + 1e-6; t += sl) {
+          const ks = inScan(t, t + sl); let cr = 0, ci = 0;
+          ks.forEach(k => { const p = rel(k) * S.DEG; cr += Math.cos(p); ci += Math.sin(p); });
+          // each solution has its own S/N (flagged baselines, elevation); its phase error and its flag both follow from it
+          const sn = snr * Math.exp(0.25 * r.normal()), ph = wrapDeg(Math.atan2(ci, cr) + r.normal() / sn), bad = sn < v.minsnr;
+          (bad ? fx : sx).push((t + sl / 2) / 60); (bad ? fy : sy).push(bad ? Math.max(-115, Math.min(115, ph)) : ph);
+          if (!bad) ks.forEach(k => { const d = wrapDeg((ph - rel(k)) * S.DEG); e2 += d * d; en++; });
+          if (q === Z.q) { const z = bad ? zf : zk; z.x.push(t - q.t0, t - q.t0 + sl, NaN); const y = Math.max(-57, Math.min(57, wrapDeg((ph - Z.mid) * S.DEG))); z.y.push(y, y, NaN); }
+        }
+      });
+      V.plot(cv.all, { x: { min: 0, max: 60, label: 'time (min)' }, y: { min: -120, max: 120, ticks: [-120, -60, 0, 60, 120], label: 'phase (deg)' }, legend: false, spans: [{ x0: Z.q.t0 / 60 - 0.4, x1: Z.q.t1 / 60 + 0.4 }],
+        series: [{ type: 'line', x: TL.x, y: TL.y, color: '--ink-2', width: 1.2 }, { type: 'scatter', x: sx, y: sy, size: 5, color: '--s1', alpha: 0.85 }, { type: 'scatter', x: fx, y: fy, size: 8, color: '--bad' }] });
+      V.plot(cv.zoom, { x: { min: 0, max: 60, ticks: [0, 12, 24, 36, 48, 60], label: 'time in the scan (s)' }, y: { min: -60, max: 60, ticks: [-60, -30, 0, 30, 60], label: 'phase (deg)' }, legend: false,
+        series: [{ type: 'line', x: Z.x, y: Z.y, color: '--ink-2', width: 1.2, dots: 2.5 }, { type: 'line', x: zk.x, y: zk.y, color: '--s1', width: 3.5 }, { type: 'line', x: zf.x, y: zf.y, color: '--bad', width: 3.5 }] });
+      ro.set('snr', snr.toFixed(1), snr > 10 ? 'good' : snr > v.minsnr ? 'warn' : 'bad');
+      const er = en ? Math.sqrt(e2 / en) : NaN; ro.set('err', en ? er.toFixed(0) + '°' : 'all flagged', en && er < 8 ? 'good' : en && er < 15 ? 'warn' : 'bad');
+      const fr = fx.length / (fx.length + sx.length); ro.set('flag', K.pct(fr), fr < 0.02 ? 'good' : fr < 0.2 ? 'warn' : 'bad');
+    }));
+  },
+
+  interp(s) {
+    // fixed observation: C-6, Band 6, average weather, WVR applied; phase calibrator 3° away every 7 min,
+    // bandpass calibrator 20° away, observed once at the start; table solved with solint='inf', combine='spw'
+    const cv = canv(s), N = 256, wrap = x => Math.atan2(Math.sin(x), Math.cos(x));
+    const ro = V.readouts($(s, '.ro'), [{ k: 'rms', label: 'Phase rms left' }, { k: 'pk', label: 'Peak / true flux' }, { k: 'kept', label: 'Data calibrated' }]);
+    const base = { cfg: 'C-6', band: 6, rms1km: WEATHER.average, wvr: true, dur: 60, dt: 10, cycle: 7, calScan: 30, sep: 3 };
+    const A = scene(base), Ab = scene(Object.assign({}, base, { sep: 20 })), na = A.na, CELL = S.resolution(A.cfg, A.ghz) / 5;
+    // slow drift seen in every direction (electronics, elevation): grows with distance from the reference antenna
+    const DR = K.memo('ip:drift', () => { const r = S.rng(31); return A.cfg.e.map((e, a) => r.normal() * 45 * S.DEG * Math.hypot(e - A.cfg.e[0], A.cfg.n[a] - A.cfg.n[0]) / 1000); });
+    const drift = (a, t) => DR[a] * (1 - Math.cos(Math.PI * t / 3600));
+    const shift = q => ({ t: q.t, ph: Float64Array.from(q.ph, (p, a) => p + drift(a, q.t)) });
+    const OFF = K.memo('ip:off', () => A.times.reduce((m, u, k) => m + A.truth[k * na + ANT] + drift(ANT, u), 0) / A.times.length);   // display offset: DV18 phases about their mean
+    const SOL = K.memo('ip:sol', () => ({ 'J1037-2934': A.sol.map(shift), 'J1058+0133': [shift(Ab.sol[0])] }));
+    const gainAt = (sol, mode, u, a) => {
+      if (sol.length === 1) return sol[0].ph[a];
+      let i = 0; while (i < sol.length - 2 && sol[i + 1].t < u) i++;
+      const s0 = sol[i], s1 = sol[i + 1];
+      if (mode === 'nearest') return (Math.abs(u - s0.t) <= Math.abs(s1.t - u) ? s0 : s1).ph[a];
+      const w = Math.max(0, Math.min(1, (u - s0.t) / (s1.t - s0.t)));
+      return s0.ph[a] + w * wrap(s1.ph[a] - s0.ph[a]);
+    };
+    const run = v => K.memo('ip:' + [v.gainfield, v.interp, v.spwmap].join('|'), () => {
+      const sol = SOL[v.gainfield], nt = A.times.length, resid = new Float64Array(nt * na), raw = new Float64Array(nt * na), gain = new Float64Array(nt);
+      A.times.forEach((u, k) => { for (let a = 0; a < na; a++) { const g = gainAt(sol, v.interp, u, a); raw[k * na + a] = wrap(A.truth[k * na + a] + drift(a, u)); resid[k * na + a] = wrap(raw[k * na + a] - g); if (a === ANT) gain[k] = g; } });
+      const img = (res, o) => S.image(K.targetData(Object.assign({}, A, { resid: res }), [{ type: 'point', flux: 0.1 }], o), { N, cell: CELL, weighting: 'briggs', robust: 0.5 });
+      const ok = v.spwmap !== '[]';
+      let im = ok ? img(resid, { noiseScale: 0.5 }) : null;
+      if (!ok) {     // spwmap=[]: spw 0 calibrated; spws 1-3 have no solution and pass uncalibrated, unflagged (applymode='calflag')
+        const i0 = img(resid, { noiseScale: 1 }), i1 = img(raw, { noiseScale: 1 / Math.sqrt(3), seed: 6 });
+        im = { dirty: Float64Array.from(i0.dirty, (x, j) => 0.25 * x + 0.75 * i1.dirty[j]), beam: i0.beam };
+      }
+      const left = ok ? resid : raw;
+      let s2 = 0, n = 0; A.times.forEach((_, k) => { if (!A.isCal[k]) for (let a = 1; a < na; a++) { s2 += left[k * na + a] ** 2; n++; } });
+      return { sol, resid, raw, gain, im, rms: Math.sqrt(s2 / n) / S.DEG };
+    });
+    V.call($(s, '.ctl'), 'applycal', [
+      { k: 'field', v: "'TARGET'" },
+      { k: 'gaintable', v: "['uid.phase_inf']" },
+      { k: 'gainfield', type: 'choice', options: ['J1037-2934', 'J1058+0133'], labels: ['phase cal, 3° away', 'bandpass cal, 20° away'], value: 'J1037-2934', fmt: v => `['${v}']` },
+      { k: 'interp', type: 'choice', options: ['linear', 'nearest'], value: 'linear', fmt: v => `['${v}']` },
+      { k: 'spwmap', type: 'choice', options: ['[0,0,0,0]', '[]'], value: '[0,0,0,0]', fmt: v => `[${v}]` }
+    ], v => {
+      const R = run(v), tt = A.times.map(t => t / 60), ok = v.spwmap !== '[]';
+      V.image(cv.img, R.im.dirty, N, { cell: CELL, crop: 80, vmin: -0.02, vmax: 0.105, beam: R.im.beam, cbar: { label: 'Jy/beam', scale: 1 } });
+      const tru = brk(tt, A.times.map((u, k) => wrapDeg(A.truth[k * na + ANT] + drift(ANT, u) - OFF)));
+      const gx = [], gy = [];                                       // applied gain, target scans only
+      A.times.forEach((u, k) => { if (A.isCal[k]) { if (gx.length && gx[gx.length - 1] === gx[gx.length - 1]) { gx.push(NaN); gy.push(NaN); } return; } gx.push(u / 60); gy.push(wrapDeg(R.gain[k] - OFF)); });
+      const g = brk(gx, gy);
+      const ser = [{ type: 'line', x: tru.X, y: tru.Y, color: '--axis', width: 1.5 }];
+      if (ok) ser.push({ type: 'line', x: g.X, y: g.Y, color: '--s1', width: 2 }, { type: 'scatter', x: R.sol.map(q => q.t / 60), y: R.sol.map(q => wrapDeg(q.ph[ANT] - OFF)), size: 8, color: '--s1' });
+      V.plot(cv.ph, { x: { min: 0, max: 60, label: 'time (min)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, legend: false, series: ser });
+      const rx = [], ry = [];
+      A.times.forEach((u, k) => { if (!A.isCal[k]) { rx.push(u / 60); ry.push((ok ? R.resid : R.raw)[k * na + ANT] / S.DEG); } });
+      V.plot(cv.res, { x: { min: 0, max: 60, label: 'time (min)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'residual (deg)' }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'scatter', x: rx, y: ry, size: 2.4, color: '--s1' }] });
+      $(s, '.rs').textContent = ok ? 'residual phase, DV18' : 'spw 1: uncalibrated';
+      $(s, '.ps').textContent = ok ? 'grey: true · dots: solved' : 'grey: true · none applied';
+      const pk = S.max(R.im.dirty).v / 0.1;
+      ro.set('rms', R.rms.toFixed(0) + '°', R.rms < 20 ? 'good' : R.rms < 40 ? 'warn' : 'bad'); ro.set('pk', K.pct(pk), pk > 0.9 ? 'good' : pk > 0.7 ? 'warn' : 'bad');
+      ro.set('kept', ok ? '100%' : '25%', ok ? 'good' : 'bad');     // spws 1-3 pass raw
+    });
+  },
+
+  caltables(s) {
+    const cv = canv(s), NAMES = ['DA41', 'DA42', 'DA43', 'DA44', 'DA45', 'DA46'];
+    // one 1-min phase-calibrator scan every 6 min: solint='int' gives 10 phase solutions per scan, solint='inf' one amplitude per scan
+    const ta = Array.from({ length: 10 }, (_, i) => 3 + i * 6), t = ta.flatMap(c => Array.from({ length: 10 }, (_, j) => c - 0.45 + j * 0.1));
+    const base = K.memo('ct5:base', () => { const r = S.rng(21); return NAMES.map(() => { const p0 = (r() - 0.5) * 160, A = 20 + 30 * r(), w = 0.05 + 0.08 * r(), q = 6.28 * r(); let rw = 0; return t.map(x => { rw += 0.8 * r.normal(); return p0 + A * Math.sin(w * x + q) + rw; }); }); });
+    const CASES = {
+      good: ['Healthy', 'Smooth, slow phase drifts that interpolation can follow. Amplitudes flat within a few per cent. No action needed.'],
+      noisy: ['Too little signal per solution', 'Every antenna scatters by tens of degrees, amplitudes too. The calibrator is too faint for this solint. Use a longer solint, gaintype=\'T\' or combine=\'spw\'.'],
+      onebad: ['One bad antenna', 'DA44 scatters and is low in amplitude while the others are fine, likely a bad antenna. Flag DA44 and solve again.'],
+      jump: ['A phase jump on one antenna', 'DA45 jumps by 120° between the scans at 33 and 39 min (e.g. a receiver relock). The target scans in between get a wrong interpolation. Flag DA45 on the target from 33 to 39 min.'],
+      wrap: ['Phase wrap (harmless)', 'DA42 drifts slowly past +180° and reappears at −180°. The phase is smooth and only the plot wraps. CASA interpolates across it. No action needed.'],
+      slope: ['Steep, steady slope', 'DA46 climbs a steady 8° per minute, 480° in the hour, and wraps. Typically not atmospheric. Suspect a wrong antenna position (hifa_antpos). Flag DA46, or ask the Helpdesk for antennapos.csv.'],
+      amp: ['Amplitude dropout', 'DA43 loses half its amplitude for 15 minutes, likely a pointing or receiver problem. Flag that time range.']
+    };
+    const LAB = { good: 'healthy', noisy: 'noisy', onebad: 'bad antenna', jump: 'phase jump', wrap: 'wrap', slope: 'steep slope', amp: 'amp dropout' };
+    V.call($(s, '.ctl'), 'diagnose', [
+      { k: 'table', label: 'dataset', type: 'choice', options: Object.keys(CASES), value: 'jump', labels: Object.values(LAB), fmt: v => LAB[v], scenario: true }
+    ], v => {
+      const c = v.table, r = S.rng(5);
+      const ph = base.map((b, a) => {
+        const y = b.map((p, i) => wrapDeg((p + (c === 'noisy' ? 35 : 2) * r.normal() + (c === 'onebad' && a === 3 ? 70 * r.normal() : 0) + (c === 'jump' && a === 4 && t[i] > 34 ? 120 : 0)
+          + (c === 'wrap' && a === 1 ? 150 - b[0] + t[i] : 0) + (c === 'slope' && a === 5 ? 8 * t[i] : 0)) * S.DEG));
+        return { type: 'scatter', x: t, y, size: 3.2, color: `--s${a + 1}` };
+      });
+      const amp = NAMES.map((_, a) => {
+        const y = ta.map(x => 1 + a * 0.08 + 0.03 * Math.sin(0.1 * x + a) + (c === 'noisy' ? 0.08 : 0.015) * r.normal() - (c === 'amp' && a === 2 && x > 19 && x < 34 ? 0.5 : 0) - (c === 'onebad' && a === 3 ? 0.5 + 0.12 * r.normal() : 0));
+        return { type: 'line', x: ta, y, color: `--s${a + 1}`, width: 1.5, dots: 3 };
+      });
+      V.plot(cv.ph, { x: { min: 0, max: 60, label: 'time (min)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, legend: false, series: ph });
+      V.plot(cv.amp, { x: { min: 0, max: 60, label: 'time (min)' }, y: { min: 0.3, max: 1.7, label: 'amplitude' }, legend: false, series: amp });
+      $(s, '.ct').textContent = CASES[c][0]; $(s, '.cd').textContent = CASES[c][1];
+    });
+  },
+
+  aftercal(s) {
+    // the same C-6 Band 6 observation; scan-averaged visibilities of the phase calibrator (0.7 Jy) or the check source (0.3 Jy)
+    const cv = canv(s), cfg = S.config('C-6'), lam = 299.792458 / 230 / 1000, BAD = 7;          // lam in m; BAD = DA48
+    const tr = K.memo('ac:tr', () => S.uvTracks(cfg, { freq: 230, dec: -30, ha0: -0.5, ha1: 0.5, dt: 900 }));
+    const CASES = {
+      good: ['Healthy', "'J1037-2934'", 0.7, 'A point source: the same amplitude on every baseline, phases around zero, no bad data left. It was calibrated with its own solutions, so this is expected. The check source tests phase transfer independently.'],
+      ant: ['One bad antenna left in', "'J1037-2934'", 0.7, 'A low stripe with scattered phases (the baselines of DA48). Find it with coloraxis=\'antenna1\', flag it and calibrate again.'],
+      spw: ['One spw off in flux', "'J1037-2934'", 0.7, 'spw 3 is 24% low, likely a bad flux model or bad data in that spw (hifa_gfluxscale). Find the cause before combining it.'],
+      offs: ['Phase offsets between spws', "'J1037-2934'", 0.7, 'Each spw at its own phase, likely combine=\'spw\' solutions applied without first removing the spw offsets (hifa_spwphaseup).'],
+      decor: ['Check source smeared', "intent='*CHECK*'", 0.3, 'Amplitude falls and phase scatter grows with uv distance. Phase transfer did not follow the atmosphere on long baselines. Fixed by the observation. Self-calibration of a bright target can help (Part 6).']
+    };
+    V.call($(s, '.ctl'), 'diagnose', [
+      { k: 'case', label: 'dataset', type: 'choice', options: Object.keys(CASES), value: 'ant', labels: ['healthy', 'bad antenna', 'spw flux', 'spw phase', 'check source'], fmt: v => ({ good: 'healthy', ant: 'bad antenna', spw: 'spw flux', offs: 'spw phase', decor: 'check source' })[v], scenario: true }
+    ], v => {
+      const C = CASES[v.case], c = v.case, S0 = C[2], r = S.rng(8), X = [[], [], [], []], A = [[], [], [], []], Pz = [[], [], [], []];
+      for (let k = 0; k < tr.n; k++) {
+        const q = Math.hypot(tr.u[k], tr.v[k]), b = q * lam, spw = k % 4, bad = tr.a1[k] === BAD || tr.a2[k] === BAD;
+        let amp = S0, ph = 3 * r.normal();
+        if (c === 'ant' && bad) { amp *= 0.55; ph = 45 * r.normal(); }
+        if (c === 'spw' && spw === 3) amp *= 0.76;
+        if (c === 'offs') ph += [0, 35, -25, 60][spw];
+        if (c === 'decor') { const sg = Math.min(70, 12 * Math.pow(b / 200, 5 / 6)); amp *= Math.exp(-Math.pow(sg * S.DEG, 2) / 2); ph = 0.6 * sg * r.normal(); }
+        X[spw].push(q / 1e3); A[spw].push(amp * (1 + 0.03 * r.normal())); Pz[spw].push(wrapDeg(ph * S.DEG));
+      }
+      V.plot(cv.amp, { x: { min: 0, max: 2000, label: 'uv distance (kλ)' }, y: { min: 0, max: 1, label: 'amplitude (Jy)' }, legend: false,
+        series: X.map((x, i) => ({ type: 'scatter', x, y: A[i], size: 2.2, color: `--s${i + 1}`, alpha: 0.8 })) });
+      V.plot(cv.ph, { x: { min: 0, max: 2000, label: 'uv distance (kλ)' }, y: { min: -180, max: 180, ticks: [-180, -90, 0, 90, 180], label: 'phase (deg)' }, legend: false,
+        series: X.map((x, i) => ({ type: 'scatter', x, y: Pz[i], size: 2.2, color: `--s${i + 1}`, alpha: 0.8 })) });
+      $(s, '.ct').textContent = C[0]; $(s, '.cd').textContent = C[3]; $(s, '.fld').textContent = (C[1].startsWith('intent') ? '' : 'field=') + C[1];
+    });
+  },
+
+  wlTopic(s) { weblogPages(s, ['qa', 'flag']); },
+
+  wlTsys(s) { weblogPages(s, ['tsys', 'wvr']); },
+
+  wlBp(s) { weblogPages(s, ['bp', 'spwphase', 'gain']); },
+
+  wlApply(s) { weblogPages(s, ['ampt', 'ampf', 'check']); },
+
+  wlImg(s) { weblogPages(s, ['findcont', 'img']); },
+
+  wlImgMore(s) { weblogPages(s, ['mom8', 'selfcal']); },
+
+  wlFault(s) { weblogPages(s, ['flux', 'bpph', 'phf']); },
+
+  obsinfo(s) {
+    // one C-4, Band 6 execution; the target's declination is the only thing that changes (it sets elevation and uv shape)
+    const cv = $(s, 'canvas'), list = $(s, '.wl-list'), cfg = S.config('C-4'), bs = S.baselineStats(cfg), HA0 = -0.5;
+    const cx = cfg.e.reduce((a, q) => a + q, 0) / cfg.nAnt, cy = cfg.n.reduce((a, q) => a + q, 0) / cfg.nAnt;
+    let ref = 0; cfg.e.forEach((e, i) => { if (Math.hypot(e - cx, cfg.n[i] - cy) < Math.hypot(cfg.e[ref] - cx, cfg.n[ref] - cy)) ref = i; });
+    const elev = (dec, ha) => Math.asin(Math.sin(S.LAT) * Math.sin(dec * S.DEG) + Math.cos(S.LAT) * Math.cos(dec * S.DEG) * Math.cos(ha * 15 * S.DEG)) / S.DEG;
+    const decs = d => [-10, d + 3, d, d - 4], has = [-1.4, 0.15, 0, 0.1];      // field declinations and hour-angle offsets
+    const uvOf = dec => K.memo('oi:uv' + dec, () => { const times = []; SCANS.forEach(c => { if (c[0] === 2) for (let t = c[1]; t < c[2]; t += 1.5) times.push((HA0 * 60 + t) * 60); }); return S.uvTracks(cfg, { freq: 230, dec, times }); });
+    const XMAX = Math.ceil(bs.lmax / 100) * 100;
+    const SPW = [[25, '224.0', 1875, '480 × 3.9 MHz', 'FDM', 'lines + continuum'], [27, '226.0', 1875, '480 × 3.9 MHz', 'FDM', 'lines + continuum'],
+      [29, '240.0', 2000, '128 × 15.6 MHz', 'TDM', 'continuum'], [31, '242.0', 2000, '128 × 15.6 MHz', 'TDM', 'continuum']];
+    const PG = {
+      time: ['fields vs time', 'Intent and field vs time', 'The bandpass and flux calibrator first (often one bright quasar), then the phase calibrator every 7.5 min around the target, and a check source twice. Each calibration stage uses the field with its intent.',
+        'EB overview: Intent vs Time and Field vs Time. Scans (and listobs) gives scan numbers and durations.'],
+      spw: ['spectral setup', 'Spectral setup: the science windows', 'Two FDM windows (narrow channels, for lines) and two TDM windows (128 wide channels, for continuum). Tsys is measured in separate TDM windows and mapped onto these (the Tsys spwmap).',
+        'EB overview → Spectral Setup, also listobs. It lists the lines expected in each window.'],
+      ants: ['antennas', 'Antenna setup: positions', '43 antennas in a C-4-like configuration. hif_refant ranks reference antennas: near the centre, few flags. All phases are relative to the first one (blue).',
+        'EB overview → Antenna Setup: positions on a linear and a log scale, names and IDs.'],
+      uv: ['uv coverage', 'uv coverage of the target', ['A target at dec −30° passes nearly overhead. The uv coverage and beam are round.', 'At dec +20° the target never rises above 47° at ALMA. The tracks are squeezed north–south, so the beam is stretched north–south.'],
+        'Antenna Setup and Sky Setup: the uv coverage of the representative target and spw.'],
+      bl: ['baselines', 'Baselines: every length, shortest to longest', 'L80 (80% of baselines are shorter) sets the angular resolution, L5 the maximum recoverable scale, b75 the automask preset (Part 4).',
+        'Antenna Setup → Baselines: minimum and maximum, then every baseline by length.'],
+      el: ['elevation', 'Sky setup: elevation vs time', ['Every field is above 60°, so Tsys is low and phases are stable.', 'The target stays below 50°, with higher Tsys, noisier phases and an elongated beam. 7-m antennas start shadowing below about 50°.'],
+        'EB overview → Sky Setup: elevation and azimuth of every field over the execution, and the Sun.']
+    };
+    const keys = (s.dataset.pages || Object.keys(PG).join(',')).split(',');           // main slide and Backup show different pages
+    V.call($(s, '.ctl'), 'listobs', [
+      { k: 'page', label: 'weblog page', type: 'choice', options: keys, labels: keys.map(k => PG[k][0]), value: keys[0], scenario: true, show: () => keys.length > 1 },
+      { k: 'dec', label: 'target dec', type: 'choice', options: [-30, 20], labels: ['−30° (high)', '+20° (low)'], value: -30, fmt: v => (v < 0 ? '−' : '+') + Math.abs(v) + '°', scenario: true, show: v => v.page === 'uv' || v.page === 'el' }
+    ], v => {
+      const pg = PG[v.page], hi = v.dec < 0;
+      $(s, '.wl-t').textContent = pg[1]; $(s, '.wl-say').textContent = Array.isArray(pg[2]) ? pg[2][hi ? 0 : 1] : pg[2]; $(s, '.wl-look').textContent = pg[3];
+      $(s, '.key').hidden = !(v.page === 'time' || v.page === 'el');
+      list.hidden = v.page !== 'spw'; cv.hidden = v.page === 'spw';
+      let note = '';
+      if (v.page === 'spw') {
+        list.innerHTML = '<table class="t"><tr><th>spw</th><th>centre (GHz)</th><th>bandwidth (MHz)</th><th>channels</th><th>mode</th><th>used for</th></tr>' +
+          SPW.map(r => `<tr><td>${r[0]}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${r[4]}</td><td>${r[5]}</td></tr>`).join('') + '</table>';
+        note = 'Band 6';
+      } else if (v.page === 'time') {
+        const ser = FIELDS.map((_, i) => { const x = [], y = []; SCANS.forEach(c => { if (c[0] === i) { x.push(c[1], c[2], NaN); y.push(4 - i, 4 - i, NaN); } }); return { type: 'line', x, y, color: FCOL[i], width: 9 }; });
+        V.plot(cv, { x: { min: 0, max: 62, label: 'time since the start (min)' }, y: { min: 0.3, max: 4.7, ticks: [1, 2, 3, 4], fmt: t => ['', 'check', 'target', 'phase cal', 'bp + flux'][t] || '' }, legend: false, series: ser });
+        note = 'one row per field';
+      } else if (v.page === 'ants') {
+        V.plot(cv, { x: { min: -400, max: 400, label: 'east (m)' }, y: { min: -400, max: 400, label: 'north (m)' }, equal: true, legendPos: 'left',
+          series: [{ type: 'scatter', x: cfg.e, y: cfg.n, size: 6, color: '--axis', label: 'antennas' }, { type: 'scatter', x: [cfg.e[ref]], y: [cfg.n[ref]], size: 10, color: '--s1', label: 'refant ' + cfg.names[ref] }] });
+        note = cfg.nAnt + ' antennas';
+      } else if (v.page === 'uv') {
+        const tr = uvOf(v.dec), U = [], W = [];
+        for (let k = 0; k < tr.n; k++) { U.push(tr.u[k] / 1e3, -tr.u[k] / 1e3); W.push(tr.v[k] / 1e3, -tr.v[k] / 1e3); }
+        V.plot(cv, { x: { min: -650, max: 650, label: 'u (kλ)' }, y: { min: -650, max: 650, label: 'v (kλ)' }, equal: true, legend: false, series: [{ type: 'scatter', x: U, y: W, size: 1.4, color: '--s1' }] });
+        note = 'target scans, 230 GHz';
+      } else if (v.page === 'bl') {
+        const Ls = bs.lengths, n = Ls.length, b75 = Ls[Math.floor(0.75 * n)];
+        V.plot(cv, { x: { min: 0, max: XMAX, label: 'baseline length (m)' }, y: { min: 0, max: 100, label: 'baselines shorter (%)' }, legend: false,
+          vlines: [{ x: bs.l5, color: '--axis', dash: [4, 4], label: 'L5' }, { x: b75, color: '--axis', dash: [2, 3], label: 'b75' }, { x: bs.l80, color: '--axis', dash: [4, 4], label: 'L80' }],
+          series: [{ type: 'line', x: Ls, y: Ls.map((_, i) => 100 * (i + 1) / n), color: '--s1', width: 2 }] });
+        note = `min ${bs.lmin.toFixed(0)} · L5 ${bs.l5.toFixed(0)} · b75 ${b75.toFixed(0)} · L80 ${bs.l80.toFixed(0)} · max ${bs.lmax.toFixed(0)} m`;
+      } else {
+        const D = decs(v.dec), ser = FIELDS.map((_, i) => { const x = [], y = []; SCANS.forEach(c => { if (c[0] === i) for (let t = c[1]; t <= c[2] + 1e-6; t += 0.5) { x.push(t); y.push(elev(D[i], HA0 + has[i] + t / 60)); } }); return { type: 'scatter', x, y, size: 3.2, color: FCOL[i] }; });
+        V.plot(cv, { x: { min: 0, max: 62, label: 'time since the start (min)' }, y: { min: 0, max: 90, ticks: [0, 30, 60, 90], label: 'elevation (deg)' }, legend: false,
+          hlines: [{ y: 50, color: '--axis', dash: [4, 4], label: '50°' }], series: ser });
+        note = 'target dec ' + (hi ? '−30°' : '+20°');
+      }
+      $(s, '.wl-s').textContent = note;
+    });
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

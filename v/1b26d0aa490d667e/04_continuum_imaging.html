@@ -1,0 +1,1092 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Continuum Imaging</title>
+<meta name="deck-title" content="Continuum imaging · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+.twin { display: grid; grid-template-columns: 1fr 1fr; gap: .6em; }
+.twin p { text-align: center; margin-top: .2em; }
+#automask th { text-transform: none; }   /* b75 and metres must keep their case */
+#sed canvas.plot { aspect-ratio: 2; }
+#mechanisms .card li { margin-bottom: .2em; }
+[id^="fa-"] .t td, [id^="fa-"] .t th { font-size: .92em; }
+[id^="fa-"] pre.code.tight { font-size: .8em; }   /* follow-along code must read on a projector */
+@media (min-width: 700px) and (min-height: 380px) and (min-aspect-ratio: 1/1) { [id^="fa-"] .cols.l3 { grid-template-columns: 1.7fr 1fr; gap: 1.5em; } }
+.sw { display: inline-block; width: 1.4em; height: .28em; border-radius: .14em; vertical-align: middle; margin-right: .5em; }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="Simulated ALMA image of a ringed protoplanetary disk"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 4 of 8 · 1:00–1:45</p>
+  <h1>Continuum<br>imaging</h1>
+  <p class="sub">Dust, free-free and synchrotron: what ALMA sees, how <code>tclean</code> turns visibilities into an image, which parameters follow from the data and which ones you tune.</p>
+  <div class="meta"><span>45 min</span><span>CASA 6 · <code>tclean(specmode='mfs')</code></span><span>All figures are simulated live</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part</p><h2>Outline</h2></header>
+  <div class="grid3">
+    <div class="card"><h3><span class="tag fixed">Concept</span></h3><p><b>1 · What ALMA sees</b>: dust, free-free and synchrotron emission, and which bands each one dominates.</p></div>
+    <div class="card"><h3><span class="tag fixed">Concept</span></h3><p><b>2 · Visibilities to image</b>: gaps in the uv-plane, the dirty image, CLEAN, what tclean does.</p></div>
+    <div class="card"><h3><span class="tag fixed">Set once</span></h3><p><b>3 · Follows from the data</b>: <code>vis</code>, <code>field</code>, <code>spw</code>, <code>specmode</code>, <code>cell</code>, <code>imsize</code>, <code>pbcor</code>.</p></div>
+    <div class="card"><h3><span class="tag choice">Your choice</span></h3><p><b>4 · You tune</b>: <code>weighting</code>, <code>robust</code>, <code>niter</code>, <code>nsigma</code>, masks, <code>deconvolver</code>.</p></div>
+    <div class="card"><h3><span class="tag check">Check</span></h3><p><b>5 · Is it right?</b> Artifacts, a checklist, and a tclean call to start from.</p></div>
+    <div class="card"><h3><span class="tag check">Follow along</span></h3><p><b>6 · TW Hya</b>: the First Look notebook (CASA 6.7.4), one slide per step.</p></div>
+  </div>
+  <p class="lede">All demos use the same observation: 12-m array, configuration C-4, Band 6, one hour (Part 1). Colour scales are fixed. Copy the beam, rms and line-free ranges from the weblog before imaging (Part 3).</p>
+</section>
+<section class="slide section" id="part-sky">
+  <p class="num">1</p>
+  <h2>What ALMA sees in the continuum</h2>
+  <p>Three emission mechanisms with different spectra. Which one you image depends on the band.</p>
+</section>
+<section class="slide" id="sed" data-demo="sed">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>continuum emission</p><h2>Continuum spectra in the ALMA bands</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+    </div>
+    <div class="panels" style="--cols:1">
+      <figure class="panel"><figcaption><b>Spectrum of one source</b><span>shaded: ALMA bands (alternating shades) · fixed axes</span></figcaption><canvas class="plot"></canvas></figure>
+      <p class="try"><b>Try</b>Turn all three on. Free-free and synchrotron dominate Band 3, dust above ~150 GHz. Lower β flattens the dust. At 10 K the Rayleigh–Jeans law fails in Bands 6–7 (α &lt; 2+β there) and the spectrum peaks near Band 10. Free-free alone with turnover 200 GHz (a compact H&nbsp;II region) rises as ν² through Band 3, like dust. mfs averages over the in-band slope. <code>nterms=2</code> measures it.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="mechanisms">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>continuum emission</p><h2>Continuum emission mechanisms</h2></header>
+  <div class="grid3">
+    <div class="card"><h3><i class="sw" style="background:var(--s1)"></i>Thermal dust</h3><ul>
+      <li>Grains at 10–100 K in disks, cores and galaxies.</li>
+      <li>Modified blackbody; Rayleigh–Jeans: S ∝ ν<sup>2+β</sup>. β ≈ 1.5–2 for interstellar grains, ≲ 1 where grains have grown (disks like TW Hya).</li>
+      <li>Brightest in Bands 6–10.</li></ul></div>
+    <div class="card"><h3><i class="sw" style="background:var(--s2)"></i>Free-free</h3><ul>
+      <li>Thermal bremsstrahlung: electrons passing ions in H&nbsp;II regions, ionised winds and jets.</li>
+      <li>Optically thick S ∝ ν², thin S ∝ ν<sup>−0.1</sup>. The turnover frequency rises with the emission measure (denser, more compact regions).</li>
+      <li>Strong in Bands 1–4.</li></ul></div>
+    <div class="card"><h3><i class="sw" style="background:var(--s3)"></i>Synchrotron</h3><ul>
+      <li>Relativistic electrons in magnetic fields: AGN, supernova remnants, star-forming galaxies.</li>
+      <li>S ∝ ν<sup>−0.7</sup>, steepening as the electrons age. Flat (α ≈ 0) in compact AGN cores.</li>
+      <li>Quasar calibrators are synchrotron sources.</li></ul></div>
+  </div>
+  <p class="ink2">For tclean: <code>specmode='mfs'</code> makes one image of the whole band, as if the spectrum were flat across it. <code>deconvolver='mtmfs'</code>, <code>nterms=2</code> also fits the slope and writes <code>.alpha</code> and <code>.alpha.error</code> (<a href="#mtmfs">backup slide</a>). To separate mechanisms, image two or more bands at matched resolution and compare.</p>
+</section>
+<section class="slide section" id="part-image">
+  <p class="num">2</p>
+  <h2>From visibilities to an image</h2>
+  <p>Why the measured uv-plane gives a dirty image, how CLEAN fixes it, and what tclean does with your data.</p>
+</section>
+<section class="slide" id="imaging" data-demo="whatimaging">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>why we clean</p><h2>Gaps in uv coverage: the dirty image</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Each dot is one Fourier component of the sky. Short baselines (centre) measure extended emission, long ones small scales. The central hole (shortest baseline 12 kλ ≈ 17″) is too small to see here, but flux is lost on scales above ≈ 5″, the maximum recoverable scale of C-4 at Band 6 (<a href="01_interferometry.html#mrs">Part 1 · maximum recoverable scale</a>). <code>niter=0</code> gives the dirty image (sky ⊛ PSF), <code>niter=3000</code> the cleaned one. Same colour scale.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>The sky</b><span>unknown to you</span></figcaption><canvas class="img short" data-k="sky"></canvas></figure>
+      <figure class="panel"><figcaption><b>What was measured</b><span>|V| at each (u, v)</span></figcaption><canvas class="plot" data-k="uv"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF</b><span>the image of a point source</span></figcaption><canvas class="img short" data-k="psf"></canvas></figure>
+      <figure class="panel"><figcaption><b class="lab">Image</b><span>mJy/beam, fixed scale</span></figcaption><canvas class="img short" data-k="img"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="cleanstep" data-demo="cleanstep">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>deconvolution · Hogbom CLEAN</p><h2>How CLEAN works</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <div class="row"><button class="btn" data-n="1">+1</button><button class="btn" data-n="10">+10</button><button class="btn" data-n="100">+100</button><button class="btn primary" data-n="run">Run to threshold</button><button class="btn" data-n="reset">Reset</button></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Step by hand. Each iteration finds the peak residual, adds <code>gain × peak</code> to the model and subtracts a scaled, shifted PSF. Then try <code>gain=0.5</code>, which is faster but cleans sidelobes too.</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:3">
+        <figure class="panel"><figcaption><b>Residual</b><span>symmetric scale</span></figcaption><canvas class="img"></canvas></figure>
+        <figure class="panel"><figcaption><b>Model</b><span>components, √ stretch</span></figcaption><canvas class="img"></canvas></figure>
+        <figure class="panel"><figcaption><b>Restored</b><span>model ⊛ beam + residual</span></figcaption><canvas class="img"></canvas></figure>
+      </div>
+      <figure class="panel"><figcaption><b>Peak residual vs iteration</b><span>line: 3σ threshold</span></figcaption><canvas class="plot wide"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="workflow">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>tclean · overview</p><h2>What tclean does with your visibilities</h2></header>
+  <div class="body">
+    <svg class="diagram" viewBox="0 0 1000 390" role="img" aria-label="tclean flow: visibilities are weighted and gridded, Fourier transformed to a residual image and PSF, cleaned in minor cycles, model visibilities subtracted in major cycles, and finally restored.">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker>
+      <marker id="arh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+      <rect class="box" x="10" y="20" width="190" height="86" rx="10"/><text x="105" y="56" text-anchor="middle" font-weight="700" font-size="17">Visibilities</text><text x="105" y="80" text-anchor="middle" class="muted" font-size="13">CORRECTED_DATA (or DATA)</text>
+      <rect class="box hot" x="260" y="20" width="200" height="86" rx="10"/><text x="360" y="56" text-anchor="middle" font-weight="700" font-size="17">Weight + grid</text><text x="360" y="80" text-anchor="middle" class="muted" font-size="13">weighting · uvtaper · cell · imsize</text>
+      <rect class="box" x="520" y="20" width="160" height="86" rx="10"/><text x="600" y="56" text-anchor="middle" font-weight="700" font-size="17">FFT</text><text x="600" y="80" text-anchor="middle" class="muted" font-size="13">uv grid → image</text>
+      <rect class="box" x="740" y="20" width="250" height="86" rx="10"/><text x="865" y="56" text-anchor="middle" font-weight="700" font-size="17">Residual image + PSF</text><text x="865" y="80" text-anchor="middle" class="muted" font-size="13">first pass = dirty image</text>
+      <rect class="box hot" x="740" y="170" width="250" height="96" rx="10"/><text x="865" y="205" text-anchor="middle" font-weight="700" font-size="17">Minor cycle</text><text x="865" y="229" text-anchor="middle" class="muted" font-size="13">deconvolver · gain · mask</text><text x="865" y="249" text-anchor="middle" class="muted" font-size="13">find peak, subtract PSF, repeat</text>
+      <rect class="box" x="260" y="170" width="420" height="96" rx="10"/><text x="470" y="205" text-anchor="middle" font-weight="700" font-size="17">Major cycle</text><text x="470" y="229" text-anchor="middle" class="muted" font-size="13">model image → model visibilities → subtract from the data</text><text x="470" y="249" text-anchor="middle" class="muted" font-size="13">(corrects the approximations of the minor cycle)</text>
+      <rect class="box hot" x="10" y="170" width="190" height="96" rx="10"/><text x="105" y="205" text-anchor="middle" font-weight="700" font-size="17">Restore</text><text x="105" y="229" text-anchor="middle" class="muted" font-size="13">model ⊛ clean beam</text><text x="105" y="249" text-anchor="middle" class="muted" font-size="13">+ residual</text>
+      <path class="wire" d="M200 63 H252" marker-end="url(#ar)"/><path class="wire" d="M460 63 H512" marker-end="url(#ar)"/><path class="wire" d="M680 63 H732" marker-end="url(#ar)"/>
+      <path class="wire" d="M865 106 V162" marker-end="url(#ar)"/>
+      <path class="wire" d="M740 218 H688" marker-end="url(#ar)"/><text x="714" y="210" text-anchor="middle" class="muted" font-size="12">model</text>
+      <path class="wire" d="M360 170 V114" marker-end="url(#ar)"/><text x="372" y="146" class="muted" font-size="12">residual visibilities</text>
+      <path class="wire hot" d="M800 266 V300 H105 V274" marker-end="url(#arh)"/><text x="452" y="292" text-anchor="middle" font-size="13" fill="var(--accent)">niter, threshold or nsigma reached</text>
+      <text x="10" y="345" font-size="13" class="muted" font-weight="700">ON DISK</text>
+      <text x="10" y="372" font-size="14"><tspan font-family="var(--f-mono)">.image</tspan> restored ·  <tspan font-family="var(--f-mono)">.residual</tspan> what CLEAN left ·  <tspan font-family="var(--f-mono)">.model</tspan> components (Jy/pixel) ·  <tspan font-family="var(--f-mono)">.psf</tspan> ·  <tspan font-family="var(--f-mono)">.pb</tspan> primary beam ·  <tspan font-family="var(--f-mono)">.mask</tspan> ·  <tspan font-family="var(--f-mono)">.sumwt</tspan> ·  <tspan font-family="var(--f-mono)">.image.pbcor</tspan></text>
+    </svg>
+    <p class="small ink2">Boxes with a thick coloured outline are where your parameters act. Each major cycle in the log re-reads the whole MS. The minor cycle works only on the image.</p>
+  </div>
+</section>
+<section class="slide section" id="part-set">
+  <p class="num">3</p>
+  <h2>Set once</h2>
+  <p>Parameters that follow from the data and the weblog (Part 3). Set them once in your script.</p>
+</section>
+<section class="slide" id="setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>tclean</p><h2>tclean parameters set once</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td>the calibrated MS, or a list of them</td><td>after <code>scriptForPI.py</code>; a list images several executions together</td></tr>
+      <tr><td><code>imagename</code></td><td>a prefix that names your choices, e.g. <code>'twhya_cont_r0.5'</code></td><td>tclean writes <code>.image .residual .model .psf .pb .mask</code>; if they exist it continues from them</td></tr>
+      <tr><td><code>field</code></td><td>the target name from listobs</td><td>calibrators are in the same MS</td></tr>
+      <tr><td><code>spw</code></td><td>line-free channels</td><td>continuum only, next slide</td></tr>
+      <tr><td><code>specmode</code></td><td><code>'mfs'</code></td><td>one image from all selected channels</td></tr>
+      <tr><td><code>gridder</code></td><td><code>'standard'</code>, or <code>'mosaic'</code></td><td><span class="tag fixed">Fixed by the observation</span> single pointing or mosaic</td></tr>
+      <tr><td><code>cell</code></td><td>beam / 5</td><td>sample the beam (demo)</td></tr>
+      <tr><td><code>imsize</code></td><td>≥ 1.5 × PB FWHM / cell</td><td>cover the primary beam (demo)</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>imagename</h3><p>tclean restarts from images that already carry the same <code>imagename</code>. Change the name, or delete the old products, whenever you change a parameter.</p></div>
+      <div class="card"><h3>Calibrated data column</h3><p><code>datacolumn='corrected'</code> is the default and falls back to <code>DATA</code> if the MS has been <code>split</code>. Leave it.</p></div>
+      <div class="card"><h3>Scripts</h3><p>Write the call in a <code>.py</code> file and run it with <code>execfile</code> or <code>casa -c</code>.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="mfsprep" data-demo="contspec">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>spw · line-free channels</p><h2>Multi-frequency synthesis and line-free channels</h2></header>
+  <div class="cols r3">
+    <div class="stack">
+      <ul>
+        <li><b>Multi-frequency synthesis</b>: each channel has its own (u,v) = B/λ, so wide bandwidth also fills in the uv-plane.</li>
+        <li><b>Exclude line channels</b> with an spw:channel selection, flags, or the pipeline's <code>cont.dat</code> (from <code>hif_findcont</code>). Its ranges are LSRK frequencies. Convert them to channels of your MS, or leave a margin.</li>
+        <li><b>Average to go faster</b> (<code>split(width=…, timebin=…)</code>). Too much averaging smears sources far from the phase centre (bandwidth and time smearing), more so on long baselines.</li>
+        <li>Check <code>plotms</code> amplitude vs channel for remaining lines.</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <figure class="panel"><figcaption><b>One spectral window, amplitude vs channel</b><span>shaded = line-free, used for continuum</span></figcaption><canvas class="plot wide"></canvas></figure>
+<pre class="code tight"><span class="k">spw</span>=<span class="em">'0:0~395;520~1235;1355~1919'</span>   <span class="c"># 2 lines left out</span></pre>
+    </div>
+  </div>
+</section>
+<section class="slide" id="cell" data-demo="cell">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>cell</p><h2>Choosing tclean parameters: cell</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Set <code>cell</code> to 0.4″. Baselines outside ±1/(2·cell) fall off the uv grid and are ignored, so the beam grows. Cells below about beam/5 (≈0.07″ here) do not improve the image and only cost memory and time.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Restored image</b><span class="pix">same colour scale for every cell</span></figcaption><canvas class="img" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>uv grid edge</b><span>grey: dropped</span></figcaption><canvas class="plot" data-k="uv"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF on the pixel grid</b><span>central 1.5″</span></figcaption><canvas class="img short" data-k="psf"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="imsize" data-demo="imsize">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>imsize</p><h2>Choosing tclean parameters: imsize</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>At Band 6, a 20 mJy source is 14″ out. With <code>imsize=128</code> it is off the image, so CLEAN cannot model it and its sidelobes remain in the residual. At 512 (40″, 1.6 × the PB FWHM) it is cleaned and the residual drops to ~1σ.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Primary beam and image box</b><span>±22″ · box: imsize · dashed: PB FWHM</span></figcaption><canvas class="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Residual inside the box</b><span>same ±22″ field · ±8σ</span></figcaption><canvas class="img short"></canvas></figure>
+      <figure class="panel"><figcaption><b>Restored, zoomed in</b><span>±3″ · √ stretch, fixed scales</span></figcaption><div class="twin"><div><canvas class="img"></canvas><p class="small muted">the target</p></div><div><canvas class="img"></canvas><p class="small muted tw-far">the bright source</p></div></div></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="pbcor" data-demo="pbcor">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>pbcor, pblimit</p><h2>Primary beam correction</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Six identical 1 mJy sources. Without correction the outer ones look faint. With <code>pbcor=True</code> they are back at 1 mJy, but the noise grows as 1/PB. Measure fluxes on <code>.image.pbcor</code> and noise on <code>.image</code>.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Image</b><span>circle: pblimit · √ stretch, fixed scale</span></figcaption><canvas class="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Measured peak flux</b><span>line: true 1 mJy</span></figcaption><canvas class="plot"></canvas></figure>
+      <figure class="panel"><figcaption><b>Noise vs radius</b><span>grey: PB response</span></figcaption><canvas class="plot"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-tune">
+  <p class="num">4</p>
+  <h2>Your choice</h2>
+  <p>Parameters you tune for your science: weighting, stopping criteria, masks and deconvolver.</p>
+</section>
+<section class="slide" id="weighting" data-demo="weighting">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>weighting, robust</p><h2>Choosing tclean parameters: weighting</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Sweep <code>robust</code> from 2 to −2. Short baselines get less weight, so the beam shrinks and the noise doubles. The resolved disk also dims (fewer Jy per smaller beam), unlike a point source.</p>
+    </div>
+    <div class="panels w5">
+      <figure class="panel"><figcaption><b>Weight per uv cell</b><span>share of all weight, log</span></figcaption><canvas class="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF</b><span>±35%</span></figcaption><canvas class="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Restored disk</b><span class="pix">√ stretch, fixed scale</span></figcaption><canvas class="img cb"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF cut</b><span>grey: natural · colour: yours</span></figcaption><canvas class="plot tall"></canvas></figure>
+      <figure class="panel"><figcaption><b>Trade-off</b><span>robust −2 … 2</span></figcaption><canvas class="plot tall"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="depth" data-demo="depth">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>niter, nsigma, usemask</p><h2>Stopping criteria and masks</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Step <code>niter</code> 0 → 100 → 300, as in First Look. The disk fills in, but <code>niter</code> stops CLEAN with disk still in the residual (rms/σ 1.25). At 20000, <code>nsigma=3</code> stops it after ≈ 650 iterations, with a noise-like residual. At 1σ with no mask CLEAN models the noise (rms/σ &lt; 1).</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:3">
+        <figure class="panel"><figcaption><b>Restored</b><span>outline: mask · fixed scale</span></figcaption><canvas class="img"></canvas></figure>
+        <figure class="panel"><figcaption><b>Residual</b><span>±4σ</span></figcaption><canvas class="img"></canvas></figure>
+        <figure class="panel"><figcaption><b>Model</b><span>fixed scale</span></figcaption><canvas class="img"></canvas></figure>
+      </div>
+      <figure class="panel"><figcaption><b>Residual pixels off-source</b><span>grey: noise only · shifted left: negative sidelobes of uncleaned flux</span></figcaption><canvas class="plot wide"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="automask">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>usemask='auto-multithresh'</p><h2>Auto-multithresh grows the mask at every major cycle</h2></header>
+  <div class="cols">
+    <svg class="diagram" viewBox="0 0 520 330" role="img" aria-label="Auto-multithresh steps: threshold residual, prune small regions, smooth and cut, grow into low-level emission, then clean.">
+      <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+      <rect class="box hot" x="10" y="10" width="500" height="54" rx="9"/><text x="24" y="33" font-weight="700" font-size="15">1 · Threshold the residual</text><text x="24" y="53" font-size="12.5" class="muted">max( sidelobethreshold × sidelobe × peak ,  noisethreshold × σ )</text>
+      <rect class="box" x="10" y="84" width="500" height="54" rx="9"/><text x="24" y="107" font-weight="700" font-size="15">2 · Prune</text><text x="24" y="127" font-size="12.5" class="muted">drop islands smaller than minbeamfrac × beam area</text>
+      <rect class="box" x="10" y="158" width="500" height="54" rx="9"/><text x="24" y="181" font-weight="700" font-size="15">3 · Smooth and cut</text><text x="24" y="201" font-size="12.5" class="muted">convolve with the beam (smoothfactor), keep &gt; cutthreshold</text>
+      <rect class="box" x="10" y="232" width="500" height="54" rx="9"/><text x="24" y="255" font-weight="700" font-size="15">4 · Grow the old mask</text><text x="24" y="275" font-size="12.5" class="muted">into emission above lownoisethreshold × σ (growiterations)</text>
+      <text x="24" y="316" font-size="13" fill="var(--accent)">→ minor cycles inside the mask, then back to step 1</text>
+    </svg>
+    <div class="stack">
+      <p class="ink2">The threshold is set by the sidelobe term in early cycles (bright peak) and by the noise term in late cycles. Starting values from the CASA automasking guide, by b75 (75% of baselines are shorter; weblog antenna setup page, baselines tab):</p>
+      <div class="tscroll"><table class="t">
+        <tr><th>Parameter</th><th>12-m, b75 &lt; 300 m</th><th>300–400 m</th><th>&gt; 400 m</th><th>7-m</th></tr>
+        <tr><td><code>sidelobethreshold</code></td><td>2.0</td><td>2.0</td><td>2.5</td><td>1.25</td></tr>
+        <tr><td><code>noisethreshold</code></td><td>4.25</td><td>5.0</td><td>5.0</td><td>5.0</td></tr>
+        <tr><td><code>lownoisethreshold</code></td><td>1.5</td><td>1.5</td><td>1.5</td><td>2.0</td></tr>
+        <tr><td><code>minbeamfrac</code></td><td>0.3</td><td>0.3</td><td>0.3</td><td>0.1</td></tr>
+      </table></div>
+      <p class="small muted">tclean's defaults (3.0, 5.0, 1.5, 0.3) match none of these columns, so set all four. Check the <code>.mask</code> image after every run. If it covers noise, raise <code>noisethreshold</code>. If it misses faint emission, lower <code>lownoisethreshold</code> or draw a mask: <code>iclean</code> (CASA ≥ 6.7.2, no viewer on macOS), <code>interactive=True</code> on Linux, or a CRTF region.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="msclean" data-demo="msclean">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>deconvolver, scales</p><h2>Multiscale clean for extended emission</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Same <code>niter</code>, both deconvolvers. Hogbom places point components and leaves a lumpy residual. <code>multiscale</code> fits blobs (pixels: 0 = point, 4 ≈ 1 beam, 12 ≈ 3 beams). Largest scale &lt; MRS.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Restored</b><span class="pix"></span></figcaption><canvas class="img" data-k="img"></canvas></figure>
+      <figure class="panel"><figcaption><b>Model</b><span>√ stretch, fixed scale</span></figcaption><canvas class="img short" data-k="model"></canvas></figure>
+      <figure class="panel"><figcaption><b>Residual</b><span>±6σ</span></figcaption><canvas class="img short" data-k="res"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-verify">
+  <p class="num">5</p>
+  <h2>Is the image right?</h2>
+  <p>Common artifacts and their causes, checks before measuring, and a tclean call to start from.</p>
+</section>
+<section class="slide" id="artifacts" data-demo="artifacts">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>typical issues</p><h2>Common image artifacts</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <div class="card"><h3 class="diag-t"></h3><p class="diag"></p></div>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Restored image, hard stretch</b><span>−5σ … 40σ</span></figcaption><canvas class="img cb"></canvas></figure>
+      <figure class="panel"><figcaption><b class="diag-plot">Amplitude vs uv distance</b><span>plotms, xaxis='uvwave'</span></figcaption><canvas class="plot sq"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="checklist">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>before measuring</p><h2>Continuum image checklist</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>Before cleaning</h3><ul><li>Expected rms from the weblog (Part 3) or the sensitivity calculator.</li><li>Image the phase calibrator (intent <code>CALIBRATE_PHASE</code>, field 3 in TW Hya) with the same call. Expect a point source at the phase centre. If not, check the calibration (Part 3).</li><li>Look at the PSF: beam size, elongation, sidelobe level.</li><li>Line channels excluded; <code>cell</code> gives ≥3–5 px per beam; <code>imsize</code> covers the PB.</li></ul></div>
+    <div class="card"><h3>After cleaning</h3><ul><li>The residual looks like noise, inside and outside the mask.</li><li>rms (off-source, <code>.image</code>) is close to expected. A large excess likely means calibration or dynamic-range limits (→ Part 6, self-calibration).</li><li>The <code>.mask</code> covers emission only.</li></ul></div>
+    <div class="card"><h3>Measuring</h3><ul><li>Fluxes from <code>.image.pbcor</code> (<code>imstat</code>, <code>imfit</code>, CARTA regions).</li><li>Add the absolute flux-scale uncertainty (≈5–10% at Bands 3–7, more at high frequency).</li><li>Beam and units from <code>imhead</code>; Jy/beam → K with the Rayleigh–Jeans formula.</li></ul></div>
+    <div class="card"><h3>Keep</h3><ul><li>The <code>tclean</code> call, in a script.</li><li><code>exportfits</code> the products you publish (image, pbcor, pb, residual).</li><li>Note CASA and pipeline versions.</li></ul></div>
+  </div>
+</section>
+<section class="slide" id="takeaway">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>reference starting point</p><h2>A continuum tclean call to start from</h2></header>
+  <div class="cols l3">
+<pre class="code tight"><span class="c"># from the weblog (Part 3): beam ≈ 0.30″ (hifa_imageprecheck), Band 6,</span>
+<span class="c"># so PB FWHM ≈ 25″; single pointing; b75 ≈ 350 m (antenna setup)</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'uid___A002_X…_targets.ms'</span>,      <span class="c"># calibrated (scriptForPI)</span>
+       <span class="k">field</span>=<span class="s">'TARGET'</span>, <span class="k">imagename</span>=<span class="s">'target_cont_r0.5'</span>,
+       <span class="k">spw</span>=<span class="em">'25:0~395;520~1235;1355~1919'</span>,   <span class="c"># line-free; spw id: listobs</span>
+       <span class="k">specmode</span>=<span class="s">'mfs'</span>, <span class="k">gridder</span>=<span class="s">'standard'</span>,  <span class="c"># 'mosaic' for mosaics</span>
+       <span class="k">cell</span>=<span class="em">'0.06arcsec'</span>,                   <span class="c"># beam / 5</span>
+       <span class="k">imsize</span>=<span class="em">640</span>,                          <span class="c"># 1.5 × 25″ / 0.06″, rounded up</span>
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=<span class="em">0.5</span>,
+       <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>,                <span class="c"># 'multiscale' if extended:</span>
+       <span class="c">#   scales=[0, 5, 15]  (pixels: point, ~1 and ~3 beams)</span>
+       <span class="k">niter</span>=<span class="em">100000</span>, <span class="k">nsigma</span>=<span class="em">2.5</span>,            <span class="c"># nsigma stops it</span>
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,          <span class="c"># values for b75 300–400 m:</span>
+       <span class="k">sidelobethreshold</span>=<span class="em">2.0</span>, <span class="k">noisethreshold</span>=<span class="em">5.0</span>,
+       <span class="k">lownoisethreshold</span>=<span class="em">1.5</span>, <span class="k">minbeamfrac</span>=<span class="em">0.3</span>,
+       <span class="k">pbcor</span>=<span class="s">True</span>)</pre>
+    <div class="stack">
+      <table class="t">
+        <tr><td><code>spw</code></td><td>line-free channels of every spw: <code>cont.dat</code> ranges (LSRK) converted to channels</td></tr>
+        <tr><td><code>cell</code></td><td>beam / 5 (3–5 pixels across the minor axis)</td></tr>
+        <tr><td><code>imsize</code></td><td>1.5 × PB FWHM / cell; PB FWHM ≈ 58″ (B3), 25″ (B6), 17″ (B7) for 12-m dishes. Round up to a fast FFT size (<code>from casatools import synthesisutils</code>, then <code>synthesisutils().getOptimumSize(n)</code>).</td></tr>
+        <tr><td><code>deconvolver</code></td><td><code>hogbom</code> if Δν/ν &lt; 10% and compact; <code>multiscale</code> if extended; <code>mtmfs</code>, <code>nterms=2</code> if Δν/ν ≳ 10% (<a href="#mtmfs">Backup</a>)</td></tr>
+        <tr><td><code>robust</code></td><td>0.5; toward 2 for faint or extended emission, toward −1 for resolution</td></tr>
+        <tr><td><code>nsigma</code></td><td>2–3</td></tr>
+        <tr><td><code>usemask</code></td><td><code>'auto-multithresh'</code> with the four thresholds for your b75 (automask slide)</td></tr>
+        <tr><td><code>uvtaper</code></td><td>none; add one only to bring out extended emission</td></tr>
+        <tr><td>Done when</td><td>the residual looks like noise and the rms is close to the weblog's expected value</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="follow">
+  <p class="num">6</p>
+  <h2>Follow along: TW Hya continuum</h2>
+  <p><code>First_Look_at_Continuum_Imaging_CASA_6.7.4.ipynb</code>: TW Hya, ALMA 2011.0.00340.S, Band 7, Cycle 0. One slide per step, each with a link to its demo.</p>
+</section>
+<section class="slide" id="fa-inspect">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Getting oriented: listobs and uv coverage</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight"><span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
+        <span class="k">listfile</span>=<span class="s">'twhya_listobs.txt'</span>, <span class="k">overwrite</span>=True)
+
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
+       <span class="k">xaxis</span>=<span class="em">'u'</span>, <span class="k">yaxis</span>=<span class="em">'v'</span>,                  <span class="c"># metres</span>
+       <span class="k">avgchannel</span>=<span class="s">'10000'</span>, <span class="k">avgtime</span>=<span class="s">'1e9'</span>,     <span class="c"># average everything</span>
+       <span class="k">avgspw</span>=False, <span class="k">avgscan</span>=False,
+       <span class="k">coloraxis</span>=<span class="s">'field'</span>,                     <span class="c"># one colour per field</span>
+       <span class="k">showgui</span>=False, <span class="k">plotfile</span>=<span class="s">'uv.png'</span>,  <span class="c"># Jupyter: save a PNG</span>
+       <span class="k">overwrite</span>=True)</pre></div>
+    <div class="stack">
+      <ul>
+        <li><b>Fields</b>: 5 = TW Hya (target), 3 = J1037-295 (phase calibrator, <code>CALIBRATE_PHASE</code>); 0, 2 (Ceres), 6 calibrate bandpass and flux.</li>
+        <li><b>One spw</b>: 384 channels of 610 kHz, 234 MHz at 372.65 GHz (Band 7). <b>19 antennas</b>, all 12 m.</li>
+        <li><b>uv plot</b> (axes in metres): the longest tracks reach ≈ 370 m, which is 458 kλ at 0.80 mm (<code>xaxis='uwave'</code>, <code>yaxis='vwave'</code> plot in wavelengths). The hole in the middle is the missing short spacings.</li>
+      </ul>
+      <p class="try"><b>Demo</b><a href="02_intro_casa.html#listobs">Part 2 · listobs</a>, <a href="02_intro_casa.html#plotms">plotms</a>; Part 4 · <a href="#imaging">why we clean</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-grid">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Choosing cell and imsize from the data</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight">tb = <span class="f">tabletool</span>(); tb.<span class="f">open</span>(VIS)
+uvw = tb.<span class="f">getcol</span>(<span class="s">'UVW'</span>)
+flag_row = tb.<span class="f">getcol</span>(<span class="s">'FLAG_ROW'</span>); tb.<span class="f">close</span>()
+lam = 299792458.0 / 372.65e9                  <span class="c"># wavelength, m</span>
+<span class="c"># longest unflagged projected baseline, in λ</span>
+umax = np.hypot(uvw[0], uvw[1])[~flag_row].max() / lam
+cell = 206265.0 / umax / <span class="em">5</span>                    <span class="c"># ″, 5 pixels per beam</span>
+pb = 6300.0 / 372.65                          <span class="c"># ″, 12-m PB FWHM</span>
+imsize = <span class="em">1.5</span> * pb / 0.1                       <span class="c"># ≈ 254, use 250</span></pre><ul>
+        <li>Read the longest <b>unflagged</b> projected baseline from the data: the "Optional check of the cell-size rule of thumb" cell prints 368 m = 458 kλ. First Look reads ≈ 429 kλ off an Amp vs UVwave plot of Ceres (field 2), so beam ≈ 0.48″. Cell ≈ 0.1″ in both cases.</li>
+        <li>Coarser cells lose the long baselines. Finer cells only cost time.</li>
+        <li>tclean's log warns when <code>imsize</code> is slow to FFT and suggests a better size.</li>
+      </ul></div>
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <tr><th>Quantity</th><th>Rule</th><th>TW Hya</th></tr>
+        <tr><td>longest baseline</td><td>from UVW</td><td>368 m = 458 kλ</td></tr>
+        <tr><td>beam</td><td>206265 / u<sub>max</sub></td><td>≈ 0.45″</td></tr>
+        <tr><td><code>cell</code></td><td>beam / 5</td><td>0.090″ → <code>'0.1arcsec'</code></td></tr>
+        <tr><td>PB FWHM</td><td>6300 / ν[GHz]</td><td>≈ 16.9″ = 169 pixels</td></tr>
+        <tr><td><code>imsize</code></td><td>1.5 × PB / cell</td><td>254 → <code>250</code> (2·5³, fast FFT)</td></tr>
+      </table></div>
+      <p class="try"><b>Demo</b>Part 4 · <a href="#cell">cell</a>, <a href="#imsize">imsize</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-dirty">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>The dirty image and tclean products</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight"><span class="f">tclean</span>(<span class="k">vis</span>=VIS, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
+       <span class="k">field</span>=<span class="em">'5'</span>, <span class="k">spw</span>=<span class="s">''</span>,                       <span class="c"># TW Hya, all channels</span>
+       <span class="k">specmode</span>=<span class="s">'mfs'</span>, <span class="k">gridder</span>=<span class="s">'standard'</span>,
+       <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>,                    <span class="c"># Δν/ν ≈ 0.06% &lt; 10%</span>
+       <span class="k">imsize</span>=<span class="em">[250, 250]</span>, <span class="k">cell</span>=<span class="em">['0.1arcsec']</span>,
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=0.5,
+       <span class="k">niter</span>=<span class="em">0</span>, <span class="k">interactive</span>=False)              <span class="c"># 0 = dirty image</span></pre><ul>
+        <li><b>You should see</b> a blob at the centre (TW Hya) and ripples around it, the PSF sidelobes (nothing is deconvolved yet).</li>
+        <li>Open <code>.psf</code>. Its central lobe is the beam (size from <code>imhead</code>), its sidelobes the ripples around TW Hya.</li>
+        <li>Measure σ off-source on this image (next step).</li>
+        <li>Fill the <code>?</code> placeholders: <code>field='5'</code>; <code>cell</code>, <code>imsize</code> from the previous slide; <code>threshold='0mJy'</code> (unused at <code>niter=0</code>).</li>
+      </ul></div>
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <tr><td><code>.image</code></td><td>restored image (= dirty at <code>niter=0</code>)</td></tr>
+        <tr><td><code>.residual</code></td><td>what CLEAN left</td></tr>
+        <tr><td><code>.model</code></td><td>CLEAN components, Jy/pixel</td></tr>
+        <tr><td><code>.mask</code></td><td>where CLEAN may work</td></tr>
+        <tr><td><code>.psf</code></td><td>the dirty beam: check its size and sidelobes</td></tr>
+        <tr><td><code>.pb</code></td><td>primary beam; <code>.sumwt</code>: sum of weights</td></tr>
+      </table></div>
+      <p class="small ink2">Next the notebook makes <code>twhya_cont_dirty</code> with <code>niter=100</code> and auto-multithresh, a light clean that also writes a first <code>.mask</code>. <code>spw=''</code> includes the faint N<sub>2</sub>H<sup>+</sup> line. For strong lines, select line-free channels.</p>
+      <p class="try"><b>Demo</b>Part 4 · <a href="#imaging">why we clean</a>, <a href="#workflow">tclean cycles</a>, <a href="#mfsprep">spw</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-clean">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Cleaning: threshold and auto-multithresh</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight">rms = <span class="em">7.32</span>      <span class="c"># mJy/beam, off-source box in CARTA</span>
+threshold = <span class="em">2</span> * rms  <span class="c"># ≈ 15 mJy</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=VIS, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
+       <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=<span class="s">['0.1arcsec']</span>,
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=0.5,
+       <span class="k">niter</span>=<span class="em">5000</span>, <span class="k">threshold</span>=<span class="em">'20mJy'</span>,         <span class="c"># first try; 15 mJy next</span>
+       <span class="k">usemask</span>=<span class="em">'auto-multithresh'</span>,
+       <span class="k">noisethreshold</span>=4.25, <span class="k">sidelobethreshold</span>=2.0,
+       <span class="k">lownoisethreshold</span>=1.5, <span class="k">minbeamfrac</span>=0.3,
+       <span class="k">negativethreshold</span>=0.0, <span class="k">interactive</span>=False)</pre></div>
+    <div class="stack">
+      <ul>
+        <li><b>σ off-source</b> on the dirty image (notebook: 7.32 mJy/beam), <code>threshold</code> ≈ 2–3σ. In a script, use <code>imstat(box=…)</code>.</li>
+        <li><code>niter</code> is an upper limit. The threshold stops CLEAN. Interactively, run <code>iclean</code> with the same parameters and stop when the disk residual matches the noise (First Look: ≈ 184–432 iterations).</li>
+        <li><b>Residual</b>: emission left inside the mask = under-cleaned; flatter inside than outside = over-cleaned; like the noise outside = right.</li>
+      </ul>
+      <p class="try"><b>Demo</b>Part 4 · <a href="#depth">niter, nsigma, usemask</a>, <a href="#automask">auto-multithresh</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-mask">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Adjusting the mask: noisethreshold</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight">quicklook(<span class="s">'twhya_cont.mask'</span>)                  <span class="c"># notebook helper</span>
+<span class="c"># a second island away from TW Hya: not a second disk</span>
+
+cleanup(<span class="s">'twhya_cont'</span>)                         <span class="c"># rm -rf twhya_cont.*</span>
+<span class="f">tclean</span>(..., <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
+       <span class="k">threshold</span>=<span class="em">'15mJy'</span>,                     <span class="c"># ≈ 2σ</span>
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,
+       <span class="k">noisethreshold</span>=<span class="em">6.0</span>,                    <span class="c"># was 4.25</span>
+       <span class="k">sidelobethreshold</span>=2.0, <span class="k">lownoisethreshold</span>=1.5,
+       <span class="k">minbeamfrac</span>=0.3, <span class="k">negativethreshold</span>=0.0)</pre></div>
+    <div class="stack">
+      <ul>
+        <li><b>Open the <code>.mask</code> after every run.</b> It should cover emission only.</li>
+        <li>The extra island grew around a noise or sidelobe peak above 4.25σ. With <code>noisethreshold=6.0</code> only peaks above 6σ start a mask region, so the blob is removed and TW Hya kept.</li>
+        <li>Delete the old products first. With the same <code>imagename</code> tclean continues from them.</li>
+      </ul>
+      <p class="try"><b>Demo</b>Part 4 · <a href="#automask">auto-multithresh</a>, <a href="#setonce">imagename</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-exp">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Experiment: change robust, then cell</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight"><span class="f">tclean</span>(..., <span class="k">imagename</span>=<span class="s">'twhya_cont_experiment1'</span>,
+       <span class="k">robust</span>=<span class="em">2.0</span>, ...)                       <span class="c"># was 0.5</span>
+
+<span class="f">tclean</span>(..., <span class="k">imagename</span>=<span class="s">'twhya_cont_experiment2'</span>,
+       <span class="k">cell</span>=<span class="em">['0.5arcsec']</span>,                    <span class="c"># was 0.1″</span>
+       <span class="k">robust</span>=2.0, ...)                       <span class="c"># as experiment1</span>
+
+<span class="c"># compare each with the one before, on one colour scale</span></pre></div>
+    <div class="stack">
+      <ul>
+        <li><b>robust 0.5 → 2</b>: larger beam and lower rms (<code>imhead</code>, <code>imstat</code>). The peak in Jy/beam rises because the disk is partly resolved.</li>
+        <li><b>cell 0.5″</b> is about one pixel per beam (a blocky image). Baselines beyond 1/(2·cell) ≈ 206 kλ fall off the uv grid and the beam grows.</li>
+        <li><code>imsize=250</code> at 0.5″ spans 125″, seven times the primary beam (more than needed). Change one parameter at a time.</li>
+        <li>The plot after experiment2 compares it with <code>twhya_cont</code> (robust 0.5), so two parameters differ. Compare with <code>twhya_cont_experiment1.image</code> for the cell effect alone.</li>
+      </ul>
+      <p class="try"><b>Demo</b>Part 4 · <a href="#weighting">weighting</a>, <a href="#cell">cell</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="fa-export">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Export to FITS and inspect in CARTA</h2></header>
+  <div class="cols l3">
+    <div class="stack"><pre class="code tight"><span class="c"># fluxes need the primary-beam correction;</span>
+<span class="c"># uncomment the impbcor cell just above</span>
+<span class="c"># "Optional: export to FITS"</span>
+<span class="f">impbcor</span>(<span class="k">imagename</span>=<span class="s">'twhya_cont.image'</span>,         <span class="c"># or pbcor=True in tclean</span>
+        <span class="k">pbimage</span>=<span class="s">'twhya_cont.pb'</span>,              <span class="c"># (tclean: .image.pbcor)</span>
+        <span class="k">outfile</span>=<span class="s">'twhya_cont.pbcor.image'</span>,
+        <span class="k">overwrite</span>=True)
+
+<span class="c"># the exportfits cell lists one image: add the pbcor one</span>
+for im in [<span class="s">'twhya_cont.image'</span>, <span class="em">'twhya_cont.pbcor.image'</span>]:
+    <span class="f">exportfits</span>(<span class="k">imagename</span>=im, <span class="k">fitsimage</span>=im + <span class="s">'.fits'</span>,
+               <span class="k">overwrite</span>=True)</pre></div>
+    <div class="stack">
+      <ul>
+        <li>In CARTA: beam in the header, rms in an off-source region, the residual next to the image.</li>
+        <li>TW Hya is at the phase centre (PB ≈ 1), so <code>pbcor</code> hardly changes its flux. Sources near the PB edge change a lot.</li>
+        <li>At ≈ 0.5″ TW Hya is a blob. Long-baseline ALMA data resolve its rings. Keep this image to compare with the self-calibrated one (Part 6).</li>
+      </ul>
+      <p class="try"><b>Demo</b>Part 4 · <a href="#pbcor">pbcor</a>; CARTA demo at 2:45</p>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">B</p>
+  <h2>Backup</h2>
+  <p>Slides cut to fit the slot: uv taper, parameters to leave alone, wide-band imaging with mtmfs, and a short quiz.</p>
+</section>
+<section class="slide" id="taper" data-demo="taper">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>uvtaper</p><h2>uv taper and surface brightness sensitivity</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Taper to 1″. Noise per beam goes up, but the faint 4″ envelope around the disk appears. In kelvin (shown here, fixed scale) a bigger beam is more sensitive. <code>uvtaper</code> is the FWHM of an image-plane Gaussian.</p>
+    </div>
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Weight vs baseline length</b><span>grey: no taper</span></figcaption><canvas class="plot sq"></canvas></figure>
+      <figure class="panel"><figcaption><b>Restored image</b><span class="pix">kelvin, fixed scale</span></figcaption><canvas class="img cb"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="leave">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Leave at default</span>for now</p><h2>Parameters to leave at default</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Default</th><th>When it is worth changing</th></tr>
+      <tr><td><code>gain</code></td><td>0.1</td><td>Almost never. Smaller is slower and rarely better.</td></tr>
+      <tr><td><code>cyclefactor</code></td><td>1.0</td><td>Try 2–3 if CLEAN diverges with a poor PSF (7-m, few antennas).</td></tr>
+      <tr><td><code>smallscalebias</code></td><td>0.0</td><td>Multiscale uses too large or too small scales.</td></tr>
+      <tr><td><code>restoringbeam</code></td><td>fitted</td><td><code>'common'</code> for cubes (Part 5). Forcing a beam changes what Jy/beam means.</td></tr>
+      <tr><td><code>savemodel</code></td><td><code>'none'</code></td><td><code>'modelcolumn'</code> before self-calibration (Part 6).</td></tr>
+      <tr><td><code>npixels</code>, <code>psfcutoff</code></td><td>0, 0.35</td><td>Expert tuning of Briggs weighting and the beam fit.</td></tr>
+      <tr><td><code>gridder='awproject'</code>, <code>wprojplanes</code></td><td></td><td>Wide-field corrections; not needed for ALMA single pointings.</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Note</h3><p>Change one parameter at a time, and only when an image shows a problem that parameter addresses. These defaults work for almost all ALMA data.</p></div>
+      <div class="card"><h3>Interactive masks</h3><p><code>iclean</code> (CASA ≥ 6.7.2; <code>interactive=True</code> only on Linux) lets you draw the mask by hand. Good for learning. For a final image save the mask as a region file so the run can be repeated.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="mtmfs">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>deconvolver='mtmfs', nterms</p><h2>Wide bandwidths: mtmfs</h2></header>
+  <div class="cols">
+    <div class="stack">
+      <p class="lede">Plain <code>mfs</code> assumes the sky is the same at every frequency in your band. For a source with spectral index α, that is wrong by (ν/ν₀)<sup>α</sup> across the band.</p>
+      <ul>
+        <li>Matters when the band spans a large fraction of the frequency (Band 3: the two sidebands cover ≈90–106 GHz, ≈16%; Band 1; combined bands) or when the dynamic range is high (≳ 1000).</li>
+        <li><code>nterms=2</code> models each component's spectrum as a two-term Taylor series in (ν−ν₀)/ν₀. The spectral index follows as α = I₁/I₀ (dust ≈ 3.5–4 for interstellar dust, ≈ 2–3 in protoplanetary disks; free-free ≈ −0.1 to 2; synchrotron ≈ −0.7).</li>
+        <li>Outputs <code>.image.tt0</code> (intensity at <code>reffreq</code>), <code>.image.tt1</code>, <code>.alpha</code> and <code>.alpha.error</code>.</li>
+        <li>α is noisy. Use it only where tt0 has high S/N, and check <code>.alpha.error</code>.</li>
+      </ul>
+    </div>
+<pre class="code"><span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'b3_cont.ms'</span>, <span class="k">imagename</span>=<span class="s">'b3_mt'</span>,
+       <span class="k">specmode</span>=<span class="s">'mfs'</span>,
+       <span class="k">deconvolver</span>=<span class="em">'mtmfs'</span>, <span class="k">nterms</span>=<span class="em">2</span>,
+       <span class="k">reffreq</span>=<span class="em">'100GHz'</span>,
+       <span class="k">scales</span>=[<span class="s">0</span>, <span class="s">5</span>, <span class="s">15</span>],  <span class="c"># optional: multi-term multi-scale</span>
+       <span class="k">imsize</span>=<span class="s">512</span>, <span class="k">cell</span>=<span class="s">'0.1arcsec'</span>,
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=<span class="s">0.5</span>,
+       <span class="k">niter</span>=<span class="s">20000</span>, <span class="k">nsigma</span>=<span class="s">2.5</span>,
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>, <span class="k">pbcor</span>=<span class="s">True</span>)
+
+<span class="c"># → b3_mt.image.tt0  b3_mt.alpha  b3_mt.alpha.error ...</span></pre>
+  </div>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>questions</p><h2>Four questions before the hands-on session</h2></header>
+  <ol class="quiz">
+    <li>Your beam is 0.30″ × 0.25″ in Band 6. Pick <code>cell</code> and <code>imsize</code> for a single pointing.<details><summary>Answer</summary>About 0.05″ (5 pixels across the minor axis). The PB FWHM is ≈25″, and 1.5 × 25″ / 0.05″ = 750 pixels, so <code>imsize=750</code>, which is a fast FFT size (2·3·5³; check with <code>synthesisutils().getOptimumSize(750)</code>).</details></li>
+    <li>Going from <code>robust=2</code> to <code>robust=-1</code> shrinks your beam by about a third. What happens to the noise, and why?<details><summary>Answer</summary>It rises (about ×2 in the weighting demo, typically ×1.5–2.5). The many short baselines that carry most of the sensitivity are down-weighted, so fewer visibilities effectively contribute.</details></li>
+    <li><code>hif_makeimages</code> reports a continuum rms 2.5× the expected value (Part 3). What do you look at before imaging?<details><summary>Answer</summary>The earlier stages: QA messages, flagging, and the phase-vs-time plots of <code>hifa_timegaincal</code>. Noisy phases or a bright source may limit the dynamic range. Self-calibration may help (Part 6). Deeper cleaning will not. Also check that the continuum ranges are line-free.</details></li>
+    <li>After <code>niter=100000</code> without a mask the residual looks flat and the disk flux changed. What happened?<details><summary>Answer</summary>CLEAN modelled the noise. The residual rms is artificially low and the model contains noise components. Clean inside a mask (or auto-multithresh) down to ≈2–3σ.</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const STD = { cfg: 'C-4', freq: 230, dec: -30, ha0: -0.5, ha1: 0.5, dt: 60, band: 6 };
+const DISK = K.disk(1);
+const vis = (key, comps, o) => K.memo('vis:' + key, () => {
+  const ob = K.obs(Object.assign({}, STD, o || {}));
+  return S.observe(ob.tr, comps, { sigma: ob.sigma, seed: 7 });
+});
+const diskMask = (N, cell) => {
+  const m = S.circleMask(N, cell, 2.15), p = S.circleMask(N, cell, 0.35, 2.5, -1.7);
+  for (let i = 0; i < m.length; i++) m[i] |= p[i];
+  return m;
+};
+const hoverFlux = (cv, el) => el && V.hover(cv, el, (v, x, y) => `${(v * 1e3).toFixed(3)} mJy/bm at (${x.toFixed(2)}″, ${y.toFixed(2)}″)`);
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const sqrtStretch = a => a.map(v => (v > 0 ? Math.sqrt(v) : -Math.sqrt(-v)));
+const rangeOf = (arr, pad) => { let a = Infinity, b = -Infinity; for (const v of arr) { if (v < a) a = v; if (v > b) b = v; } const p = (b - a) * (pad || 0.08); return [a - p, b + p]; };
+
+window.DEMOS = {
+  titleArt(s) {
+    const N = 256, cell = 0.014, sky = S.skyImage(DISK, N, cell);
+    const img = S.smoothModel(sky, N, cell, { maj: 0.065, min: 0.055, pa: 120 });
+    V.image($(s, 'canvas'), img.map(v => Math.sqrt(Math.max(v, 0))), N, { cell, axes: false, frame: false, crop: 236, vmin: 0, vmax: Math.sqrt(S.max(img).v) * 0.8, smooth: true });
+  },
+
+  sed(s) {
+    const cv = $(s, 'canvas');
+    const BANDS = [[1, 35, 50], [3, 84, 116], [4, 125, 163], [5, 163, 211], [6, 211, 275], [7, 275, 373], [8, 385, 500], [9, 602, 720], [10, 787, 950]];
+    const NU = Array.from({ length: 241 }, (_, i) => 20 * Math.pow(50, i / 240));            // 20–1000 GHz, log-spaced
+    const pl = (nu, T) => nu * nu * nu / Math.expm1(0.04799 * nu / T);                       // Planck B_nu up to a constant (h/k = 0.048 K/GHz)
+    const dust = (nu, b, T) => 100 * Math.pow(nu / 345, b) * pl(nu, T) / pl(345, T);          // optically thin, 100 mJy at 345 GHz
+    const ff = (nu, nt) => 5 * Math.pow(100, 0.1) * Math.pow(nt, -2.1) * nu * nu * -Math.expm1(-Math.pow(nu / nt, -2.1));   // tau = (nu/nt)^-2.1; 5 mJy at 100 GHz when thin
+    const sync = (nu, nb) => 20 * Math.pow(nu / 10, -0.7) * (nb ? (1 + Math.sqrt(10 / nb)) / (1 + Math.sqrt(nu / nb)) : 1);  // 20 mJy at 10 GHz; alpha steepens by 0.5 above nb
+    const KEYS = ['dust', 'ff', 'sync'], COL = { dust: '--s1', ff: '--s2', sync: '--s3' };
+    const LAB = { dust: 'thermal dust', ff: 'free-free', sync: 'synchrotron' }, SHORT = { dust: 'dust', ff: 'free-free', sync: 'synchr.' };
+    const ro = V.readouts($(s, '.ro'), [{ k: 'a', label: 'α, 100 → 345 GHz' }, { k: 'b3', label: 'α inside Band 3' }, { k: 'dom', label: 'Brightest at 100 / 345' }]);
+    // band numbers above the plot frame; re-applied on every redraw (resize, theme)
+    const bandLabels = () => { const r = cv._render; cv._render = () => { r(); const b = cv._box; if (!b || !cv.clientWidth) return;
+      const ctx = cv.getContext('2d'), fs = parseFloat(getComputedStyle(cv).fontSize) * 0.7;
+      ctx.font = `${fs}px ${V.css('--f-body')}`; ctx.fillStyle = V.css('--ink-2'); ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      BANDS.forEach(([n, a, z]) => ctx.fillText('B' + n, cv._sx(Math.sqrt(a * z)), b.oy - 1)); }; cv._render(); };
+    V.call($(s, '.ctl'), '', [
+      { k: 'show', label: 'components', type: 'choice', options: ['all', 'dust', 'ff', 'sync'], labels: ['all', 'dust', 'free-free', 'synchr.'], value: 'all', scenario: true, fmt: v => (v === 'all' ? 'all three' : LAB[v]) },
+      { k: 'beta', label: 'dust β', type: 'range', min: 0, max: 2.5, step: 0.1, value: 1.7, scenario: true, fmt: v => v.toFixed(1) },
+      { k: 'T', label: 'dust temperature', type: 'range', min: 8, max: 60, step: 1, value: 20, scenario: true, fmt: v => v + ' K' },
+      { k: 'nt', label: 'free-free turnover', type: 'range', min: 3, max: 300, value: 20, scale: 'log', scenario: true, fmt: v => (v >= 100 ? v.toFixed(0) : v.toPrecision(2)) + ' GHz' },
+      { k: 'nb', label: 'synchrotron break', type: 'choice', options: [0, 300, 100, 30], labels: ['none', '300', '100', '30 GHz'], value: 0, scenario: true, fmt: v => (v ? v + ' GHz' : 'none') }
+    ], v => {
+      const on = KEYS.filter(q => v.show === 'all' || v.show === q), F = { dust: nu => dust(nu, v.beta, v.T), ff: nu => ff(nu, v.nt), sync: nu => sync(nu, v.nb) };
+      const tot = nu => on.reduce((a, q) => a + F[q](nu), 0), alpha = (a, b) => Math.log(tot(b) / tot(a)) / Math.log(b / a);
+      const series = on.map(q => ({ type: 'line', x: NU, y: NU.map(F[q]), color: COL[q], width: 2, dash: on.length > 1 ? [6, 4] : null, label: LAB[q] }));
+      if (on.length > 1) series.push({ type: 'line', x: NU, y: NU.map(tot), color: '--ink', width: 2.5, label: 'total' });
+      V.plot(cv, { x: { min: 20, max: 1000, log: true, ticks: [20, 50, 100, 200, 500, 1000], fmt: t => String(t), label: 'frequency (GHz)' },
+        y: { min: 0.01, max: 1e4, log: true, label: 'flux density (mJy)' }, legendPos: 'left', spans: BANDS.map((b, i) => ({ x0: b[1], x1: b[2], color: i % 2 ? '--grid' : '--accent-soft' })), series });   // alternate shades keep the contiguous Bands 4–7 apart
+      bandLabels();
+      const big = nu => on.reduce((m, q) => (F[q](nu) > F[m](nu) ? q : m));
+      ro.set('a', alpha(100, 345).toFixed(2)); ro.set('b3', alpha(90, 106).toFixed(2));
+      ro.set('dom', SHORT[big(100)] + ' / ' + SHORT[big(345)]);
+    });
+  },
+
+  whatimaging(s) {
+    const cv = canv(s), N = 128, cell = 0.08, d = vis('disk', DISK), im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 });
+    const c = K.clean(im, { niter: 3000, threshold: 2 * im.sigma, mask: diskMask(N, cell) }), pk = S.max(c.restored).v;
+    const sky = S.smoothModel(S.skyImage(DISK, N, cell), N, cell, { maj: 0.1, min: 0.1, pa: 0 });
+    V.image(cv.sky, sqrtStretch(sky), N, { cell, crop: 84, vmin: 0, vmax: Math.sqrt(S.max(sky).v), axes: true });
+    const x = [], y = [], col = [];
+    let amax = 0; for (let k = 0; k < d.n; k++) amax = Math.max(amax, Math.hypot(d.re[k], d.im[k]));
+    for (let k = 0; k < d.n; k += 2) { const a = Math.hypot(d.re[k], d.im[k]) / amax; x.push(d.u[k] / 1e3, -d.u[k] / 1e3); y.push(d.v[k] / 1e3, -d.v[k] / 1e3); col.push(Math.sqrt(a), Math.sqrt(a)); }
+    V.plot(cv.uv, { x: { min: -650, max: 650, label: 'u (kλ)' }, y: { min: -650, max: 650, label: 'v (kλ)' }, equal: true, legend: false,
+      series: [{ type: 'scatter', x, y, c: col, cmap: 'viridis', size: 1.6 }] });
+    V.image(cv.psf, im.psf, N, { cell, crop: 84, cmap: 'rdbu', vmin: -0.35, vmax: 0.35 });
+    const off = S.circleMask(N, cell, 3.4).map(q => 1 - q);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'pk', label: 'Peak' }, { k: 'neg', label: 'Most negative' }, { k: 'rms', label: 'rms off-source' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'vis', v: "'disk.ms'" }, { k: 'imagename', v: "'disk'" }, { k: 'specmode', v: "'mfs'" },
+      { k: 'niter', type: 'choice', options: [0, 3000], value: 0, quote: false, note: '0 = dirty image' },
+      { k: 'nsigma', v: '2.0' }
+    ], v => {
+      const img = v.niter ? c.restored : im.dirty;
+      $(s, '.lab').textContent = v.niter ? 'Restored image (niter=3000)' : 'Dirty image (niter=0)';
+      V.image(cv.img, img, N, { cell, crop: 84, vmin: -0.25 * pk, vmax: pk, beam: im.beam, cbar: { label: 'mJy/beam', scale: 1e3 } });
+      ro.set('pk', K.mJy(S.max(img).v) + '/bm'); ro.set('neg', K.mJy(S.min(img).v) + '/bm'); ro.set('rms', K.uJy(S.madRms(img, off)));
+    });
+  },
+
+  cleanstep(s) {
+    const N = 128, cell = 0.08, cvs = $$(s, 'canvas');
+    const comps = [{ type: 'point', flux: 4e-3 }, { type: 'point', flux: 2e-3, x: -1.2, y: 0.6 }, { type: 'point', flux: 1e-3, x: 0.9, y: -1.1 }, { type: 'gauss', flux: 2e-3, fwhm: 0.6, x: 0.7, y: 1.0 }];
+    const d = vis('cleanstep', comps), im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 }), thr = 3 * im.sigma, total = K.fluxOf(comps);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'it', label: 'Iterations' }, { k: 'fl', label: 'Model flux' }, { k: 'pk', label: 'Peak residual' }, { k: 'st', label: 'Status' }]);
+    let cl, gain = 0.1, anim = 0;
+    const lim = S.maxAbs(im.dirty).v;
+    const draw = () => {
+      V.image(cvs[0], cl.res, N, { cell, crop: 64, cmap: 'rdbu', vmin: -lim * 0.6, vmax: lim * 0.6 });
+      const sm = sqrtStretch(cl.model); V.image(cvs[1], sm, N, { cell, crop: 64, vmin: 0, vmax: Math.sqrt(4e-3) });   // fixed: the brightest component converges to the 4 mJy point source
+      V.image(cvs[2], S.restore(cl.model, cl.res, N, cell, im.beam), N, { cell, crop: 64, vmin: -3 * im.sigma, vmax: lim, beam: im.beam });
+      const it = cl.hist.map((_, i) => i + 1), h = cl.hist.length ? cl.hist : [lim];
+      V.plot(cvs[3], { x: { min: 1, max: 1000, label: 'iteration', log: true }, y: { min: thr * 0.5 * 1e3, max: lim * 1.2 * 1e3, label: 'peak (mJy/bm)', log: true },
+        hlines: [{ y: thr * 1e3, color: '--accent', label: '3σ' }], series: [{ type: 'line', x: it.length ? it : [1], y: h.map(x => x * 1e3), color: '--s1' }] });
+      ro.set('it', String(cl.iter)); ro.set('fl', `${K.mJy(cl.total)} of ${K.mJy(total)}`);
+      ro.set('pk', K.mJy(cl.peak().v)); ro.set('st', cl.stop === 'threshold' ? 'threshold reached' : 'cleaning', cl.stop === 'threshold' ? 'good' : '');
+    };
+    const reset = () => { cancelAnimationFrame(anim); cl = new S.Hogbom(im.dirty, im.psf, N, { gain }); draw(); };
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'deconvolver', v: "'hogbom'" },
+      { k: 'gain', type: 'range', min: 0.05, max: 0.5, step: 0.05, value: 0.1, fmt: v => v.toFixed(2) },
+      { k: 'nsigma', v: '3.0' }
+    ], v => { gain = v.gain; reset(); });
+    $$(s, 'button[data-n]').forEach(b => b.addEventListener('click', () => {
+      const n = b.dataset.n;
+      if (n === 'reset') return reset();
+      cancelAnimationFrame(anim);
+      if (n === 'run') { const tick = () => { cl.run(8, thr); draw(); if (cl.stop !== 'threshold' && cl.iter < 5000) anim = requestAnimationFrame(tick); }; tick(); }
+      else { cl.run(+n, thr); draw(); }
+    }));
+  },
+
+  contspec(s) {
+    const n = 1920, x = new Float64Array(n), y = new Float64Array(n), r = S.rng(3);
+    for (let i = 0; i < n; i++) {
+      x[i] = i;
+      y[i] = 12 + 1.2 * (i / n) + 9 * Math.exp(-0.5 * Math.pow((i - 458) / 22, 2)) + 4 * Math.exp(-0.5 * Math.pow((i - 1295) / 14, 2)) + 0.9 * r.normal();
+    }
+    V.plot($(s, 'canvas'), { x: { min: 0, max: 1919, label: 'channel' }, y: { min: 8, max: 24, label: 'amplitude (mJy)' }, legend: false,
+      spans: [{ x0: 0, x1: 395 }, { x0: 520, x1: 1235 }, { x0: 1355, x1: 1919 }],
+      series: [{ type: 'line', x, y, color: '--s1', width: 1.2 }] });
+  },
+
+  cell(s) {
+    const N = 256, d = vis('disk', DISK), cv = canv(s);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'ppb', label: 'Pixels / beam' }, { k: 'drop', label: 'Dropped data' }, { k: 'beam', label: 'Beam' }, { k: 'fov', label: 'Image size' }]);
+    hoverFlux(cv.img, $(s, '.pix'));
+    let L = 0; for (let k = 0; k < d.n; k++) L = Math.max(L, Math.hypot(d.u[k], d.v[k]));
+    L = L / 1e3 * 1.1;
+    const ref = K.memo('cell:ref', () => { const im = S.image(d, { N, cell: 0.08, weighting: 'briggs', robust: 0.5 }); return S.max(K.clean(im, { niter: 600, threshold: 2.5 * im.sigma, mask: diskMask(N, 0.08), gain: 0.15 }).restored).v; });
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'vis', v: "'disk.ms'" }, { k: 'imsize', v: '256' },
+      { k: 'cell', type: 'range', min: 0.02, max: 0.5, value: 0.08, scale: 'log', fmt: v => `'${v}arcsec'` },
+      { k: 'weighting', v: "'briggs'" }, { k: 'robust', v: '0.5' }, { k: 'niter', v: '600' }
+    ], V.rafThrottle(v => {
+      const cell = v.cell, im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 });
+      const c = K.clean(im, { niter: 600, threshold: 2.5 * im.sigma, mask: diskMask(N, cell), gain: 0.15 });
+      const g = 1 / (2 * cell * S.AS) / 1e3, ki = [], kj = [], di = [], dj = [];
+      for (let k = 0; k < d.n; k += 2) {
+        const u = d.u[k] / 1e3, w = d.v[k] / 1e3, out = Math.abs(u) >= g || Math.abs(w) >= g;
+        (out ? di : ki).push(u, -u); (out ? dj : kj).push(w, -w);
+      }
+      V.plot(cv.uv, { x: { min: -L, max: L, label: 'u (kλ)' }, y: { min: -L, max: L, label: 'v (kλ)' }, equal: true, legend: false,
+        series: [{ type: 'scatter', x: ki, y: kj, size: 1.4, color: '--s1', alpha: 0.7 }, { type: 'scatter', x: di, y: dj, size: 1.4, color: '--axis' }],
+        hlines: [{ y: g, color: '--s2' }, { y: -g, color: '--s2' }], vlines: [{ x: g, color: '--s2' }, { x: -g, color: '--s2' }] });
+      const grid = (ctx, m) => {
+        if (m.px < 5) return;
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.beginPath();
+        for (let i = 0; i <= m.M; i++) { const p = m.ox + i * m.px; ctx.moveTo(p, m.oy); ctx.lineTo(p, m.oy + m.size); const q = m.oy + i * m.px; ctx.moveTo(m.ox, q); ctx.lineTo(m.ox + m.size, q); }
+        ctx.stroke();
+      };
+      const cp = Math.max(4, Math.min(N, 2 * Math.round(0.75 / cell))), ci = Math.max(6, Math.min(N, 2 * Math.round(3.1 / cell)));
+      V.image(cv.psf, im.psf, N, { cell, crop: cp, cmap: 'rdbu', vmin: -0.35, vmax: 0.35, beam: im.beam, beamColor: 'rgba(255,255,255,0)', overlay: grid });
+      V.image(cv.img, c.restored, N, { cell, crop: ci, vmin: 0, vmax: ref, stretch: 'sqrt', beam: im.beam, overlay: grid });
+      const ppb = im.beam.min / cell, drop = im.dropped / d.n;
+      ro.set('ppb', ppb.toFixed(1), ppb >= 3 ? 'good' : ppb >= 2 ? 'warn' : 'bad');
+      ro.set('drop', K.pct(drop), drop < 0.001 ? 'good' : drop < 0.05 ? 'warn' : 'bad');
+      ro.set('beam', K.beamStr(im.beam)); ro.set('fov', K.as(N * cell));
+    }));
+  },
+
+  imsize(s) {
+    const cvs = $$(s, 'canvas'), NB = 512, NP = 2048, ghz = 230, far = { x: 12, y: 7, flux: 0.02 }, W = 22;
+    const ro = V.readouts($(s, '.ro'), [{ k: 'fov', label: 'Image size' }, { k: 'pb', label: 'PB FWHM' }, { k: 'far', label: 'Bright source' }, { k: 'rms', label: 'Residual rms / σ' }]);
+    // one observation of the disk plus a 20 mJy source 14″ out; imaged on a 4x padded grid so the far source keeps its shape
+    // (tclean pads and uses a gridding kernel; this sim grids to the nearest cell, which smears sources far from the centre)
+    const scene = () => K.memo('imsize6p', () => {
+      const ob = K.obs(STD), cell = S.resolution(ob.cfg, ghz) / 5;
+      const sky = K.disk(3).concat([{ type: 'point', flux: far.flux, x: far.x, y: far.y }])
+        .map(c => Object.assign({}, c, { flux: c.flux * S.pb(Math.hypot(c.x || 0, c.y || 0), ghz) }));
+      const big = S.image(S.observe(ob.tr, sky, { sigma: ob.sigma, seed: 11 }), { N: NP, cell, weighting: 'briggs', robust: 0.5 });
+      const crop = a => { const o = (NP - NB) / 2, c = new Float64Array(NB * NB); for (let y = 0; y < NB; y++) for (let x = 0; x < NB; x++) c[y * NB + x] = a[(y + o) * NP + x + o]; return c; };
+      const mask = diskMask(NB, cell), fm = S.circleMask(NB, cell, 0.8, far.x, far.y);   // the mask a user (or auto-multithresh) would draw
+      for (let i = 0; i < NB * NB; i++) mask[i] |= fm[i];
+      const NPSF = 2 * NB, o2 = (NP - NPSF) / 2, psf = new Float64Array(NPSF * NPSF);   // PSF twice the largest box: every offset inside the box is covered
+      for (let y = 0; y < NPSF; y++) for (let x = 0; x < NPSF; x++) psf[y * NPSF + x] = big.psf[(y + o2) * NP + x + o2];
+      return { cell, dirty: crop(big.dirty), psf, beam: big.beam, sigma: big.sigma, mask };
+    });
+    // CLEAN inside the mask, on the central n x n box only (what tclean can see at this imsize), to a 2σ threshold
+    const boxClean = (dirty, psf, n, mask, thr) => {
+      const h = NB / 2, b0 = h - n / 2, P = 2 * NB, hp = NB, res = new Float64Array(n * n), model = new Float64Array(n * n), idx = [];
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const j = (y + b0) * NB + x + b0; res[y * n + x] = dirty[j]; if (mask[j]) idx.push(y * n + x); }
+      for (let it = 0; it < 20000; it++) {
+        let bi = -1, bv = 0;
+        for (const i of idx) { const a = Math.abs(res[i]); if (a > bv) { bv = a; bi = i; } }
+        if (bv <= thr) break;
+        const val = 0.15 * res[bi], px = bi % n, py = (bi / n) | 0;
+        model[bi] += val;
+        for (let y = 0; y < n; y++) {
+          const po = (y - py + hp) * P - px + hp, ro2 = y * n;
+          for (let x = 0; x < n; x++) res[ro2 + x] -= val * psf[po + x];
+        }
+      }
+      return { res, model };
+    };
+    // both panels show the same fixed ±22″ field (it holds the largest box); pixels outside the box are blank
+    const frame = (a, n, cell) => { const M = 2 * Math.round(W / cell), v = new Float64Array(M * M).fill(NaN), o = (M - n) / 2;
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) v[(y + o) * M + x + o] = a[y * n + x]; return { v, M }; };
+    const run = n => K.memo('imsize:' + n, () => {
+      const sc = scene(), cell = sc.cell, half = n * cell / 2, inside = Math.abs(far.x) < half && Math.abs(far.y) < half;
+      const bc = boxClean(sc.dirty, sc.psf, n, sc.mask, 2 * sc.sigma), rest = S.restore(bc.model, bc.res, n, cell, sc.beam);
+      const ann = new Uint8Array(n * n);   // rms in one fixed annulus that lies inside every box, so the numbers compare
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) { const r = Math.hypot((x - n / 2) * cell, (y - n / 2) * cell); ann[y * n + x] = r > 2.2 && r < 2.5 ? 1 : 0; }
+      // ±3″ cut-outs of the restored image around the target and around the bright source (blank where outside the box)
+      const Z = 2 * Math.round(3 / cell), cut = (cx, cy) => { const v = new Float64Array(Z * Z).fill(NaN), x0 = Math.round(n / 2 + cx / cell) - Z / 2, y0 = Math.round(n / 2 + cy / cell) - Z / 2;
+        for (let y = 0; y < Z; y++) for (let x = 0; x < Z; x++) { const xx = x + x0, yy = y + y0; if (xx >= 0 && yy >= 0 && xx < n && yy < n) v[y * Z + x] = rest[yy * n + xx]; } return v; };
+      return { inside, res: frame(bc.res, n, cell), tgt: cut(0, 0), src: cut(far.x, far.y), Z, rms: S.madRms(bc.res, ann) / sc.sigma };
+    });
+    const peak = a => { let m = 0; for (const x of a) if (x > m) m = x; return 1.05 * m; };
+    const VMAX = () => K.memo('imsize:vmax', () => { const R = run(NB); return { t: peak(R.tgt), f: peak(R.src) }; });   // fixed scales: the peaks at imsize=512
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'imsize', type: 'choice', options: [64, 128, 256, 512], value: 128, quote: false },
+      { k: 'cell', v: `'${scene().cell.toFixed(3)}arcsec'`, note: '≈ beam/5' }
+    ], v => {
+      const sc = scene(), n = v.imsize, cell = sc.cell, sig = sc.sigma, half = n * cell / 2, R = run(n);
+      const fwhm = S.pbFWHM(ghz), M = 88, pbc = 0.5, pbmap = new Float64Array(M * M);
+      for (let y = 0; y < M; y++) for (let x = 0; x < M; x++) pbmap[y * M + x] = S.pb(Math.hypot(x - M / 2, y - M / 2) * pbc, ghz);
+      const box = (ctx, m) => { ctx.lineWidth = 2; ctx.strokeStyle = V.css('--s3'); ctx.strokeRect(m.X(half), m.Y(half), m.X(-half) - m.X(half), m.Y(-half) - m.Y(half)); };
+      const farMark = (ctx, m) => { ctx.strokeStyle = V.css('--s2'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(m.X(far.x), m.Y(far.y), 1.1 * m.k, 0, 2 * Math.PI); ctx.stroke(); };
+      V.image(cvs[0], pbmap, M, { cell: pbc, cmap: 'gray', vmin: 0, vmax: 1.15, overlay: (ctx, m) => {
+        box(ctx, m);
+        ctx.setLineDash([5, 4]); ctx.strokeStyle = V.css('--s4'); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(m.X(0), m.Y(0), fwhm / 2 * m.k, 0, 2 * Math.PI); ctx.stroke(); ctx.setLineDash([]);
+        ctx.fillStyle = V.css('--s2'); ctx.beginPath(); ctx.arc(m.X(far.x), m.Y(far.y), 5, 0, 2 * Math.PI); ctx.fill();
+        ctx.fillStyle = V.css('--s1'); ctx.beginPath(); ctx.arc(m.X(0), m.Y(0), 5, 0, 2 * Math.PI); ctx.fill();
+      } });
+      V.image(cvs[1], R.res.v, R.res.M, { cell, vmin: -8 * sig, vmax: 8 * sig, cmap: 'rdbu', overlay: (ctx, m) => { box(ctx, m); farMark(ctx, m); } });
+      V.image(cvs[2], R.tgt, R.Z, { cell, vmin: 0, vmax: VMAX().t, stretch: 'sqrt', beam: sc.beam });
+      V.image(cvs[3], R.src, R.Z, { cell, vmin: 0, vmax: VMAX().f, stretch: 'sqrt', beam: sc.beam, xlabel: 'ΔRA − 12″', ylabel: 'ΔDec − 7″' });
+      $(s, '.tw-far').textContent = R.inside ? 'the bright source, cleaned' : 'the bright source: not in the image';
+      const pfar = S.pb(Math.hypot(far.x, far.y), ghz);
+      ro.set('fov', K.as(n * cell)); ro.set('pb', K.as(fwhm));
+      ro.set('far', R.inside ? 'inside, cleaned' : `outside (PB ${pfar.toFixed(2)})`, R.inside ? 'good' : 'bad');
+      ro.set('rms', R.rms.toFixed(2), R.rms < 1.2 ? 'good' : R.rms < 2 ? 'warn' : 'bad');
+    });
+  },
+
+  pbcor(s) {
+    const cvs = $$(s, 'canvas'), N = 512;
+    const R = [0, 4, 8, 12, 16, 20], ang = [0, 40, 160, 250, 300, 100];
+    const srcs = R.map((r, i) => ({ type: 'point', flux: 1e-3, x: r * Math.sin(ang[i] * S.DEG), y: r * Math.cos(ang[i] * S.DEG) }));
+    const ro = V.readouts($(s, '.ro'), [{ k: 'pb', label: 'PB FWHM' }, { k: 'n0', label: 'Noise, centre' }, { k: 'ne', label: 'Noise at pblimit' }, { k: 'f12', label: 'Source at 12″' }]);
+    const scene = () => K.memo('pb6', () => {
+      const ghz = 230, ob = K.obs(STD), cell = S.resolution(ob.cfg, ghz) / 3;
+      const comps = srcs.map(c => Object.assign({}, c, { flux: c.flux * S.pb(Math.hypot(c.x, c.y), ghz), x: Math.round(c.x / cell) * cell, y: Math.round(c.y / cell) * cell }));  // on pixel centres, so the peak pixel is the peak
+      const d = S.observe(ob.tr, comps, { sigma: ob.sigma, seed: 21 }), im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 });
+      const mask = new Uint8Array(N * N); srcs.forEach(c => { const m = S.circleMask(N, cell, 3 * S.resolution(ob.cfg, ghz), c.x, c.y); for (let i = 0; i < N * N; i++) mask[i] |= m[i]; });
+      const c = K.clean(im, { niter: 600, threshold: 3 * im.sigma, mask });
+      const pb = new Float64Array(N * N); for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) pb[y * N + x] = S.pb(Math.hypot(x - N / 2, y - N / 2) * cell, ghz);
+      const sinc = x => (Math.abs(x) < 1e-9 ? 1 : Math.sin(x) / x), gc = p => sinc(Math.PI * (p - N / 2) / N);  // grid correction for the sim's nearest-cell gridding, as tclean applies for its own kernel
+      return { ghz, cell, im, img: c.restored.map((x, i) => x / (gc(i % N) * gc((i / N) | 0))), pb };
+    });
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'pbcor', type: 'toggle', value: false },
+      { k: 'pblimit', type: 'range', min: 0.05, max: 0.5, step: 0.05, value: 0.2, fmt: v => v.toFixed(2) }
+    ], v => {
+      const sc = scene(), N2 = N * N, out = new Float64Array(N2), fw = S.pbFWHM(sc.ghz);
+      for (let i = 0; i < N2; i++) out[i] = sc.pb[i] < v.pblimit ? NaN : (v.pbcor ? sc.img[i] / sc.pb[i] : sc.img[i]);
+      const rlim = fw / 2 * Math.sqrt(Math.log(1 / v.pblimit) / Math.LN2);
+      V.image(cvs[0], out, N, { cell: sc.cell, crop: Math.min(N, 2 * Math.round(fw / 2 * Math.sqrt(Math.log(20) / Math.LN2) * 1.1 / sc.cell)), vmin: -2e-4, stretch: 'sqrt', vmax: 1.0e-3, beam: sc.im.beam, overlay: (ctx, m) => {
+        ctx.strokeStyle = V.css('--s3'); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(m.X(0), m.Y(0), rlim * m.k, 0, 2 * Math.PI); ctx.stroke();
+      } });
+      const meas = srcs.map(c => { const x = Math.round(N / 2 + c.x / sc.cell), y = Math.round(N / 2 + c.y / sc.cell); let m = -1; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const i = (y + dy) * N + x + dx; if (i >= 0 && i < N2) m = Math.max(m, sc.img[i]); } return m; });
+      const pbs = R.map(r => S.pb(r, sc.ghz)), rx = [], pbc = [];
+      for (let i = 0; i <= 100; i++) { const r = i / 100 * 30; rx.push(r); pbc.push(S.pb(r, sc.ghz)); }
+      const keep = R.map(r => r <= rlim);
+      V.plot(cvs[1], { x: { min: 0, max: 30, label: 'distance from centre (″)' }, y: { min: 0, max: 1.6, label: 'peak (mJy)' }, hlines: [{ y: 1, color: '--axis' }],
+        vlines: [{ x: rlim, color: '--s3' }],
+        series: [{ type: 'line', x: rx, y: pbc, color: '--axis', width: 1 }, { type: 'scatter', x: R, y: meas.map(m => m * 1e3), size: 8, color: '--s2', label: '.image' },
+          { type: 'scatter', x: R.filter((_, i) => keep[i]), y: meas.map((m, i) => m / pbs[i] * 1e3).filter((_, i) => keep[i]), size: 8, color: '--s1', label: '.image.pbcor' }] });
+      const sig = sc.im.sigma, nr = rx.map((r, i) => (r <= rlim ? (v.pbcor ? sig / pbc[i] : sig) * 1e6 : NaN));
+      V.plot(cvs[2], { x: { min: 0, max: 30, label: 'distance from centre (″)' }, y: { min: sig * 1e6 * 0.6, max: sig * 1e6 / 0.05 * 1.4, log: true, label: 'noise (μJy/bm, log)' }, legendPos: 'left', vlines: [{ x: rlim, color: '--s3', label: 'pblimit' }],
+        series: [{ type: 'line', x: rx, y: pbc.map(p => p * sig * 1e6), color: '--axis', width: 1 }, { type: 'line', x: rx, y: nr, color: v.pbcor ? '--s1' : '--s2', label: v.pbcor ? 'pbcor' : 'no pbcor' }] });
+      ro.set('pb', K.as(fw)); ro.set('n0', K.uJy(sig)); ro.set('ne', K.uJy(v.pbcor ? sig / v.pblimit : sig));
+      const f = R.indexOf(12), fm = v.pbcor ? meas[f] / pbs[f] : meas[f];
+      ro.set('f12', 12 > rlim ? 'masked' : K.mJy(fm), 12 > rlim ? 'warn' : Math.abs(fm / 1e-3 - 1) < 0.12 ? 'good' : 'bad');
+    });
+  },
+
+  weighting(s) {
+    const N = 128, cell = 0.08, d = vis('disk', DISK), mask = diskMask(N, cell), cvs = $$(s, 'canvas'), ext = 640e3;
+    hoverFlux(cvs[2], $(s, '.pix'));
+    const nat = K.memo('wt:nat', () => S.image(d, { N, cell, weighting: 'natural' }));
+    const natPk = K.memo('wt:natpk', () => S.max(K.clean(nat, { niter: 3000, threshold: 2 * nat.sigma, mask }).restored).v);
+    const dens = w => { const g = K.uvDensity(d, w, ext, 128); let t = 0; for (const x of g) t += x; return g.map(x => x / t); };
+    const hiD = K.memo('wt:hi', () => Math.log10(S.max(dens(nat.wvis)).v));
+    const natCut = K.cut(nat.psf, N, cell, nat.beam.pa, 2.4);
+    const curve = K.memo('wt:curve', () => [-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2].map(r => {
+      const im = S.image(d, { N, cell, weighting: 'briggs', robust: r }); return { b: Math.sqrt(im.beam.maj * im.beam.min), s: im.sigma / nat.sigma };
+    }));
+    const xr = rangeOf(curve.map(p => p.b), 0.16), yr = rangeOf(curve.map(p => p.s), 0.16);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'beam', label: 'Beam' }, { k: 'rms', label: 'Noise' }, { k: 'ratio', label: '× natural' }, { k: 'sl', label: 'Sidelobe' }, { k: 'snr', label: 'Peak S/N' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'vis', v: "'disk.ms'" }, { k: 'imsize', v: '128' }, { k: 'cell', v: "'0.08arcsec'" },
+      { k: 'weighting', type: 'choice', options: ['natural', 'briggs', 'uniform'], value: 'briggs' },
+      { k: 'robust', type: 'range', min: -2, max: 2, step: 0.1, value: 0.5, fmt: v => v.toFixed(1), show: v => v.weighting === 'briggs' },
+      { k: 'niter', v: '3000' }, { k: 'nsigma', v: '2.0' }
+    ], V.rafThrottle(v => {
+      const im = S.image(d, { N, cell, weighting: v.weighting, robust: v.robust });
+      V.image(cvs[0], dens(im.wvis).map(x => (x > 0 ? Math.max(0.04, (Math.log10(x) - hiD + 2.5) / 2.5) : 0)), 128, { cell: 2 * ext / 128 / 1e3, flipX: false, xlabel: 'u (kλ)', ylabel: 'v (kλ)', cmap: 'viridis', vmin: 0, vmax: 1 });
+      V.image(cvs[1], im.psf, N, { cell, crop: 84, cmap: 'rdbu', vmin: -0.35, vmax: 0.35 });
+      const c = K.clean(im, { niter: 3000, threshold: 2 * im.sigma, mask }), pk = S.max(c.restored).v;
+      V.image(cvs[2], c.restored, N, { cell, crop: 84, vmin: 0, vmax: natPk, stretch: 'sqrt', beam: im.beam, cbar: { label: 'mJy/beam', scale: 1e3 } });
+      const cut = K.cut(im.psf, N, cell, im.beam.pa, 2.4), lab = v.weighting === 'briggs' ? 'robust ' + v.robust.toFixed(1) : v.weighting;
+      V.plot(cvs[3], { x: { min: -2.4, max: 2.4, label: 'major-axis offset (″)' }, y: { min: -0.2, max: 1.02 }, legend: false, hlines: [{ y: 0, color: '--axis' }],
+        series: [{ type: 'line', x: natCut.x, y: natCut.y, color: '--axis', width: 1.5 }, { type: 'line', x: cut.x, y: cut.y, color: '--s1', label: lab }] });
+      const cb = Math.sqrt(im.beam.maj * im.beam.min), cs = im.sigma / nat.sigma;
+      V.plot(cvs[4], { x: { min: xr[0], max: xr[1], label: 'beam (″)', n: 3 }, y: { min: yr[0], max: yr[1], label: 'noise / natural' },
+        series: [{ type: 'line', x: curve.map(p => p.b), y: curve.map(p => p.s), color: '--axis', width: 1.5, dots: 3 }, { type: 'scatter', x: [cb], y: [cs], size: 12, color: '--accent', label: lab }] });
+      const sl = K.sidelobe(im);
+      ro.set('beam', K.beamStr(im.beam)); ro.set('rms', K.uJy(im.sigma)); ro.set('ratio', '×' + cs.toFixed(2));
+      ro.set('sl', K.pct(sl)); ro.set('snr', (pk / im.sigma).toFixed(0));
+    }));
+  },
+
+  depth(s) {
+    const N = 128, cell = 0.08, d = vis('disk', DISK), cvs = $$(s, 'canvas');
+    const im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 }), ba = S.beamArea(im.beam, cell);
+    const ap = S.circleMask(N, cell, 2.2), off = S.circleMask(N, cell, 3.4).map(x => 1 - x), user = diskMask(N, cell);
+    const ref = K.memo('depth:ref', () => { const c = K.clean(im, { niter: 20000, threshold: 3 * im.sigma, mask: user }); return { pk: S.max(c.restored).v, mx: S.maxAbs(sqrtStretch(c.model)).v }; });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'it', label: 'Iterations' }, { k: 'fl', label: 'Disk flux' }, { k: 'rr', label: 'Residual rms / σ' }]);
+    const edges = [], gx = [], gy = [];
+    for (let i = 0; i <= 60; i++) edges.push(-6 + i * 0.2);
+    for (let i = 0; i < 60; i++) gx.push(edges[i] + 0.1);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'niter', type: 'choice', options: [0, 100, 300, 20000], value: 20000, quote: false },
+      { k: 'nsigma', type: 'range', min: 0.5, max: 20, value: 3, scale: 'log', live: false, fmt: v => v.toFixed(1) },
+      { k: 'usemask', type: 'choice', options: ['user', 'auto-multithresh'], value: 'user' },
+      { k: 'mask', type: 'choice', options: ['', 'disk.crtf'], labels: ["'' (no mask)", "'disk.crtf'"], value: 'disk.crtf', show: v => v.usemask === 'user' }
+    ], v => {
+      const thr = v.nsigma * im.sigma, mode = v.usemask === 'auto-multithresh' ? 'auto' : v.mask ? 'user' : 'none';
+      const c = mode === 'auto' ? K.autoClean(im, { threshold: thr, niter: v.niter }) : K.clean(im, { niter: v.niter, threshold: thr, mask: mode === 'user' ? user : null });
+      const mask = mode === 'none' ? null : mode === 'user' ? user : c.mask;
+      V.image(cvs[0], c.restored, N, { cell, crop: 96, vmin: 0, vmax: ref.pk, stretch: 'sqrt', beam: im.beam, mask });
+      V.image(cvs[1], c.residual, N, { cell, crop: 96, cmap: 'rdbu', vmin: -4 * im.sigma, vmax: 4 * im.sigma, mask });
+      const sm = sqrtStretch(c.model), mx = ref.mx;
+      V.image(cvs[2], sm, N, { cell, crop: 96, cmap: 'rdbu', vmin: -mx, vmax: mx });
+      const h = new Float64Array(60); let n = 0;
+      for (let i = 0; i < N * N; i++) if (off[i]) { const z = c.residual[i] / im.sigma, b = Math.floor((z + 6) / 0.2); if (b >= 0 && b < 60) { h[b]++; n++; } }
+      for (let i = 0; i < 60; i++) { h[i] /= n * 0.2; gy[i] = Math.exp(-0.5 * gx[i] * gx[i]) / Math.sqrt(2 * Math.PI); }
+      V.plot(cvs[3], { x: { min: -6, max: 6, label: 'residual / expected σ' }, y: { min: 0, max: 1.6, label: 'density' },
+        series: [{ type: 'line', x: gx, y: gy, color: '--axis', width: 1.5 }, { type: 'step', x: gx, y: h, color: '--s1', label: 'residual' }] });
+      const fl = S.sumIn(c.restored, ap) / ba, true_ = K.fluxOf(DISK.slice(0, 4)), rr = Math.sqrt(S.sumIn(c.residual.map(x => x * x), off) / S.sumIn(off, off)) / im.sigma;
+      ro.set('it', c.iter + (c.iter >= v.niter ? ' · niter hit' : ' · nsigma hit'), c.iter > 4000 ? 'bad' : '');
+      ro.set('fl', `${K.mJy(fl)} (true ${K.mJy(true_)})`, Math.abs(fl / true_ - 1) < 0.05 ? 'good' : Math.abs(fl / true_ - 1) < 0.12 ? 'warn' : 'bad');
+      ro.set('rr', rr.toFixed(2), rr < 0.8 ? 'bad' : rr < 1.2 ? 'good' : 'warn');
+    });
+  },
+
+  msclean(s) {
+    const N = 128, cell = 0.1, cv = canv(s);
+    hoverFlux(cv.img, $(s, '.pix'));
+    const comps = [{ type: 'gauss', flux: 12e-3, fwhm: 2.2, ratio: 0.7, pa: 30 }, { type: 'gauss', flux: 5e-3, fwhm: 0.9, x: 1.4, y: -0.8 },
+      { type: 'gauss', flux: 4e-3, fwhm: 3.2, ratio: 0.18, pa: 120, x: -0.8, y: 1.0 }, { type: 'point', flux: 1.5e-3, x: -1.5, y: -1.2 }];
+    const d = vis('ms', comps), im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 }), mask = S.circleMask(N, cell, 3.6), total = K.fluxOf(comps);
+    const off = S.circleMask(N, cell, 4).map(x => 1 - x);
+    const ref = K.memo('ms:ref', () => { const c = K.clean(im, { niter: 400, threshold: 2 * im.sigma, mask }), m = Array.from(sqrtStretch(c.model)).filter(x => x > 0).sort((a, b) => b - a); return { pk: S.max(c.restored).v, mx: 1.5 * m[Math.floor(m.length * 0.05)] }; });  // scale set by the bulk of components, not the single point source
+    const ro = V.readouts($(s, '.ro'), [{ k: 'it', label: 'Iterations' }, { k: 'fl', label: 'Model flux' }, { k: 'rr', label: 'Residual rms in mask' }, { k: 'sc', label: 'Components per scale' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'deconvolver', type: 'choice', options: ['hogbom', 'multiscale'], value: 'hogbom' },
+      { k: 'scales', type: 'choice', options: ['[0,4,12]', '[0,4,12,24]'], value: '[0,4,12]', quote: false, show: v => v.deconvolver === 'multiscale' },
+      { k: 'niter', type: 'range', min: 50, max: 4000, value: 400, scale: 'log', live: false, snap: v => Math.round(v / 10) * 10 },
+      { k: 'nsigma', v: '2.0' }
+    ], v => {
+      const c = K.clean(im, { deconvolver: v.deconvolver, scales: JSON.parse(v.scales), niter: v.niter, threshold: 2 * im.sigma, mask });
+      const sm = sqrtStretch(c.model);
+      V.image(cv.model, sm, N, { cell, crop: 96, vmin: 0, vmax: ref.mx });
+      V.image(cv.res, c.residual, N, { cell, crop: 96, cmap: 'rdbu', vmin: -6 * im.sigma, vmax: 6 * im.sigma });
+      V.image(cv.img, c.restored, N, { cell, crop: 96, vmin: -3 * im.sigma, vmax: ref.pk, beam: im.beam });
+      ro.set('it', String(c.iter) + (c.stop === 'threshold' ? ' (done)' : ''), c.stop === 'threshold' ? 'good' : '');
+      ro.set('fl', `${K.mJy(c.cl.total)} of ${K.mJy(total)}`);
+      ro.set('rr', (S.madRms(c.residual, mask) / im.sigma).toFixed(1) + ' σ');
+      ro.set('sc', c.cl.used ? c.cl.used.join(' / ') : `${c.iter} points`);
+    });
+  },
+
+  artifacts(s) {
+    const N = 128, cell = 0.08, cvs = $$(s, 'canvas'), ob = K.obs(STD);
+    const comps = [{ type: 'point', flux: 30e-3 }, { type: 'gauss', flux: 10e-3, fwhm: 1.2, ratio: 0.8, pa: 120 }];
+    const mask = S.circleMask(N, cell, 1.8), off = S.circleMask(N, cell, 2.4).map(x => 1 - x);
+    const INFO = {
+      none: ['Clean data', 'Noise-like residuals, dynamic range set by thermal noise.'],
+      phase: ['Antenna phase errors', 'Flux scattered into a noise-like skirt around bright sources, lower peak. Fix: better calibration or phase self-cal.'],
+      amp: ['One antenna 40% too bright for half the track', 'Faint symmetric ripples around the bright source raise the off-source rms. Fix: flag or recalibrate that antenna, amplitude self-cal.'],
+      spike: ['One bad visibility', 'A sinusoidal stripe pattern across the whole image. Fix: find the outlier in plotms (amp vs uvdist/time) and flag it.'],
+      shallow: ['Under-cleaned (niter=20)', 'PSF sidelobes around the source, residual not noise-like. Fix: clean deeper with a mask.']
+    };
+    const data = kind => K.memo('art' + kind, () => {
+      const na = ob.tr.nAnt, nt = ob.tr.nt, r = S.rng(31), g = { re: new Float64Array(nt * na).fill(1), im: new Float64Array(nt * na) };
+      if (kind === 'phase') { for (let a = 1; a < na; a++) { let p = 0; for (let t = 0; t < nt; t++) { p += 0.05 * r.normal(); const ph = p + 0.15 * r.normal(); g.re[t * na + a] = Math.cos(ph); g.im[t * na + a] = Math.sin(ph); } } }
+      if (kind === 'amp') { for (let t = nt >> 1; t < nt; t++) g.re[t * na + 5] = 1.4; }
+      const d = S.observe(ob.tr, comps, { sigma: ob.sigma, seed: 9, gains: kind === 'phase' || kind === 'amp' ? g : null });
+      if (kind === 'spike') { const k = 30 * ob.tr.nb + 400; d.re[k] = 2.5; d.im[k] = -1.5; }
+      const im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 });
+      const c = K.clean(im, { niter: kind === 'shallow' ? 20 : 3000, threshold: 3 * im.sigma, mask });
+      return { d, im, c };
+    });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'pk', label: 'Peak' }, { k: 'rms', label: 'rms off-source' }, { k: 'dr', label: 'Dynamic range' }]);
+    const LAB = { none: 'none', phase: 'phase errors', amp: 'bad antenna', spike: 'bad visibility', shallow: 'under-cleaned' };
+    V.call($(s, '.ctl'), '', [
+      { k: 'case', label: 'problem', type: 'choice', options: Object.keys(LAB), labels: Object.values(LAB), value: 'phase', scenario: true, fmt: v => LAB[v] }
+    ], v => {
+      const A = data(v.case), sig = A.im.sigma, rms = S.madRms(A.c.restored, off), pk = S.max(A.c.restored).v;
+      V.image(cvs[0], A.c.restored, N, { cell, vmin: -5 * sig, vmax: 40 * sig, beam: A.im.beam, cbar: { label: 'mJy/beam', scale: 1e3 } });
+      const d = A.d, qq = [], aa = [], hq = [], ha = [], step = Math.max(1, Math.floor(d.n / 9000)), ph = v.case === 'phase' || v.case === 'none';
+      for (let k = 0; k < d.n; k += step) {
+        const q = Math.hypot(d.u[k], d.v[k]) / 1e3, a = ph ? Math.atan2(d.im[k], d.re[k]) / S.DEG : Math.hypot(d.re[k], d.im[k]) * 1e3;
+        if (v.case === 'amp' && (d.a1[k] === 5 || d.a2[k] === 5)) { hq.push(q); ha.push(a); } else { qq.push(q); aa.push(a); }
+      }
+      if (v.case === 'spike') { const k = 30 * ob.tr.nb + 400; hq.push(Math.hypot(d.u[k], d.v[k]) / 1e3); ha.push(Math.min(Math.hypot(d.re[k], d.im[k]) * 1e3, 118)); }
+      $(s, '.diag-plot').textContent = ph ? 'Phase vs uv distance' : 'Amplitude vs uv distance';
+      V.plot(cvs[1], { x: { min: 0, max: 620, label: 'uvwave (kλ)' }, y: ph ? { min: -180, max: 180, label: 'phase (deg)' } : { min: 0, max: 120, label: 'amplitude (mJy)' }, legend: hq.length > 0,
+        series: [{ type: 'scatter', x: qq, y: aa, size: 1.6, color: '--s1', alpha: 0.45 }, { type: 'scatter', x: hq, y: ha, size: v.case === 'spike' ? 10 : 2, color: '--s2', label: v.case === 'spike' ? 'outlier (clipped)' : 'baselines to DA46' }] });
+      ro.set('pk', K.mJy(pk) + '/bm'); ro.set('rms', K.uJy(rms), rms / sig < 1.3 ? 'good' : rms / sig < 3 ? 'warn' : 'bad');
+      ro.set('dr', (pk / rms).toFixed(0));
+      $(s, '.diag-t').textContent = INFO[v.case][0]; $(s, '.diag').textContent = INFO[v.case][1];
+    });
+  },
+
+  taper(s) {
+    const N = 128, cell = 0.1, cvs = $$(s, 'canvas');
+    const env = { type: 'gauss', flux: 10e-3, fwhm: 4.5, ratio: 0.8, pa: 100 };
+    const d = vis('disk+env', DISK.concat([env])), mask = S.circleMask(N, cell, 3.6);
+    V.hover(cvs[1], $(s, '.pix'), (v, x, y) => `${v.toFixed(2)} K at (${x.toFixed(2)}″, ${y.toFixed(2)}″)`);
+    const ann = new Uint8Array(N * N), off = new Uint8Array(N * N);
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const r = Math.hypot(x - N / 2, y - N / 2) * cell; ann[y * N + x] = r > 2.2 && r < 3.0 ? 1 : 0; off[y * N + x] = r > 4.4 ? 1 : 0; }
+    const nb = 40, qmax = 650e3;
+    const prof = w => { const h = new Float64Array(nb); for (let k = 0; k < d.n; k++) { const b = Math.floor(Math.hypot(d.u[k], d.v[k]) / qmax * nb); if (b < nb) h[b] += w[k]; } return h; };
+    const qx = Array.from({ length: nb }, (_, i) => (i + 0.5) * qmax / nb / 1e3);
+    const base0 = prof(S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 }).wvis), m0 = Math.max.apply(null, base0), base = base0.map(x => x / m0);
+    const TMAX = K.memo('tp:ref', () => { const im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5 }), c = K.clean(im, { niter: 2500, threshold: 2 * im.sigma, mask }); return S.max(c.restored).v * K.tb(1, im.beam, 230); });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'beam', label: 'Beam' }, { k: 'rms', label: 'Noise' }, { k: 'tb', label: 'Noise in T_b' }, { k: 'env', label: 'Envelope S/N' }]);
+    V.call($(s, '.ctl'), 'tclean', [
+      { k: 'weighting', v: "'briggs'" }, { k: 'robust', v: '0.5' },
+      { k: 'uvtaper', type: 'choice', options: [0, 0.3, 0.6, 1, 2], labels: ['[]', '0.3″', '0.6″', '1″', '2″'], value: 0, fmt: v => (v ? `['${v}arcsec']` : '[]') },
+      { k: 'niter', v: '2500' }, { k: 'nsigma', v: '2.0' }
+    ].map(p => (p.k === 'uvtaper' ? Object.assign(p, { type: 'choice' }) : p)), v => {
+      const im = S.image(d, { N, cell, weighting: 'briggs', robust: 0.5, taper: v.uvtaper });
+      const c = K.clean(im, { niter: 2500, threshold: 2 * im.sigma, mask });
+      V.plot(cvs[0], { x: { min: 0, max: qmax / 1e3, label: 'baseline length (kλ)' }, y: { min: 0, max: 1.05, label: 'weight (1 = peak, no taper)' },
+        series: [{ type: 'step', x: qx, y: base, color: '--axis', width: 1.5 }, { type: 'step', x: qx, y: prof(im.wvis).map(x => x / m0), color: '--s1', label: v.uvtaper ? `uvtaper ${v.uvtaper}″` : 'no taper' }] });
+      const fk = K.tb(1, im.beam, 230);
+      V.image(cvs[1], c.restored.map(x => x * fk), N, { cell, vmin: 0, vmax: TMAX, stretch: 'sqrt', beam: im.beam, cbar: { label: 'brightness temperature (K)' } });
+      const rms = S.madRms(c.restored, off), envb = S.sumIn(c.restored, ann) / S.sumIn(ann, ann);
+      ro.set('beam', K.beamStr(im.beam)); ro.set('rms', K.uJy(rms));
+      const t = K.tb(rms, im.beam, 230); ro.set('tb', t >= 1 ? t.toFixed(2) + ' K' : (t * 1e3).toFixed(t * 1e3 >= 10 ? 0 : 2) + ' mK');
+      const snr = envb / rms; ro.set('env', snr.toFixed(1), snr > 5 ? 'good' : snr > 2 ? 'warn' : 'bad');
+    });
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>

@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Science Ready Data Products</title>
+<meta name="deck-title" content="Science Ready Data Products · ALMA data reduction workshop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="assets/deck.css">
+<style>
+  #plan .card h3 { display: flex; flex-wrap: wrap; gap: .35em; }
+  #routes table.t td { font-size: .95em; }
+  .form { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .3em .8em; align-items: center; font-size: .72em; background: var(--panel); border: 1px solid var(--rule); border-radius: .5em; padding: 0 .9em .7em; align-self: start; }
+  .form .fhd { grid-column: 1 / -1; margin: 0 -.9em .2em; padding: .5em .9em; background: var(--accent); color: var(--on-accent); font-weight: 700; border-radius: .5em .5em 0 0; }
+  .form .lb { text-align: right; font-weight: 700; color: var(--accent); }
+  .form .lb.req { color: var(--bad); }
+  .form .fv { border: 1px solid var(--rule); background: var(--slide); border-radius: .25em; padding: .12em .5em; font: .92em var(--f-mono); color: var(--ink-2); min-width: 0; }
+  .form .fv.calc { background: var(--code); }
+  .form .checks { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: .15em 1em; font-weight: 700; color: var(--accent); padding: .1em 0 .2em 2em; }
+  .form .seg { margin: 0; } .form .seg button { font-size: .95em; }
+  .form .cb { display: inline-block; width: .95em; height: .95em; border: 1px solid var(--muted); border-radius: .15em; vertical-align: -.15em; margin-right: .4em; background: var(--slide); }
+  .form .cb.on { background: var(--accent); border-color: var(--accent); box-shadow: inset 0 0 0 .2em var(--slide); }
+  .form .ffoot { grid-column: 1 / -1; display: flex; gap: .7em; align-items: center; justify-content: flex-end; flex-wrap: wrap; margin-top: .3em; color: var(--muted); font-size: .9em; }
+  .form .ffoot span:first-child { margin-right: auto; }
+  .form .fbtn { background: var(--accent); color: var(--on-accent); border-radius: .3em; padding: .2em .7em; font-weight: 700; }
+  .cascade { list-style: none; padding: 0; display: flex; flex-direction: column; gap: .28em; font-size: .7em; margin-top: .3em; }
+  .cascade li { border: 1px solid var(--rule); border-radius: .35em; padding: .25em .5em; color: var(--muted); line-height: 1.3; }
+  .cascade li b { font-family: var(--f-mono); margin-right: .5em; color: var(--ink-2); }
+  .cascade li[data-on="1"] { background: var(--mark); color: var(--ink); border-color: var(--warn); }
+  .cascade li[data-on="err"] { color: var(--ink); border-color: var(--bad); box-shadow: inset .25em 0 0 var(--bad); }
+  #prodsize .readouts { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  #prodsize .readouts dd { font-size: .78em; }
+  #reproc pre.code.tight, #recipe pre.code.tight { font-size: .63em; line-height: 1.42; }
+  #autosc svg.diagram, #restore svg.diagram { max-height: 25em; }
+  #divfac .bench { grid-template-columns: 15.5em minmax(0, 1fr); }
+</style>
+</head>
+<body>
+<main class="deck">
+
+<section class="slide title-slide" id="title" data-demo="titleArt">
+  <canvas class="title-art" aria-label="a spectrum with many lines and shaded line-free ranges"></canvas>
+  <p class="kicker">ALMA data reduction workshop · Part 8 of 8 · 4:15–4:45</p>
+  <h1>Science Ready<br>Data Products</h1>
+  <p class="sub">Getting a calibrated MS, new images of archive data with AUDI or the imaging pipeline, and automated self-calibration.</p>
+  <div class="meta"><span>30 min</span><span>data.nrao.edu · AUDI · scriptForPI · scriptForReprocessing · hif_selfcal</span><span>All figures are simulated live</span></div>
+</section>
+<section class="slide" id="plan">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>this part · 4:15–4:45</p><h2>Outline</h2></header>
+  <div class="grid4">
+    <div class="card"><h3><span class="tag fixed">Concept</span> <span class="tag check">Check</span></h3><p><b>1 · Calibrated data</b>: restore or re-run the pipeline, four ways to get a calibrated MS, amplitude renormalization.</p></div>
+    <div class="card"><h3><span class="tag choice">Your choice</span> <span class="tag check">Check</span></h3><p><b>2 · SRDP and AUDI</b>: NRAO services, an AUDI request, and what the pipeline does with it (robust, product size).</p></div>
+    <div class="card"><h3><span class="tag choice">Your choice</span></h3><p><b>3 · Imaging pipeline reprocessing</b>: <code>scriptForReprocessing.py</code> and the imaging stages of <code>casa_pipescript.py</code>.</p></div>
+    <div class="card"><h3><span class="tag fixed">Concept</span> <span class="tag choice">Your choice</span></h3><p><b>4 · Automated self-calibration</b>: how auto-selfcal works, large phase errors, long baselines, options.</p></div>
+  </div>
+  <p class="lede">You start from pipeline-calibrated ALMA data in the archive. The weblog pages are in Part 3, imaging in Parts 4 and 5, self-calibration in Part 6. Colour scales and axes are fixed.</p>
+  <p class="small muted"><span class="tag check">Takeaway</span> Which route for which case, with links. Backup at the end: renormalization details, added-value products, the AUDI request step by step, questions.</p>
+</section>
+<section class="slide section" id="part-cal">
+  <p class="num">1</p>
+  <h2>Calibrated data</h2>
+  <p>Restore the delivered calibration or re-run the pipeline. Four ways to get a calibrated MS.</p>
+</section>
+<section class="slide" id="restore">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>definitions · restore and pipeline run</p><h2>Restore or re-run the pipeline?</h2></header>
+  <div class="cols l3">
+    <svg class="diagram" viewBox="0 0 560 330" role="img" aria-label="Restore: raw data and the delivered calibration tables go into hifa_restoredata, which writes the calibrated MS. Pipeline run: raw data, casa_pipescript.py and helper files go into the calibration stages, which solve new tables and write the calibrated MS.">
+      <defs><marker id="ar8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker></defs>
+      <text x="10" y="18" class="tag">RESTORE</text>
+      <rect class="box" x="10" y="28" width="160" height="54" rx="8"/><text x="90" y="52" text-anchor="middle" font-weight="700" font-size="15">Raw data</text><text x="90" y="72" text-anchor="middle" class="muted" font-size="12">raw/: one ASDM per EB</text>
+      <rect class="box" x="10" y="94" width="160" height="54" rx="8"/><text x="90" y="118" text-anchor="middle" font-weight="700" font-size="15">Calibration tables</text><text x="90" y="138" text-anchor="middle" class="muted" font-size="12">calibration/: from QA2</text>
+      <rect class="box hot" x="215" y="58" width="165" height="60" rx="8"/><text x="297" y="84" text-anchor="middle" font-weight="700" font-size="15">hifa_restoredata</text><text x="297" y="104" text-anchor="middle" class="muted" font-size="12">applies the tables</text>
+      <rect class="box" x="420" y="58" width="130" height="60" rx="8"/><text x="485" y="84" text-anchor="middle" font-weight="700" font-size="15">Calibrated MS</text><text x="485" y="104" text-anchor="middle" class="muted" font-size="12">as checked at QA2</text>
+      <path class="wire" d="M170 55 H192 V80 H207" marker-end="url(#ar8)"/><path class="wire" d="M170 121 H192 V96 H207" marker-end="url(#ar8)"/><path class="wire" d="M380 88 H412" marker-end="url(#ar8)"/>
+      <text x="10" y="188" class="tag">PIPELINE RUN</text>
+      <rect class="box" x="10" y="198" width="160" height="54" rx="8"/><text x="90" y="222" text-anchor="middle" font-weight="700" font-size="15">Raw data</text><text x="90" y="242" text-anchor="middle" class="muted" font-size="12">raw/: one ASDM per EB</text>
+      <rect class="box" x="10" y="264" width="160" height="54" rx="8"/><text x="90" y="288" text-anchor="middle" font-weight="700" font-size="15">casa_pipescript.py</text><text x="90" y="308" text-anchor="middle" class="muted" font-size="12">+ helper files (flags, fluxes)</text>
+      <rect class="box hot" x="215" y="228" width="165" height="60" rx="8"/><text x="297" y="254" text-anchor="middle" font-weight="700" font-size="15">Calibration stages</text><text x="297" y="274" text-anchor="middle" class="muted" font-size="12">solve new tables</text>
+      <rect class="box" x="420" y="228" width="130" height="60" rx="8"/><text x="485" y="254" text-anchor="middle" font-weight="700" font-size="15">Calibrated MS</text><text x="485" y="274" text-anchor="middle" class="muted" font-size="12">with your changes</text>
+      <path class="wire" d="M170 225 H192 V250 H207" marker-end="url(#ar8)"/><path class="wire" d="M170 291 H192 V266 H207" marker-end="url(#ar8)"/><path class="wire" d="M380 258 H412" marker-end="url(#ar8)"/>
+    </svg>
+    <div class="stack">
+      <div class="card"><h3>Restore</h3><p>Raw data ⊗ calibration tables. Reproduces the calibration that was checked at QA2. <code>scriptForPI.py</code> calls <code>hifa_restoredata</code> (no need to run it on its own).</p></div>
+      <div class="card"><h3>Pipeline run</h3><p>Calculates the calibration tables again. If you run it yourself, you can change how they are calculated.</p></div>
+      <div class="card"><h3>Re-run the pipeline to</h3><ul>
+        <li>add flags, update calibrator fluxes or antenna positions</li>
+        <li>use a newer pipeline version</li>
+        <li>add or remove an execution (ASDM), change the reference antenna</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="routes">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>restored measurement sets</p><h2>Four ways to get a calibrated MS</h2></header>
+  <div class="tscroll"><table class="t">
+    <thead><tr><th>Route</th><th>Which data</th><th>Where, how</th><th>Effort</th></tr></thead>
+    <tbody>
+      <tr><td><b>Restore yourself</b><br><code>scriptForPI.py</code></td><td>any ALMA data, pipeline or manually calibrated</td><td><code>script/</code> of the delivery (Part 3). <code>casa --pipeline -c *scriptForPI.py</code> with the CASA version of the QA2 report</td><td>CPU hours and disk on your machine. Old cycles may need CASA 4 or 5.</td></tr>
+      <tr><td><b>SRDP restore</b><br>Download Restored MS</td><td>Cycle 5 and later, pipeline-calibrated only</td><td><code>data.nrao.edu</code> (NRAO archive). Not in the ALMA archive.</td><td>processed on NRAO computers, download link by email</td></tr>
+      <tr><td><b>Added-value products</b></td><td>NA PIs of recently observed projects</td><td>your project ticket: <code>calibrated_final.tgz</code> with <code>*_targets.ms</code>, <code>cont.dat</code>, <code>scriptForReprocessing.py</code> (Cycle 9 and later)</td><td>none. Available for 30 days after the data delivery.</td></tr>
+      <tr><td><b>Helpdesk ticket</b></td><td>older data, when CASA 4 or 5 does not run on your machine</td><td><code>help.almascience.org</code>: ask ALMA staff to calibrate the data for you</td><td>a ticket</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid3">
+    <div class="card"><h3>Manually calibrated data</h3><p>Not supported by SRDP. Use <code>scriptForPI.py</code> or a Helpdesk ticket.</p></div>
+    <div class="card"><h3>Which CASA</h3><p>The version named in the QA2 report and weblog (Part 2, versions). With a newer CASA, check that the flags were applied.</p></div>
+    <div class="card"><h3>Cycle 7 and earlier</h3><p>Check the QA2 report or weblog for renormalization (next slide).</p></div>
+  </div>
+</section>
+<section class="slide" id="renorm" data-demo="renorm">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hifa_renorm · data up to Cycle 7</p><h2>Amplitude renormalization</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>Tsys is measured off source. Line emission that is bright in the target's autocorrelations lowers the calibrated amplitudes in those channels. At 10 K in Band 6 the scaling reaches 1.10 and the line peak is 9% low. Below 1.02 no correction is applied. <code>createcaltable=False</code> only assesses.</p>
+    </div>
+    <div class="stack">
+    <div class="panels" style="--cols:2">
+      <figure class="panel"><figcaption><b>Target / bandpass autocorrelation</b><span>grey: ratio · dashed: fit · blue: scaling</span></figcaption><canvas class="plot" data-k="ac"></canvas></figure>
+      <figure class="panel"><figcaption><b>Line spectrum of the target</b><span>cross-correlations, dashed: true</span></figcaption><canvas class="plot" data-k="xc"></canvas></figure>
+    </div>
+    <ul class="small">
+      <li>Affected: FDM spws with strong lines, bright in a single-dish spectrum of the target (e.g. Galactic molecular clouds, hot cores). TDM spws need no renormalization.</li>
+      <li>The scaling spectrum is computed per spw, scan, field, antenna and polarization, If its maximum exceeds <code>threshold</code>, the whole spectrum is applied.</li>
+      <li>Check the QA2 report or the <code>hifa_renorm</code> weblog page. Correcting older data: Backup.</li>
+    </ul>
+    </div>
+  </div>
+</section>
+<section class="slide" id="recal">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>casa_pipescript.py · helper files</p><h2>Re-running the calibration pipeline</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <thead><tr><th>Helper file</th><th>Read by</th><th>Use</th></tr></thead>
+        <tbody>
+          <tr><td><code>flux.csv</code></td><td><code>hifa_importdata</code></td><td>calibrator flux densities</td></tr>
+          <tr><td><code>jyperk.csv</code></td><td><code>hsd_k2jycal</code></td><td>Kelvin-to-Jansky factors (total power flux scale)</td></tr>
+          <tr><td><code>antennapos.csv</code></td><td><code>hifa_antpos</code></td><td>antenna position corrections</td></tr>
+          <tr><td><code>uid*flagtemplate.txt</code></td><td><code>hifa_flagdata</code></td><td>extra flags, one line each (Part 3)</td></tr>
+          <tr><td><code>uid*flagtsystemplate.txt</code></td><td><code>hifa_tsysflag</code></td><td>extra flags on the Tsys table</td></tr>
+          <tr><td><code>uid*flagtargetstemplate.txt</code></td><td><code>hifa_flagtargets</code></td><td>imaging pipeline only: flags on the targets after calibration, before imaging</td></tr>
+          <tr><td><code>cont.dat</code></td><td><code>hif_findcont</code>, imaging</td><td>imaging pipeline only: continuum ranges (Part 5)</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Examples for each case: the Pipeline User's Guide, almascience.nrao.edu/processing/science-pipeline.</p>
+    </div>
+    <div class="stack">
+<pre class="code tight">MyPipelineRunDirectory/
+├── uid___A002_…             <span class="c"># ASDMs (no .asdm.sdm)</span>
+├── casa_pipescript.py       <span class="c"># edited copy</span>
+├── flux.csv
+├── antennapos.csv           <span class="c"># if present</span>
+├── uid*flagtemplate.txt     <span class="c"># one per EB</span>
+└── uid*flagtsystemplate.txt</pre>
+      <div class="card"><h3>Run</h3><ul>
+        <li>Edit <code>casa_pipescript.py</code> to keep only the stages you need (imaging stages are slow).</li>
+        <li>In that directory: <code>casa --pipeline</code>, then <code>execfile('casa_pipescript.py')</code>.</li>
+        <li>Same pipeline version as the delivery, unless the reason to re-run is a newer one.</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-srdp">
+  <p class="num">2</p>
+  <h2>SRDP and AUDI</h2>
+  <p>NRAO Science Ready Data Products: restored MSs and new images from the NRAO archive, processed on NRAO computers.</p>
+</section>
+<section class="slide" id="srdp">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>science.nrao.edu/srdp</p><h2>NRAO Science Ready Data Products</h2></header>
+  <p class="ink2">An observatory-wide NRAO program. Pipelines and processing on NRAO computers give users at all levels science-ready data with less effort and computing.</p>
+  <div class="grid3">
+      <div class="card"><h3>ALMA</h3><ul><li>User-Defined Imaging (AUDI): new images with your parameters</li><li>self-calibration of the targets, single pointings and mosaics</li><li>download of restored MSs</li></ul></div>
+      <div class="card"><h3>VLA</h3><ul><li>calibration and imaging with QA, with self-calibration</li><li>restored MSs</li><li>continuum images (single pointings since 2022, mosaics from Fall 2026), spectral line since spring 2025</li></ul></div>
+      <div class="card"><h3>Archive</h3><ul><li><code>data.nrao.edu</code></li><li>CARTA viewer for VLASS, VLA and AUDI images</li><li>raw data of the VLA, VLBA, GBT, GMVA and historical VLA</li></ul></div>
+  </div>
+  <div class="cols l3">
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <thead><tr><th></th><th>NRAO archive</th><th>ALMA archive</th></tr></thead>
+        <tbody>
+          <tr><td>Address</td><td><code>data.nrao.edu</code></td><td><code>almascience.nrao.edu/aq</code></td></tr>
+          <tr><td>Restored MS</td><td>yes</td><td>no</td></tr>
+          <tr><td>Re-imaging (AUDI)</td><td>yes</td><td>no</td></tr>
+          <tr><td>CARTA viewer</td><td>yes</td><td>yes</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="card"><h3>NRAO archive, not the ALMA archive</h3><p>SRDP is an NRAO service beyond the standard support of the ALMA Regional Centres (ARCs). The ALMA archive has none of the SRDP services.</p></div>
+  </div>
+</section>
+<section class="slide" id="audi" data-demo="audi">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>ALMA User-Defined Imaging · data.nrao.edu</p><h2>An AUDI request</h2></header>
+  <div class="cols r3">
+    <div class="stack">
+      <ol class="small">
+        <li>Search the project code on <code>data.nrao.edu</code>.</li>
+        <li>Open the project, tab Observations: one row per MOUS, with <b>Download Restored MS</b> and <b>Re-Imaging</b>.</li>
+        <li>Re-Imaging opens the form. <b>Validate Form</b>, then <b>Submit Request</b>.</li>
+        <li>A request page shows the progress. An email follows with the products: images, a weblog, the calibrated MSs if requested.</li>
+      </ol>
+      <div class="card"><h3>Notes</h3><ul>
+        <li>Pipeline-calibrated data only (Cycle 5 and later).</li>
+        <li>Attempt self-calibration helps older data: the pipeline self-calibrates only since Cycle 10.</li>
+        <li>Frequency Space comes with valid settings for the spw. Velocity Space needs a rest frequency (splatalogue.online).</li>
+        <li>End = Start + N Channels × Width.</li>
+        <li>Angular Resolution sets the robust value (next slide).</li>
+      </ul></div>
+      <p class="small muted">Schematic of the form. Red: required, blue: optional. Example project from the SRDP demo.</p>
+    </div>
+    <div class="form" aria-label="schematic of the AUDI request form">
+        <p class="fhd">Launch User Imaging on: 2017.1.00419.S</p>
+        <span class="lb req">User Email (required)</span><span class="fv">you@institute.edu</span>
+        <span class="lb">Request Description</span><span class="fv">AUDI request</span>
+        <div class="checks"><span><i class="cb"></i>Create tar file</span><span><i class="cb on"></i>Attempt self-calibration</span><span><i class="cb on"></i>Make continuum image</span><span><i class="cb on"></i>Make cube image</span><span><i class="cb"></i>Deliver calibrated MSes</span></div>
+        <span class="lb">Field</span><span class="fv">TARGET ▾</span>
+        <span class="lb">Angular Resolution</span><span class="fv">0.224 arcsec</span>
+        <span class="lb">SPW</span><span class="fv">230.431–230.665 GHz · dnu = 488.3 kHz</span>
+        <span class="lb"></span><div class="seg" role="group" aria-label="spectral axis"><button type="button" data-sp="freq" aria-pressed="true">Frequency Space</button><button type="button" data-sp="vel" aria-pressed="false">Velocity Space</button></div>
+        <span class="lb" data-f="rl">Rest Frequency</span><span class="fv"><span data-f="rf">(optional)</span> <span class="muted">· Search with Splatalogue</span></span>
+        <span class="lb req">Start</span><span class="fv" data-f="st"></span>
+        <span class="lb req">Width</span><span class="fv" data-f="wd"></span>
+        <span class="lb req">N Channels</span><span class="fv" data-f="nc"></span>
+        <span class="lb">End</span><span class="fv calc" data-f="en"></span>
+        <p class="ffoot"><span>Restore CASA 5.6.1-8 · Imaging CASA 6.6.6-18 (pipeline 2025.1.0.36)</span><span class="fbtn">Validate Form</span><span class="fbtn">Submit Request</span></p>
+      </div>
+  </div>
+</section>
+<section class="slide" id="precheck" data-demo="precheck">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hifa_imageprecheck · the robust value</p><h2>Requested resolution and robust</h2></header>
+  <div class="bench wide-call">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>The pipeline predicts the beam for robust 0, 0.5, 1 and 2 (0.5 only for the 7-m array). It takes the value closest to 0.5 whose beam area is in the requested range (the science goal's, or the AUDI form's Angular Resolution). If none is in range, it takes 2 when all beams are too small and 0 when too large, QA score 0.25. AUDI may also add a uvtaper. To use your own robust, skip this stage.</p>
+    </div>
+    <div class="panels hero">
+      <figure class="panel"><figcaption><b>Predicted beam vs robust</b><span>lines: the requested range (Min / Max Acceptable Resolution)</span></figcaption><canvas class="plot tall" data-k="bm"></canvas></figure>
+      <figure class="panel"><figcaption><b>Noise vs robust</b><span>relative to robust = 2</span></figcaption><canvas class="plot" data-k="ns"></canvas></figure>
+      <figure class="panel"><figcaption><b>PSF of the chosen robust</b><span>±1.6″</span></figcaption><canvas class="img short" data-k="psf"></canvas></figure>
+    </div>
+  </div>
+</section>
+<section class="slide" id="prodsize" data-demo="prodsize">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hif_checkproductsize · size mitigation</p><h2>Product size mitigation</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <p class="try"><b>Try</b>With 0.1″ and 3840 channels the cube is above 40 GB, so its channels are binned by 2. At 0.04″ the field shrinks too. With 3840 channels, Band 3 at 0.04″ stays above 60 GB and cannot be mitigated.</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:2">
+        <figure class="panel"><figcaption><b>Sizes after each step</b><span>dashed: 40 and 60 GB (cube), 350 GB (products, as in the scripts)</span></figcaption><canvas class="plot tall" data-k="sz"></canvas></figure>
+        <figure class="panel"><figcaption><b>The cascade</b><span>highlighted: applied</span></figcaption><ol class="cascade">
+          <li data-s="1a"><b>1a</b>cube &gt; maxcubesize: bin channels by 2 (spws with 480, 960, 1920 or 3840 channels, no online averaging)</li>
+          <li data-s="1b"><b>1b</b>still too large: smaller field, PB level from 0.2 up to 0.7 (single fields)</li>
+          <li data-s="1c"><b>1c</b>still too large: cell from 5 to 3 pixels per beam (3.25 for robust=2)</li>
+          <li data-s="1d"><b>1d</b>cube &gt; maxcubelimit: not imaged (error if it is the representative spw)</li>
+          <li data-s="2"><b>2</b>products &gt; maxproductsize: fewer targets (the representative one is kept), then 1a–1c on all cubes</li>
+          <li data-s="3"><b>3</b>cubes &gt; 0.5 × maxcubelimit: clean only one of them (the representative spw)</li>
+          <li data-s="4"><b>4</b>&gt; 30 targets and &gt; 960 channels: warning about the run time</li>
+        </ol></figure>
+      </div>
+      <dl class="ro"></dl>
+      <p class="small muted">Sketch of the cascade (Hunter et al. 2023), 4 identical spws, single fields. Size = 4 bytes × nx × ny × nchan / nbin, ×2 for the PB. Full size: <code>mitigate=False</code> or the tclean calls in <code>casa_commands.log</code>.</p>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-reproc">
+  <p class="num">3</p>
+  <h2>Imaging pipeline reprocessing</h2>
+  <p>Pipeline images may not be science ready (mitigation, continuum ranges, weighting, channels). Re-image with scriptForReprocessing.py or casa_pipescript.py.</p>
+</section>
+<section class="slide" id="reproc">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>added-value products · calibrated_final/</p><h2>scriptForReprocessing.py</h2></header>
+  <div class="cols">
+    <div class="stack">
+<pre class="code tight">calibrated_final/
+├── measurement_sets/
+│   └── uid*_targets.ms   <span class="c"># one per EB, calibrated</span>
+├── caltables/
+├── cont.dat              <span class="c"># editable</span>
+├── uid*SOURCE.uvcont.tbl
+├── scriptForReprocessing.py   <span class="c"># editable settings</span>
+└── README
+
+$ cd calibrated_final
+$ casa --pipeline -c scriptForReprocessing.py <span class="em">--image</span></pre>
+<pre class="code tight">make_cube_images = True   <span class="c"># also mfs, cont, repBW images</span>
+mitigate = True           <span class="c"># False: every spw and target, full size</span>
+maxcubesize = <span class="s">40</span>.         <span class="c"># GB, also maxcubelimit = 60.</span>
+maxproductsize = <span class="s">350</span>.     <span class="c"># GB</span>
+field = None              <span class="c"># spw, phasecenter, uvrange: None = all</span>
+hm_imsize = None          <span class="c"># e.g. '0.3pb' or [120, 120]</span>
+hm_cell = None            <span class="c"># e.g. '3ppb'</span>
+nbins = None              <span class="c"># e.g. '9:2,11:4' or '*:2'</span>
+robust = None             <span class="c"># None = the pipeline's choice</span>
+uvtaper = None            <span class="c"># e.g. ['1arcsec']</span></pre>
+    </div>
+    <div class="stack">
+      <div class="tscroll"><table class="t">
+        <thead><tr><th>Flag</th><th>Does</th></tr></thead>
+        <tbody>
+          <tr><td><code>--image [IMAGE]</code></td><td>runs the imaging pipeline, images in <code>IMAGE</code> (default <code>images</code>). Identical to the archive images unless <code>cont.dat</code> or the settings change.</td></tr>
+          <tr><td><code>--contsub</code></td><td>fits and subtracts the continuum with the ranges in <code>cont.dat</code>: new <code>*uvcont.tbl</code>, <code>uid*targets_line.ms</code></td></tr>
+          <tr><td><code>--contsub_fast</code></td><td>the same with the existing <code>*uvcont.tbl</code> and CASA commands (faster)</td></tr>
+          <tr><td><code>--calibrated_final</code></td><td>concatenates <code>uid*targets.ms</code> into <code>calibrated_final.ms</code> (<code>--calibrated_final_line</code>: the line MSs)</td></tr>
+          <tr><td><code>--weblog [WEBLOG]</code></td><td>opens a weblog in the browser (default the latest)</td></tr>
+          <tr><td><code>--cleanup</code></td><td>removes <code>working_reprocess/</code> and the logs, including its weblogs</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">Included in the added-value products for NA PIs since Cycle 9. Help: CASA guide ALMA Imaging Pipeline Reprocessing Tool.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="recipe">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>casa_pipescript.py · imaging stages</p><h2>Editing casa_pipescript.py for imaging</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+<pre class="code tight">import glob; MyVis = glob.glob(<span class="s">'*.ms'</span>)   <span class="c"># the calibrated MSs here</span>
+context = h_init()
+try:
+    <span class="f">hifa_importdata</span>(<span class="k">vis</span>=MyVis, <span class="k">dbservice</span>=False)
+    <span class="f">hif_mstransform</span>()                  <span class="c"># writes *_targets.ms</span>
+    <span class="f">hifa_flagtargets</span>()                 <span class="c"># reads uid*flagtargetstemplate.txt</span>
+    <span class="c"># hifa_imageprecheck()             # picks robust, skipped: robust=1.5 below</span>
+    <span class="f">hif_checkproductsize</span>(<span class="k">maxproductsize</span>=<span class="s">350.0</span>, <span class="k">maxcubesize</span>=<span class="s">40.0</span>,
+                         <span class="k">maxcubelimit</span>=<span class="s">60.0</span>)
+    <span class="f">hif_makeimlist</span>(<span class="k">specmode</span>=<span class="s">'mfs'</span>)     <span class="c"># per-spw continuum</span>
+    <span class="f">hif_findcont</span>()                     <span class="c"># keeps ranges in cont.dat, finds the rest</span>
+    <span class="f">hif_uvcontsub</span>()                    <span class="c"># uses cont.dat</span>
+    <span class="f">hif_makeimages</span>()
+    <span class="f">hif_makeimlist</span>(<span class="k">specmode</span>=<span class="s">'cont'</span>)    <span class="c"># aggregate continuum</span>
+    <span class="f">hif_makeimages</span>()
+    <span class="f">hif_makeimlist</span>(<span class="k">specmode</span>=<span class="s">'cube'</span>, <span class="k">spw</span>=<span class="em">'17,23'</span>, <span class="k">nbins</span>=<span class="em">'17:8,23:2'</span>, <span class="k">robust</span>=<span class="em">1.5</span>)
+    <span class="f">hif_makeimages</span>()
+    <span class="f">hifa_exportdata</span>()
+finally:
+    <span class="f">h_save</span>()</pre>
+      <p class="small muted">All cases: CASA guide ALMA Imaging Pipeline Reprocessing. Parameters: Pipeline Reference Manual.</p>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Notes</h3><ul>
+        <li><code>hif_makeimages</code> always follows a <code>hif_makeimlist</code>.</li>
+        <li>Own robust: set it in <code>hif_makeimlist</code>, skip <code>hifa_imageprecheck</code>.</li>
+        <li>No mitigation: skip <code>hif_checkproductsize</code>, or set <code>nbins</code>, <code>hm_imsize</code>, <code>hm_cell</code>.</li>
+        <li>Directory: the calibrated MSs, <code>cont.dat</code>, <code>uid*flagtargetstemplate.txt</code>. Delete old <code>uid*_targets.ms</code> first.</li>
+      </ul></div>
+      <div class="card"><h3>Example cases</h3><ul>
+        <li>Aggregate continuum with all channels: rename <code>cont.dat</code>, skip <code>hif_findcont</code> and <code>hif_uvcontsub</code>.</li>
+        <li>Revised continuum ranges: edit <code>cont.dat</code> (Part 5).</li>
+        <li>Cubes for some spws or fields, with binning, robust or uvtaper (highlighted line).</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="part-sc">
+  <p class="num">4</p>
+  <h2>Automated self-calibration</h2>
+  <p>hif_selfcal in the ALMA and VLA pipelines and in AUDI, and the standalone auto_selfcal tool.</p>
+</section>
+<section class="slide" id="autosc">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Concept</span>auto_selfcal · hif_selfcal</p><h2>Auto-selfcal: how it works</h2></header>
+  <div class="cols l3">
+    <div class="stack">
+    <svg class="diagram" viewBox="0 0 600 345" role="img" aria-label="Auto-selfcal loop: plan the solution intervals and clean depths, make a pre image and model, run gaincal and applycal, make a post image, evaluate. If it passes, go back with the next shorter solint and a deeper clean. If it fails, apply the last successful table and stop.">
+      <defs><marker id="ar9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--axis)"/></marker>
+      <marker id="ar9h" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker></defs>
+      <rect class="box" x="10" y="10" width="580" height="58" rx="8"/><text x="300" y="34" text-anchor="middle" font-weight="700" font-size="16">Plan</text><text x="300" y="55" text-anchor="middle" class="muted" font-size="13">about 5 solints, long to short (inf_EB, inf, …, int). Clean: max(S/N ÷ 15, 5) × rms first, 3 × rms last</text>
+      <rect class="box" x="10" y="100" width="170" height="64" rx="8"/><text x="95" y="127" text-anchor="middle" font-weight="700" font-size="16">Pre image</text><text x="95" y="148" text-anchor="middle" class="muted" font-size="13">tclean, model</text>
+      <rect class="box hot" x="215" y="100" width="170" height="64" rx="8"/><text x="300" y="127" text-anchor="middle" font-weight="700" font-size="16">gaincal, applycal</text><text x="300" y="148" text-anchor="middle" class="muted" font-size="13">one solint</text>
+      <rect class="box" x="420" y="100" width="170" height="64" rx="8"/><text x="505" y="127" text-anchor="middle" font-weight="700" font-size="16">Post image</text><text x="505" y="148" text-anchor="middle" class="muted" font-size="13">same mask and depth</text>
+      <rect class="box hot" x="215" y="196" width="170" height="64" rx="8"/><text x="300" y="223" text-anchor="middle" font-weight="700" font-size="16">Evaluate</text><text x="300" y="244" text-anchor="middle" class="muted" font-size="13">S/N, rms, beam</text>
+      <rect class="box" x="175" y="288" width="250" height="50" rx="8"/><text x="300" y="309" text-anchor="middle" font-weight="700" font-size="15">Apply the last good table</text><text x="300" y="328" text-anchor="middle" class="muted" font-size="13">(or none), then stop</text>
+      <path class="wire" d="M95 68 V92" marker-end="url(#ar9)"/><path class="wire" d="M180 132 H207" marker-end="url(#ar9)"/><path class="wire" d="M385 132 H412" marker-end="url(#ar9)"/>
+      <path class="wire" d="M505 164 V228 H393" marker-end="url(#ar9)"/>
+      <path class="wire" d="M300 260 V280" marker-end="url(#ar9)"/><text x="310" y="276" class="muted" font-size="13">fail</text>
+      <path class="wire hot" d="M215 228 H95 V172" marker-end="url(#ar9h)"/><text x="104" y="248" font-size="12" fill="var(--accent)"><tspan x="104">pass: next,</tspan><tspan x="104" dy="15">shorter solint,</tspan><tspan x="104" dy="15">deeper clean</tspan></text>
+    </svg>
+      <p class="small"><b>Runs in</b> AUDI (Attempt self-calibration), the ALMA and VLA pipelines (<code>hif_selfcal</code>), and the standalone tool github.com/jjtobin/auto_selfcal (input: the pipeline <code>*_targets.ms</code>). Weblog page: Part 6.</p>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Pass if</h3><ul>
+        <li>S/N and near-field S/N do not drop (rms outside the mask). inf_EB may lose up to 2% S/N.</li>
+        <li>beam area up by less than 5%, rms up by less than 5%</li>
+        <li>near-field: outside the mask plus a buffer, where self-cal changes the noise most</li>
+      </ul></div>
+      <div class="card"><h3>Output</h3><ul>
+        <li>applied: the last successful table (plus inf_EB), in CORRECTED_DATA of <code>*_targets.ms</code></li>
+        <li>continuum and cube images with and without self-cal, both in the archive</li>
+      </ul></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="divfac" data-demo="divfac">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>hif_selfcal · dividing_factor</p><h2>Large phase errors: dividing_factor</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+    </div>
+    <div class="stack">
+      <div class="panels">
+        <figure class="panel"><figcaption><b>First image</b><span>contour: the first threshold</span></figcaption><canvas class="img" data-k="pre"></canvas></figure>
+        <figure class="panel"><figcaption><b>Model</b><span>circle: the source</span></figcaption><canvas class="img" data-k="mod"></canvas></figure>
+        <figure class="panel"><figcaption><b>After one phase round</b><span>same scale</span></figcaption><canvas class="img cb" data-k="post"></canvas></figure>
+      </div>
+      <p class="try"><b>Try</b>The first clean stops at peak / <code>dividing_factor</code>, but not below 5 × rms. At the default 15 the floor sets it, deep enough to put artifacts into the model (about half its flux outside the circle). Self-cal fits the data to this model and part of the pattern stays. At 1.5 only the peak is cleaned, and one round removes the phase errors.</p>
+      <p class="small muted">A 20 mJy point source, C-4-like array, Band 6, 1 h, constant antenna phase offsets of 60° rms. Model: clean components ⊛ beam. Phase-only, one solution per antenna for all data (inf_EB).</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="longbl" data-demo="longbl">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>auto-selfcal · long baselines</p><h2>Long baselines: flagged outer antennas</h2></header>
+  <div class="bench">
+    <div class="side">
+      <div class="ctl"></div>
+      <dl class="ro"></dl>
+      <p class="try"><b>Try</b>A resolved source has less flux on long baselines, so the outer antennas give low-S/N solutions that gaincal flags. Auto-selfcal smooths the flagged fraction vs distance and finds where it starts to rise (rate of change and acceleration). If the flags make the beam grow by more than 5%, antennas beyond that point flagged at least as often as the smoothed curve there get gains of 1+0j (no correction), so their data are kept. The short baselines still improve. Raise the flux and the point moves out.</p>
+    </div>
+    <div class="stack">
+      <div class="panels" style="--cols:2">
+        <figure class="panel"><figcaption><b>Flagged solutions per antenna</b><span>dots: antennas · line: smoothed</span></figcaption><canvas class="plot tall" data-k="fl"></canvas></figure>
+        <figure class="panel"><figcaption><b>Rate of change</b><span>of the smoothed curve, normalized</span></figcaption><canvas class="plot tall" data-k="dv"></canvas></figure>
+      </div>
+      <p class="small muted">Sketch of the heuristic: C-6-like array, Band 6, a 0.25″ Gaussian, eight 60-s solutions per antenna with all spws.</p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="options">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>hif_selfcal and the standalone tool</p><h2>Auto-selfcal options</h2></header>
+  <div class="tscroll"><table class="t">
+    <thead><tr><th>Parameter</th><th>hif_selfcal default</th><th>What it does</th><th>When to change</th></tr></thead>
+    <tbody>
+      <tr><td><code>amplitude_selfcal</code></td><td><code>False</code></td><td><code>True</code> adds a conservative amplitude round (<code>'ap'</code>, <code>solnorm=True</code>) after phase</td><td>bright sources, where phase-only leaves errors</td></tr>
+      <tr><td><code>gaincal_minsnr</code></td><td><code>2.0</code></td><td>gaincal flags solutions below this S/N</td><td>rarely. 2.0 is low. Lower values pass more noisy solutions.</td></tr>
+      <tr><td><code>minsnr_to_proceed</code></td><td><code>3.0</code></td><td>minimum S/N per solution to try self-cal, estimated from the first image (Brogan et al. 2018)</td><td>lower it for faint, well-resolved sources, at the risk of fitting noise</td></tr>
+      <tr><td><code>dividing_factor</code></td><td><code>15</code> (40 below 8 GHz)</td><td>first clean threshold = peak / dividing_factor, at least 5 × rms</td><td>large phase errors (lower, e.g. 3)</td></tr>
+      <tr><td>model, mask</td><td>none</td><td>your own starting model and clean mask</td><td>standalone tool only, e.g. planets (not well tested)</td></tr>
+    </tbody>
+  </table></div>
+  <div class="grid3">
+    <div class="card"><h3>Pipeline versions</h3><p>2025.1 (CASA 6.6.6): mosaics, spectral scans, long-baseline improvements. 2026.2 (CASA 6.7.4): minor bug fixes.</p></div>
+    <div class="card"><h3>Standalone tool</h3><p>pip-installable, called as a function. Amplitude self-cal on by default (<code>do_amp_selfcal=True</code>). Per-spw solutions where possible, VLA mosaics, VLBA, interpolation from bright to faint targets. In development: polarization, per-EB solints.</p></div>
+    <div class="card"><h3>When to go manual</h3><p>Line self-cal, polarized targets, ephemeris targets, faint mosaic fields (Part 6). Manual self-cal is rarely much better otherwise.</p></div>
+  </div>
+</section>
+<section class="slide" id="caveats">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>limits of SRDP</p><h2>Caveats</h2></header>
+  <div class="grid2">
+    <div class="card"><h3>Pipeline features only</h3><p>User-defined settings within what the pipeline can do, with no interactive steps.</p></div>
+    <div class="card"><h3>ALMA data</h3><p>Cycle 5 and later, pipeline-calibrated only (how older data were archived). Sometimes fewer data are available for restores than expected. Cycle 5 data may need special settings and are then rerun by staff.</p></div>
+    <div class="card"><h3>VLA data</h3><p>A calibration may exist but not be science quality (science-quality calibration since about June 2019, for some bands). Extra flagging may be needed. Images are often still usable thanks to <code>statwt</code>. Restores back to late 2016.</p></div>
+    <div class="card"><h3>Scripted access</h3><p>Queries of the NRAO archive metadata with VO protocols (science.nrao.edu/srdp, scripted access). Scripted downloads are not possible yet.</p></div>
+  </div>
+</section>
+<section class="slide" id="takeaway">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Takeaway</span>reference</p><h2>Which route for which case</h2></header>
+  <div class="cols l3">
+    <div class="tscroll"><table class="t">
+      <thead><tr><th>You want</th><th>Use</th></tr></thead>
+      <tbody>
+        <tr><td>a calibrated MS of a pipeline-calibrated project, Cycle 5 or later</td><td>SRDP restore on <code>data.nrao.edu</code> (Download Restored MS)</td></tr>
+        <tr><td>a calibrated MS of your own recent project (NA PI)</td><td>added-value products from the project ticket (30 days)</td></tr>
+        <tr><td>a calibrated MS of manually calibrated or older data</td><td><code>scriptForPI.py</code> with the CASA of the QA2 report, or a Helpdesk ticket</td></tr>
+        <tr><td>new images: another resolution, channel range, or self-cal</td><td>AUDI (Re-Imaging on <code>data.nrao.edu</code>)</td></tr>
+        <tr><td>new pipeline images on your computer</td><td><code>scriptForReprocessing.py</code>, or the imaging stages of <code>casa_pipescript.py</code></td></tr>
+        <tr><td>bright lines in Cycle 7 or earlier data</td><td><code>hifa_renorm</code> on the restored data (Backup)</td></tr>
+        <tr><td>pipeline images of manually calibrated data</td><td>CASA guide: Imaging Pipeline Reprocessing for Manually Calibrated Data</td></tr>
+        <tr><td>extra flags, fluxes or antenna positions</td><td>re-run the calibration pipeline with the helper files</td></tr>
+        <tr><td>line or polarization self-cal, ephemeris targets that need a model</td><td>manual self-calibration (Part 6)</td></tr>
+      </tbody>
+    </table></div>
+    <div class="stack">
+    <div class="card"><h3>Defaults</h3><ul class="small">
+      <li><code>hifa_renorm</code>: <code>threshold=1.02</code></li>
+      <li><code>hif_checkproductsize</code>: cubes 40 GB, limit 60 GB, products 500 GB (350 in the scripts)</li>
+      <li><code>hif_selfcal</code>: <code>dividing_factor=15</code>, <code>minsnr_to_proceed=3.0</code>, <code>gaincal_minsnr=2.0</code>, <code>amplitude_selfcal=False</code></li>
+    </ul></div>
+    <div class="card"><h3>Links</h3><ul class="small">
+      <li><code>science.nrao.edu/srdp</code>: SRDP services and documentation</li>
+      <li><code>data.nrao.edu</code>: NRAO archive, AUDI</li>
+      <li><code>almascience.nrao.edu/processing/science-pipeline</code>: Pipeline User's Guide and Reference Manual</li>
+      <li><code>casaguides.nrao.edu</code>: ALMA Imaging Pipeline Reprocessing</li>
+      <li><code>help.almascience.org</code>: Helpdesk and knowledgebase</li>
+      <li><code>github.com/jjtobin/auto_selfcal</code>: standalone auto-selfcal</li>
+    </ul></div>
+    </div>
+  </div>
+</section>
+<section class="slide section" id="backup">
+  <p class="num">B</p>
+  <h2>Backup</h2>
+  <p>Extra material if there is time, or for later reading.</p>
+</section>
+<section class="slide" id="renormmore">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>hifa_renorm · details</p><h2>Renormalization: details</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>Cause</h3><ul>
+      <li>The correlator normalizes the cross-correlations by the autocorrelations.</li>
+      <li>Tsys is measured at a reference position off source (typically 2′ away).</li>
+      <li>Where the target's line emission adds power to the autocorrelations, the calibrated amplitudes are low by about T<sub>line</sub> / Tsys.</li>
+    </ul></div>
+    <div class="card"><h3>How hifa_renorm works</h3><ul>
+      <li>Target autocorrelations ÷ bandpass calibrator autocorrelations (assumed line-free).</li>
+      <li>Polynomial baseline up to 5th order, for differences in airmass and time.</li>
+      <li>Scaling spectrum per spw, scan, field, antenna and polarization, applied above <code>threshold=1.02</code>.</li>
+      <li>FDM spws only. Bands 9 and 10 rarely need it.</li>
+    </ul></div>
+    <div class="card"><h3>Older data</h3><ul>
+      <li>Check the QA2 report or weblog: was renormalization checked?</li>
+      <li>If not, run it on the restored data in <code>calibrated/working/</code> with the latest pipeline release (CASA 6.6.6 or later), then <code>applycal</code> its table.</li>
+      <li>Current CASA writes a calibration table, applied with <code>applycal</code>.</li>
+      <li>CASA guide ALMA Renormalization Correction, ALMA knowledgebase article 623.</li>
+    </ul></div>
+  </div>
+</section>
+<section class="slide" id="addedvalue">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>NA added-value products · Helpdesk</p><h2>Added-value products and Helpdesk tickets</h2></header>
+  <div class="cols">
+    <div class="stack">
+<pre class="code tight">calibrated_final/
+├── measurement_sets/
+│   ├── uid&lt;1&gt;*targets.ms
+│   └── uid&lt;N&gt;*targets.ms   <span class="c"># fully restored</span>
+├── caltables/
+├── cont.dat
+├── uid*SOURCE.uvcont.tbl
+├── scriptForReprocessing.py
+└── README</pre>
+      <ul class="small">
+        <li>All NA PIs receive added-value deliveries, through the project ticket.</li>
+        <li>The calibrated data are ready to use.</li>
+        <li>Recently observed projects only. Available for 30 days after the primary data delivery.</li>
+        <li>Since Cycle 9: <code>calibrated_final.tgz</code> includes <code>scriptForReprocessing.py</code>.</li>
+      </ul>
+    </div>
+    <div class="stack">
+      <div class="card"><h3>Helpdesk ticket</h3><ul>
+        <li>Older data need CASA 4 (sometimes CASA 5), which does not run on many new laptops and workstations.</li>
+        <li>SRDP restores go back to about Cycle 5 only.</li>
+        <li>Ask ALMA staff to calibrate the data for you at <code>help.almascience.org</code>.</li>
+      </ul></div>
+      <div class="card"><h3>Read more</h3><p>ALMA knowledgebase: what can I do with my NA added-value data products, and where to get more information about them.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" id="audisteps">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>AUDI · step by step</p><h2>An AUDI request step by step</h2></header>
+  <div class="grid3">
+    <div class="card"><h3>1 · Find the data</h3><ul>
+      <li><code>data.nrao.edu</code>, search box: the project code.</li>
+      <li>Open the project: title, abstract, PI, then tabs Observations and Images.</li>
+      <li>Observations: MOUS, start and stop, file size, array, angular resolution, band, EBs.</li>
+    </ul></div>
+    <div class="card"><h3>2 · The form</h3><ul>
+      <li>Re-Imaging: email, description, options (tar file, self-calibration, continuum, cube, calibrated MSs).</li>
+      <li>Field, Angular Resolution, SPW, then the spectral grid in frequency or velocity.</li>
+      <li>Validate Form, then Submit Request. Restore and imaging CASA versions are listed at the bottom.</li>
+    </ul></div>
+    <div class="card"><h3>3 · The products</h3><ul>
+      <li>The request page lists the projects, OUSs and EBs, and the progress.</li>
+      <li>An email with the download link: images, the weblog, calibrated MSs if requested.</li>
+      <li>View images in CARTA on <code>data.nrao.edu</code>.</li>
+    </ul></div>
+  </div>
+  <p class="small muted">Download Restored MS on the same row gives the calibrated MS without new images.</p>
+</section>
+<section class="slide" id="quiz">
+  <header class="hd"><p class="eyebrow"><span class="tag check">Check</span>discussion</p><h2>Four questions</h2></header>
+  <ol class="quiz">
+    <li>Your Cycle 6 Band 6 cube of a hot core shows strong CH₃OH lines. The QA2 report does not mention renormalization. What do you do?<details><summary>Answer</summary>Run the renormalization assessment on the restored data. Lines that are bright in the autocorrelations may be several percent too faint. If the scaling exceeds 1.02, apply the correction table before imaging.</details></li>
+    <li>The weblog cube has channels twice as wide as the spw's channels, and the field is smaller than the primary beam. Why?<details><summary>Answer</summary><code>hif_checkproductsize</code> mitigated a cube above 40 GB: steps 1a (nbin=2) and 1b (PB level above 0.2). For full products use AUDI, <code>scriptForReprocessing.py</code> with <code>mitigate=False</code>, or the tclean call in <code>casa_commands.log</code>.</details></li>
+    <li><code>hifa_imageprecheck</code> chose robust = 2.0 with QA score 0.25. What does that tell you?<details><summary>Answer</summary>No robust value gave a beam in the requested range, and all predicted beams were too small. The data have higher resolution than requested. A uvtaper can bring the beam into the range (AUDI may compute one, or use <code>uvtaper</code> in your own tclean).</details></li>
+    <li>Auto-selfcal reports success, but spokes around the bright source do not go away. What could cause it?<details><summary>Answer</summary>Large phase errors put artifacts into the first model, and self-cal then fitted the data to them. Rerun from DATA with a lower <code>dividing_factor</code> (e.g. 3) in <code>hif_selfcal</code> or the standalone tool.</details></li>
+  </ol>
+</section>
+
+</main>
+<script src="assets/sim.js"></script>
+<script src="assets/viz.js"></script>
+<script src="assets/kit.js"></script>
+<script>
+'use strict';
+const S = Sim, V = Viz, K = Kit;
+const $ = (el, q) => el.querySelector(q), $$ = (el, q) => Array.from(el.querySelectorAll(q));
+const canv = s => { const o = {}; $$(s, 'canvas[data-k]').forEach(c => { o[c.dataset.k] = c; }); return o; };
+const wrap = x => Math.atan2(Math.sin(x), Math.cos(x));
+const gline = (x, c, w) => Math.exp(-0.5 * Math.pow((x - c) / w, 2));
+const ring = (ctx, m, x, y, r) => [[4, '--slide'], [1.6, '--ink']].forEach(([w, c]) => { ctx.lineWidth = w; ctx.strokeStyle = V.css(c); ctx.beginPath(); ctx.arc(m.X(x), m.Y(y), r * m.k, 0, 2 * Math.PI); ctx.stroke(); });
+
+window.DEMOS = {
+  titleArt(s) {
+    const n = 600, x = [], y = [], r = S.rng(3);
+    const L = [[60, 0.5, 5], [140, 1, 8], [190, 0.35, 4], [300, 0.85, 13], [345, 0.25, 4], [430, 0.6, 6], [520, 0.4, 9]];
+    for (let i = 0; i < n; i++) { let v = 0.2 + 0.0002 * i; L.forEach(([c, a, w]) => { v += a * gline(i, c, w); }); x.push(i); y.push(v + 0.012 * r.normal()); }
+    V.plot($(s, 'canvas'), { x: { min: 0, max: n - 1 }, y: { min: 0, max: 1.3 }, axes: false, legend: false,
+      spans: [[0, 40], [90, 118], [220, 272], [372, 404], [460, 494], [556, 599]].map(([a, b]) => ({ x0: a, x1: b })),
+      series: [{ type: 'step', x, y, color: '--s1', width: 1.4 }] });
+  },
+
+  renorm(s) {
+    const cv = canv(s), NCH = 480, ch = Array.from({ length: NCH }, (_, i) => i), TSYS = { 3: 75, 6: 100, 7: 150 };
+    const prof = ch.map(i => gline(i, 250, 22) + 0.35 * gline(i, 110, 12));           // the same line shape in auto- and cross-correlations
+    const r = S.rng(8), nA = ch.map(() => 0.0015 * r.normal()), nX = ch.map(() => 0.015 * r.normal());
+    const base = ch.map(i => { const t = i / (NCH - 1) - 0.5; return 1 + 0.02 * t - 0.04 * t * t + 0.03 * t * t * t; });   // airmass and time differences, removed by the baseline fit
+    const ro = V.readouts($(s, '.ro'), [{ k: 'mx', label: 'Max scaling' }, { k: 'pk', label: 'Line peak error' }, { k: 'ap', label: 'Correction' }]);
+    V.call($(s, '.ctl'), 'hifa_renorm', [
+      { k: 'createcaltable', type: 'toggle', value: true },
+      { k: 'threshold', v: '1.02' },
+      { k: 'ta', label: 'line in the autocorrelation', type: 'range', min: 0, max: 20, step: 0.5, value: 10, fmt: v => v + ' K', scenario: true },
+      { k: 'band', label: 'band (Tsys)', type: 'choice', options: [3, 6, 7], labels: ['3 (75 K)', '6 (100 K)', '7 (150 K)'], value: 6, fmt: v => v + ` (Tsys ${TSYS[v]} K)`, scenario: true }
+    ], v => {
+      const ts = TSYS[v.band], truth = prof.map(p => 1 + v.ta * p / ts), raw = truth.map((q, i) => q * base[i] + nA[i]), scal = raw.map((q, i) => q / base[i]);
+      const mx = Math.max(...scal), apply = v.createcaltable && mx > 1.02;
+      const obs = prof.map((p, i) => p / truth[i] + nX[i]), fixd = obs.map((o, i) => o * scal[i]);   // the whole scaling spectrum, once its maximum exceeds the threshold
+      V.plot(cv.ac, { x: { min: 0, max: NCH - 1, label: 'channel' }, y: { min: 0.97, max: 1.3, label: 'ratio' }, legend: false,
+        hlines: [{ y: 1.02, color: '--axis', dash: [4, 4], label: 'threshold 1.02' }],
+        series: [{ type: 'line', x: ch, y: raw, color: '--s7', width: 1.2 }, { type: 'line', x: ch, y: base, color: '--ink', dash: [5, 4], width: 1.5 },
+          { type: 'line', x: ch, y: scal, color: '--s1', width: 1.8, label: 'scaling spectrum' }] });
+      const ser = [{ type: 'line', x: ch, y: prof, color: '--axis', dash: [5, 4], width: 1.6, label: 'true' }, { type: 'line', x: ch, y: obs, color: '--s2', width: 1.6, label: 'calibrated' }];
+      if (apply) ser.push({ type: 'line', x: ch, y: fixd, color: '--s1', width: 1.6, label: 'renormalized' });
+      V.plot(cv.xc, { x: { min: 0, max: NCH - 1, label: 'channel' }, y: { min: -0.1, max: 1.15, label: 'amplitude / true peak' }, series: ser });
+      const pk = 1 / truth[250] - 1;
+      ro.set('mx', mx.toFixed(3), mx > 1.02 ? 'warn' : 'good');
+      ro.set('pk', (pk * 100).toFixed(0) + '%' + (apply ? ' → 0%' : ''), Math.abs(pk) < 0.02 || apply ? 'good' : 'bad');
+      ro.set('ap', apply ? 'applied' : mx > 1.02 ? 'assessed only' : 'not needed', apply || mx <= 1.02 ? 'good' : 'warn');
+    });
+  },
+
+  audi(s) {
+    const SP = { freq: { rl: false, rf: '(optional)', st: '230.431 GHz', wd: '488.3 kHz', nc: '480', en: '230.665 GHz' },
+                 vel: { rl: true, rf: '230.538 GHz', st: '−100 km/s', wd: '0.635 km/s', nc: '100', en: '−36.5 km/s' } };
+    const set = k => { const o = SP[k]; ['rf', 'st', 'wd', 'nc', 'en'].forEach(f => { $(s, `[data-f="${f}"]`).textContent = o[f]; }); $(s, '[data-f="rl"]').classList.toggle('req', o.rl);
+      $$(s, '[data-sp]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.sp === k))); };
+    $$(s, '[data-sp]').forEach(b => b.addEventListener('click', () => set(b.dataset.sp)));
+    set('freq');
+  },
+
+  precheck(s) {
+    const cv = canv(s), N = 256, cell = 0.05, RB = [0, 0.5, 1, 2], PREF = [0.5, 0, 1, 2];
+    const B = K.memo('pc-beams', () => {
+      const tr = S.uvTracks(S.config('C-4'), { freq: 230, dec: -30, ha0: -0.5, ha1: 0.5, dt: 60 });
+      const d = S.observe(tr, [{ type: 'point', flux: 0.01 }], { sigma: S.sigmaVis(6, 7.5e9, 60), seed: 4 });
+      return RB.map(r => { const im = S.image(d, { N, cell, weighting: 'briggs', robust: r }); return { r, beam: im.beam, g: Math.sqrt(im.beam.maj * im.beam.min), sigma: im.sigma, psf: im.psf }; });
+    });
+    const g = B.map(b => b.g), r2 = x => Math.round(x * 100) / 100;
+    const RANGES = {   // requested ranges placed around the simulated beams, so that each outcome occurs
+      wide: [r2(g[0] - 0.02), r2(g[2] + 0.01)], fine: [r2(g[0] - 0.05), r2((g[0] + g[1]) / 2)], coarse: [r2((g[1] + g[2]) / 2), r2(g[3] + 0.04)],
+      tooCoarse: [r2(1.25 * g[3]), r2(1.55 * g[3])], tooFine: [r2(0.6 * g[0]), r2(0.85 * g[0])] };
+    const KEYS = Object.keys(RANGES), lab = k => `${RANGES[k][0].toFixed(2)}–${RANGES[k][1].toFixed(2)}″`;
+    const pick = ([lo, hi]) => {           // Hunter et al. 2023: closest to +0.5 with the beam area in range; none: +2 if too small, 0 if too large
+      const ok = PREF.filter(r => { const a = B[RB.indexOf(r)].beam, A = a.maj * a.min; return A >= lo * lo && A <= hi * hi; });
+      if (ok.length) return { r: ok[0], qa: ok[0] === 0.5 ? 1.0 : 0.85 };
+      return { r: B.every(b => b.beam.maj * b.beam.min < lo * lo) ? 2 : 0, qa: 0.25 };
+    };
+    const ro = V.readouts($(s, '.ro'), [{ k: 'r', label: 'Chosen robust' }, { k: 'qa', label: 'QA score' }, { k: 'bm', label: 'Beam' }, { k: 'ns', label: 'Noise vs robust 2' }]);
+    const sig2 = B[3].sigma, fmtR = r => r.toFixed(1);
+    V.call($(s, '.ctl'), 'hifa_imageprecheck', [
+      { k: 'desired_angular_resolution', v: "''" },
+      { k: 'range', label: 'requested range', type: 'choice', options: KEYS, labels: KEYS.map(lab), value: 'wide', fmt: lab, scenario: true }
+    ], v => {
+      const [lo, hi] = RANGES[v.range], p = pick([lo, hi]), b = B[RB.indexOf(p.r)];
+      V.plot(cv.bm, { x: { min: -0.8, max: 2.25, ticks: [0, 0.5, 1, 2], fmt: fmtR, label: 'robust' }, y: { min: 0.15, max: 0.8, label: 'beam, √(major × minor) (″)' }, legend: false,
+        hlines: [{ y: lo, color: '--s6', dash: [5, 4], label: 'min ' + lo.toFixed(2) + '″' }, { y: hi, color: '--s6', dash: [5, 4], label: 'max ' + hi.toFixed(2) + '″' }],
+        series: [{ type: 'line', x: RB, y: g, color: '--s1', width: 1.6, dots: 3.5 }, { type: 'scatter', x: [p.r], y: [b.g], size: 12, color: '--s2' }] });
+      V.plot(cv.ns, { x: { min: -0.8, max: 2.25, ticks: [0, 0.5, 1, 2], fmt: fmtR, label: 'robust' }, y: { min: 0.9, max: 1.6, label: 'σ / σ(2)' }, legend: false,
+        series: [{ type: 'line', x: RB, y: B.map(q => q.sigma / sig2), color: '--s1', width: 1.6, dots: 3.5 }, { type: 'scatter', x: [p.r], y: [b.sigma / sig2], size: 12, color: '--s2' }] });
+      V.image(cv.psf, b.psf, N, { cell, crop: 64, cmap: 'rdbu', vmin: -0.35, vmax: 0.35, beam: b.beam });
+      ro.set('r', fmtR(p.r)); ro.set('qa', p.qa.toFixed(2), p.qa === 1 ? 'good' : p.qa > 0.5 ? 'warn' : 'bad');
+      ro.set('bm', K.beamStr(b.beam)); ro.set('ns', '×' + (b.sigma / sig2).toFixed(2));
+    });
+  },
+
+  prodsize(s) {
+    const cv = canv(s), MAXC = 40, LIM = 60, MAXP = 350, GHZ = { 3: 100, 6: 230, 7: 345 }, LIST = [480, 960, 1920, 3840];
+    const ro = V.readouts($(s, '.ro'), [{ k: 'im', label: 'Image size' }, { k: 'cell', label: 'Cell' }, { k: 'nb', label: 'nbins' }, { k: 'pb', label: 'Field to PB level' }, { k: 'tg', label: 'Targets imaged' }, { k: 'st', label: 'Result' }]);
+    const items = $$(s, '.cascade li');
+    // image width (pixels, even) out to the primary beam level L; sizes in GB (Hunter et al. 2023, eq. 10)
+    const width = (F, L, cell) => 2 * Math.ceil(F * Math.sqrt(Math.log(1 / L) / (4 * Math.LN2)) / cell);
+    const LBL = ['start', '1a', '1b', '1c', '2'];
+    V.call($(s, '.ctl'), 'hif_checkproductsize', [
+      { k: 'maxcubesize', v: '40.0' }, { k: 'maxcubelimit', v: '60.0' }, { k: 'maxproductsize', v: '350.0' },
+      { k: 'mitigate', label: 'mitigate', type: 'toggle', value: true, scenario: true },
+      { k: 'obs', label: 'beam', type: 'choice', options: ['6:1', '6:0.3', '6:0.1', '6:0.04', '3:0.04'], labels: ['1″', '0.3″', '0.1″', '0.04″', 'B3 0.04″'], value: '6:0.1', fmt: v => v.split(':')[1] + '″, Band ' + v.split(':')[0], scenario: true },
+      { k: 'nchan', label: 'channels per spw', type: 'choice', options: ['480', '1920', '3840', '1920a'], labels: ['480', '1920', '3840', '1920 averaged'], value: '3840', fmt: v => v.replace('a', ' (online-averaged)'), scenario: true },
+      { k: 'targets', label: 'targets, 4 spws each', type: 'choice', options: [1, 5, 40], value: 5, quote: false, scenario: true }
+    ], v => {
+      v.band = +v.obs.split(':')[0]; v.beam = +v.obs.split(':')[1]; v.spws = 4;
+      const F = S.pbFWHM(GHZ[v.band]), nch = parseInt(v.nchan), online = v.nchan.endsWith('a'), binnable = !online && LIST.includes(nch);
+      let L = 0.2, ppb = 5, nb = 1, nt = v.targets, large = v.spws, msg = 'products made', state = 'good';
+      const on = new Set();
+      const sz = () => { const n = width(F, L, v.beam / ppb), c = 4 * n * n * nch / nb / 1e9; return { n, c, p: 2 * (4 * n * n / 1e9 + c) * v.spws * nt }; };
+      let z = sz(); const hist = [z];
+      if (v.mitigate) {
+        if (z.c > MAXC && binnable) { nb = 2; on.add('1a'); } z = sz(); hist.push(z);
+        if (z.c > MAXC) { L = Math.round(Math.min(1.02 * Math.exp(Math.log(0.2) * MAXC / z.c), 0.7) * 100) / 100; on.add('1b'); } z = sz(); hist.push(z);
+        if (z.c > MAXC) { ppb = 3; on.add('1c'); } z = sz(); hist.push(z);
+        if (z.c > LIM) { on.add('1d'); msg = 'error: cube cannot be mitigated'; state = 'bad'; }
+        else if (z.p > MAXP) {
+          on.add('2');
+          if (nt > 1) { nt = Math.max(1, Math.floor(MAXP / (z.p / nt))); z = sz(); }
+          if (z.p > MAXP && binnable && nb === 1) { nb = 2; z = sz(); }
+          if (z.p > MAXP && L < 0.7) { L = Math.round(Math.min(Math.max(L, 1.02 * Math.exp(Math.log(L) * MAXP / z.p)), 0.7) * 100) / 100; z = sz(); }
+          if (z.p > MAXP && ppb > 3) { ppb = 3; z = sz(); }
+          if (z.p > MAXP) { msg = 'error: products cannot be mitigated'; state = 'bad'; }
+        }
+        hist.push(z);
+        if (state !== 'bad' && v.spws > 1 && z.c > 0.5 * LIM) { large = 1; on.add('3'); }
+        if (state !== 'bad' && nt > 30 && nch * v.spws > 960) { on.add('4'); if (state === 'good') { msg = 'made, long run time'; state = 'warn'; } }
+        if (state === 'good' && on.size) { msg = 'mitigated products made'; state = 'warn'; }
+      } else { hist.push(z, z, z, z); msg = z.c > LIM || z.p > MAXP ? 'full size, over the limits' : 'products made'; state = z.c > LIM || z.p > MAXP ? 'bad' : 'good'; }
+      const xs = [0, 1, 2, 3, 4];
+      V.plot(cv.sz, { x: { min: -0.3, max: 4.3, ticks: xs, fmt: i => LBL[i], label: 'mitigation step' }, y: { min: 0.01, max: 3e6, log: true, label: 'size (GB)' }, legendPos: 'left',
+        hlines: [{ y: MAXC, color: '--s1', dash: [5, 4] }, { y: LIM, color: '--s1', dash: [2, 3] }, { y: MAXP, color: '--s5', dash: [5, 4] }],
+        series: [{ type: 'line', x: xs, y: hist.map(h => h.c), color: '--s1', width: 2, dots: 3.5, label: 'largest cube' }, { type: 'line', x: xs, y: hist.map(h => h.p), color: '--s5', width: 2, dots: 3.5, label: 'all products' }] });
+      items.forEach(li => { li.dataset.on = on.has(li.dataset.s) ? (li.dataset.s === '1d' ? 'err' : '1') : ''; });
+      ro.set('im', `${z.n} × ${z.n}`); ro.set('cell', `${(v.beam / ppb).toFixed(3)}″ (${ppb} per beam)`); ro.set('nb', String(nb), nb > 1 ? 'warn' : '');
+      ro.set('pb', L.toFixed(2), L > 0.2 ? 'warn' : ''); ro.set('tg', `${nt} of ${v.targets}` + (large < v.spws ? `, 1 of ${v.spws} cubes` : ''), nt < v.targets || large < v.spws ? 'warn' : '');
+      ro.set('st', msg, state);
+    });
+  },
+
+  divfac(s) {
+    const cv = canv(s), N = 256, CELL = 0.05, FLUX = 0.02, RMS = 60;
+    const D = K.memo('df-data', () => {      // a 20 mJy point in C-4 at Band 6, 1 h, constant antenna phase offsets (60° rms)
+      const cfg = S.config('C-4'), tr = S.uvTracks(cfg, { freq: 230, dec: -30, ha0: -0.5, ha1: 0.5, dt: 60 }), na = cfg.nAnt, r = S.rng(21);
+      const ph = Float64Array.from({ length: na }, () => r.normal() * RMS * S.DEG); ph[0] = 0;
+      const g = { re: new Float64Array(tr.nt * na), im: new Float64Array(tr.nt * na) };
+      for (let j = 0; j < tr.nt; j++) for (let a = 0; a < na; a++) { g.re[j * na + a] = Math.cos(ph[a]); g.im[j * na + a] = Math.sin(ph[a]); }
+      const d = S.observe(tr, [{ type: 'point', flux: FLUX }], { sigma: S.sigmaVis(6, 7.5e9, 60), seed: 4, gains: g });
+      const im = S.image(d, { N, cell: CELL, weighting: 'briggs', robust: 0.5 });
+      return { d, ph, na, im, pk: S.max(im.dirty).v, ph0: Math.sqrt(ph.reduce((a, x) => a + x * x, 0) / (na - 1)) / S.DEG };
+    });
+    const MASK = S.circleMask(N, CELL, 5.5), OUT = S.circleMask(N, CELL, 1.0).map(x => 1 - x);
+    const run = df => K.memo('df:' + df, () => {
+      const { d, ph, na, im, pk } = D, rms = S.madRms(im.dirty, OUT), floor = pk / df < 5 * rms, thr = floor ? 5 * rms : pk / df, c = K.clean(im, { niter: 20000, threshold: thr, mask: MASK, gain: 0.1 });
+      let tot = 0, off = 0; for (let i = 0; i < N * N; i++) if (c.model[i]) { tot += Math.abs(c.model[i]); if (OUT[i]) off += Math.abs(c.model[i]); }
+      const m = S.predict(c.model, N, CELL, d.u, d.v), sol = S.solveGains(d, m.re, m.im, { solint: 'all', mode: 'p', refant: 0, minsnr: 3 });
+      let e2 = 0; for (let a = 1; a < na; a++) { const e = wrap(ph[a] - Math.atan2(sol.gim[a], sol.gre[a])); e2 += e * e; }
+      const im1 = S.image(S.applyGains(d, sol, 'calflag'), { N, cell: CELL, weighting: 'briggs', robust: 0.5 });
+      const c1 = K.clean(im1, { niter: 20000, threshold: 3 * im1.sigma, mask: MASK, gain: 0.1 }), p1 = S.max(c1.restored).v;
+      const above = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) above[i] = MASK[i] && im.dirty[i] > thr ? 1 : 0;
+      return { thr, floor, pre: c.restored.map(x => x / FLUX), mod: S.smoothModel(c.model, N, CELL, im.beam).map(x => x / FLUX), post: c1.restored.map(x => x / FLUX),
+        above, off: off / tot, err: Math.sqrt(e2 / (na - 1)) / S.DEG, dr: p1 / S.madRms(c1.restored, OUT), beam: im.beam, beam1: im1.beam };
+    });
+    const ro = V.readouts($(s, '.ro'), [{ k: 'thr', label: 'First clean threshold' }, { k: 'off', label: 'Model flux outside the circle' }, { k: 'err', label: 'Phase error left' }, { k: 'dr', label: 'Peak / rms after' }]);
+    const SC = { cell: CELL, crop: 160, vmin: -0.04, vmax: 0.16 };
+    V.call($(s, '.ctl'), 'hif_selfcal', [
+      { k: 'dividing_factor', type: 'choice', options: [15, 4, 3, 1.5], value: 15, quote: false },
+      { k: 'offsets', label: 'phase offsets', v: '60° rms', scenario: true }
+    ], v => {
+      const q = run(v.dividing_factor), circ = (ctx, m) => ring(ctx, m, 0, 0, 1.0);
+      V.image(cv.pre, q.pre, N, Object.assign({ beam: q.beam, mask: q.above }, SC));
+      V.image(cv.mod, q.mod, N, Object.assign({ beam: q.beam, overlay: circ }, SC));
+      V.image(cv.post, q.post, N, Object.assign({ beam: q.beam1, cbar: { label: 'fraction of true peak', scale: 1 } }, SC));
+      ro.set('thr', K.mJy(q.thr) + (q.floor ? ' = 5 × rms' : ' = peak / ' + v.dividing_factor));
+      ro.set('off', K.pct(q.off), q.off > 0.2 ? 'bad' : q.off > 0.05 ? 'warn' : 'good');
+      ro.set('err', `${D.ph0.toFixed(0)}° → ${q.err.toFixed(0)}°`, q.err > 10 ? 'bad' : q.err > 3 ? 'warn' : 'good');
+      ro.set('dr', q.dr.toFixed(0), q.dr > 1000 ? 'good' : q.dr > 400 ? 'warn' : 'bad');
+    });
+  },
+
+  longbl(s) {
+    const cv = canv(s), cfg = S.config('C-6'), na = cfg.nAnt, NSOL = 8, LAM = S.C / 230e9, FW = 0.25 * S.AS, MINSNR = 2, KS = 90, RMAX = 1500;
+    const me = cfg.e.reduce((a, b) => a + b) / na, mn = cfg.n.reduce((a, b) => a + b) / na, off = cfg.e.map((e, i) => Math.hypot(e - me, cfg.n[i] - mn));
+    const kk = Math.PI * Math.PI / (4 * Math.LN2), sig = S.sigmaVis(6, 7.5e9, 60);
+    const amp = (i, j) => Math.exp(-kk * Math.pow(FW * Math.hypot(cfg.e[i] - cfg.e[j], cfg.n[i] - cfg.n[j]) / LAM, 2));   // visibility per Jy
+    const W = K.memo('lb-w', () => off.map((_, i) => { let s2 = 0; for (let j = 0; j < na; j++) if (j !== i) s2 += amp(i, j) * amp(i, j); return Math.sqrt(s2); }));
+    const rnd = S.rng(12), NZ = Array.from({ length: na * NSOL }, () => [rnd.normal(), rnd.normal()]);
+    const grid = Array.from({ length: RMAX / 10 + 1 }, (_, i) => 10 * i);
+    const ro = V.readouts($(s, '.ro'), [{ k: 'rc', label: 'Flagging rises at' }, { k: 'n', label: 'Antennas set to 1+0j' }, { k: 'fl', label: 'Data flagged, before → after reset' }]);
+    V.call($(s, '.ctl'), 'gaincal', [
+      { k: 'solint', v: "'60s'" }, { k: 'minsnr', v: '2.0', note: 'gaincal_minsnr' },
+      { k: 'flux', label: 'source flux', type: 'range', min: 2.5, max: 15, step: 0.5, value: 4, fmt: v => v + ' mJy', scenario: true }
+    ], v => {
+      // measured S/N of each solution: the antenna's expected S/N plus complex noise (Rician)
+      const fl = W.map((w, a) => { const t = v.flux * 1e-3 * w / sig; let n = 0; for (let k = 0; k < NSOL; k++) { const z = NZ[a * NSOL + k]; if (Math.hypot(t + z[0], z[1]) < MINSNR) n++; } return n / NSOL; });
+      const flag = (a, k) => { const t = v.flux * 1e-3 * W[a] / sig, z = NZ[a * NSOL + k]; return Math.hypot(t + z[0], z[1]) < MINSNR; };
+      const sm = grid.map(x => { let sw = 0, sf = 0; off.forEach((o, a) => { const w = Math.exp(-0.5 * Math.pow((x - o) / KS, 2)); sw += w; sf += w * fl[a]; }); return sf / sw; });
+      const vel = sm.map((_, i) => (sm[Math.min(i + 1, sm.length - 1)] - sm[Math.max(i - 1, 0)]) / 20), acc = vel.map((_, i) => (vel[Math.min(i + 1, vel.length - 1)] - vel[Math.max(i - 1, 0)]) / 20);
+      const vmax = Math.max(...vel.map(Math.abs)) || 1, amax = Math.max(...acc.map(Math.abs)) || 1;
+      let iv = 0; vel.forEach((x, i) => { if (x > vel[iv]) iv = i; });
+      let rc = null;
+      if (vel[iv] > 2e-4 && sm[sm.length - 1] - Math.min(...sm) > 0.2) { let ia = 0; for (let i = 0; i <= iv; i++) if (acc[i] > acc[ia]) ia = i; rc = grid[ia]; }
+      const fThr = rc === null ? 1 : sm[rc / 10], reset = off.map((o, a) => rc !== null && o > rc && fl[a] >= fThr);
+      const frac = rs => { let bad = 0, tot = 0; for (let k = 0; k < NSOL; k++) for (let i = 0; i < na; i++) for (let j = i + 1; j < na; j++) { tot++; if ((flag(i, k) && !rs[i]) || (flag(j, k) && !rs[j])) bad++; } return bad / tot; };
+      const pick = f => off.filter((_, a) => f(a)), pickF = f => fl.filter((_, a) => f(a));
+      const vl = rc === null ? [] : [{ x: rc, color: '--s2', dash: [5, 4], label: rc + ' m' }];
+      V.plot(cv.fl, { x: { min: 0, max: RMAX, label: 'antenna distance from the array centre (m)' }, y: { min: -0.05, max: 1.08, label: 'flagged fraction' }, vlines: vl, hlines: rc === null ? [] : [{ y: fThr, color: '--s2', dash: [2, 3] }], legendPos: 'left',
+        series: [{ type: 'line', x: grid, y: sm, color: '--ink', width: 1.6 }, { type: 'scatter', x: pick(a => !reset[a]), y: pickF(a => !reset[a]), size: 7, color: '--s1', label: 'calibrated' },
+          { type: 'scatter', x: pick(a => reset[a]), y: pickF(a => reset[a]), size: 7, color: '--s2', label: 'set to 1+0j' }] });
+      V.plot(cv.dv, { x: { min: 0, max: RMAX, label: 'antenna distance from the array centre (m)' }, y: { min: -1.1, max: 1.1, label: 'normalized' }, vlines: vl, hlines: [{ y: 0, color: '--axis' }], legendPos: 'left',
+        series: [{ type: 'line', x: grid, y: vel.map(x => x / vmax), color: '--s4', width: 1.6, label: 'rate of change' }, { type: 'line', x: grid, y: acc.map(x => x / amax), color: '--s5', width: 1.6, label: 'acceleration' }] });
+      const nr = reset.filter(Boolean).length, f0 = frac(off.map(() => false)), f1 = frac(reset);
+      ro.set('rc', rc === null ? 'no rise' : rc + ' m'); ro.set('n', nr + ' of ' + na, nr ? 'warn' : 'good');
+      ro.set('fl', K.pct(f0) + ' → ' + K.pct(f1), f1 < 0.1 ? 'good' : f1 < 0.3 ? 'warn' : 'bad');
+    });
+  }
+};
+</script>
+<script src="assets/deck.js"></script>
+</body>
+</html>
