@@ -381,15 +381,18 @@
 <section class="slide" id="fa-inspect">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Getting oriented: listobs and uv coverage</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight"><span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
+    <div class="stack"><pre class="code tight">from casatasks import listobs
+from casaplotms import plotms
+
+<span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
         <span class="k">listfile</span>=<span class="s">'twhya_listobs.txt'</span>, <span class="k">overwrite</span>=True)
 
 <span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>,
-       <span class="k">xaxis</span>=<span class="em">'u'</span>, <span class="k">yaxis</span>=<span class="em">'v'</span>,                  <span class="c"># metres</span>
+       <span class="k">xaxis</span>=<span class="s">'u'</span>, <span class="k">yaxis</span>=<span class="s">'v'</span>,                  <span class="c"># metres</span>
        <span class="k">avgchannel</span>=<span class="s">'10000'</span>, <span class="k">avgtime</span>=<span class="s">'1e9'</span>,     <span class="c"># average everything</span>
        <span class="k">avgspw</span>=False, <span class="k">avgscan</span>=False,
        <span class="k">coloraxis</span>=<span class="s">'field'</span>,                     <span class="c"># one colour per field</span>
-       <span class="k">showgui</span>=False, <span class="k">plotfile</span>=<span class="s">'uv.png'</span>,  <span class="c"># Jupyter: save a PNG</span>
+       <span class="k">showgui</span>=False, <span class="k">plotfile</span>=<span class="s">'uv.png'</span>,      <span class="c"># save a PNG</span>
        <span class="k">overwrite</span>=True)</pre></div>
     <div class="stack">
       <ul>
@@ -404,7 +407,9 @@
 <section class="slide" id="fa-grid">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Choosing cell and imsize from the data</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight">tb = <span class="f">tabletool</span>(); tb.<span class="f">open</span>(VIS)
+    <div class="stack"><pre class="code tight">import numpy as np
+from casatools import table
+tb = <span class="f">table</span>(); tb.<span class="f">open</span>(<span class="s">'twhya_calibrated.ms'</span>)
 uvw = tb.<span class="f">getcol</span>(<span class="s">'UVW'</span>)
 flag_row = tb.<span class="f">getcol</span>(<span class="s">'FLAG_ROW'</span>); tb.<span class="f">close</span>()
 lam = 299792458.0 / 372.65e9                  <span class="c"># wavelength, m</span>
@@ -412,8 +417,9 @@ lam = 299792458.0 / 372.65e9                  <span class="c"># wavelength, m</s
 umax = np.hypot(uvw[0], uvw[1])[~flag_row].max() / lam
 cell = 206265.0 / umax / <span class="em">5</span>                    <span class="c"># ″, 5 pixels per beam</span>
 pb = 6300.0 / 372.65                          <span class="c"># ″, 12-m PB FWHM</span>
-imsize = <span class="em">1.5</span> * pb / 0.1                       <span class="c"># ≈ 254, use 250</span></pre><ul>
-        <li>Read the longest <b>unflagged</b> projected baseline from the data: the "Optional check of the cell-size rule of thumb" cell prints 368 m = 458 kλ. First Look reads ≈ 429 kλ off an Amp vs UVwave plot of Ceres (field 2), so beam ≈ 0.48″. Cell ≈ 0.1″ in both cases.</li>
+imsize = <span class="em">1.5</span> * pb / 0.1                       <span class="c"># ≈ 254, use 250</span>
+print(umax, cell, imsize)</pre><ul>
+        <li>Read the longest <b>unflagged</b> projected baseline from the data: the code prints umax ≈ 4.6 × 10⁵ λ (458 kλ = 368 m), cell 0.090″, imsize 254. First Look reads ≈ 429 kλ off an Amp vs UVwave plot of Ceres (field 2), so beam ≈ 0.48″. Cell ≈ 0.1″ in both cases.</li>
         <li>Coarser cells lose the long baselines. Finer cells only cost time.</li>
         <li>tclean's log warns when <code>imsize</code> is slow to FFT and suggests a better size.</li>
       </ul></div>
@@ -433,11 +439,13 @@ imsize = <span class="em">1.5</span> * pb / 0.1                       <span clas
 <section class="slide" id="fa-dirty">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>The dirty image and tclean products</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight"><span class="f">tclean</span>(<span class="k">vis</span>=VIS, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
-       <span class="k">field</span>=<span class="em">'5'</span>, <span class="k">spw</span>=<span class="s">''</span>,                       <span class="c"># TW Hya, all channels</span>
+    <div class="stack"><pre class="code tight">from casatasks import tclean
+
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
+       <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">spw</span>=<span class="s">''</span>,                       <span class="c"># TW Hya, all channels</span>
        <span class="k">specmode</span>=<span class="s">'mfs'</span>, <span class="k">gridder</span>=<span class="s">'standard'</span>,
        <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>,                    <span class="c"># Δν/ν ≈ 0.06% &lt; 10%</span>
-       <span class="k">imsize</span>=<span class="em">[250, 250]</span>, <span class="k">cell</span>=<span class="em">['0.1arcsec']</span>,
+       <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=[<span class="s">'0.1arcsec'</span>],
        <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=0.5,
        <span class="k">niter</span>=<span class="em">0</span>, <span class="k">interactive</span>=False)              <span class="c"># 0 = dirty image</span></pre><ul>
         <li><b>You should see</b> a blob at the centre (TW Hya) and ripples around it, the PSF sidelobes (nothing is deconvolved yet).</li>
@@ -462,10 +470,12 @@ imsize = <span class="em">1.5</span> * pb / 0.1                       <span clas
 <section class="slide" id="fa-clean">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Cleaning: threshold and auto-multithresh</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight">rms = <span class="em">7.32</span>      <span class="c"># mJy/beam, off-source box in CARTA</span>
-threshold = <span class="em">2</span> * rms  <span class="c"># ≈ 15 mJy</span>
-<span class="f">tclean</span>(<span class="k">vis</span>=VIS, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
-       <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=<span class="s">['0.1arcsec']</span>,
+    <div class="stack"><pre class="code tight">from casatasks import tclean
+
+rms = 7.32      <span class="c"># mJy/beam, off-source box in CARTA</span>
+threshold = 2 * rms  <span class="c"># ≈ 15 mJy</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
+       <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=[<span class="s">'0.1arcsec'</span>],
        <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=0.5,
        <span class="k">niter</span>=<span class="em">5000</span>, <span class="k">threshold</span>=<span class="em">'20mJy'</span>,         <span class="c"># first try; 15 mJy next</span>
        <span class="k">usemask</span>=<span class="em">'auto-multithresh'</span>,
@@ -485,16 +495,20 @@ threshold = <span class="em">2</span> * rms  <span class="c"># ≈ 15 mJy</span>
 <section class="slide" id="fa-mask">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Adjusting the mask: noisethreshold</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight">quicklook(<span class="s">'twhya_cont.mask'</span>)                  <span class="c"># notebook helper</span>
-<span class="c"># a second island away from TW Hya: not a second disk</span>
+    <div class="stack"><pre class="code tight">import os
+from casatasks import tclean
+<span class="c"># first open twhya_cont.mask in CARTA: a second</span>
+<span class="c"># island away from TW Hya is not a second disk</span>
 
-cleanup(<span class="s">'twhya_cont'</span>)                         <span class="c"># rm -rf twhya_cont.*</span>
-<span class="f">tclean</span>(..., <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
+os.system(<span class="s">'rm -rf twhya_cont.*'</span>)              <span class="c"># else tclean continues</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>, <span class="k">imagename</span>=<span class="s">'twhya_cont'</span>,
+       <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=[<span class="s">'0.1arcsec'</span>],
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=0.5, <span class="k">niter</span>=5000,
        <span class="k">threshold</span>=<span class="em">'15mJy'</span>,                     <span class="c"># ≈ 2σ</span>
        <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,
        <span class="k">noisethreshold</span>=<span class="em">6.0</span>,                    <span class="c"># was 4.25</span>
        <span class="k">sidelobethreshold</span>=2.0, <span class="k">lownoisethreshold</span>=1.5,
-       <span class="k">minbeamfrac</span>=0.3, <span class="k">negativethreshold</span>=0.0)</pre></div>
+       <span class="k">minbeamfrac</span>=0.3, <span class="k">negativethreshold</span>=0.0, <span class="k">interactive</span>=False)</pre></div>
     <div class="stack">
       <ul>
         <li><b>Open the <code>.mask</code> after every run.</b> It should cover emission only.</li>
@@ -508,12 +522,23 @@ cleanup(<span class="s">'twhya_cont'</span>)                         <span class
 <section class="slide" id="fa-exp">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Experiment: change robust, then cell</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight"><span class="f">tclean</span>(..., <span class="k">imagename</span>=<span class="s">'twhya_cont_experiment1'</span>,
-       <span class="k">robust</span>=<span class="em">2.0</span>, ...)                       <span class="c"># was 0.5</span>
+    <div class="stack"><pre class="code tight">from casatasks import tclean
 
-<span class="f">tclean</span>(..., <span class="k">imagename</span>=<span class="s">'twhya_cont_experiment2'</span>,
-       <span class="k">cell</span>=<span class="em">['0.5arcsec']</span>,                    <span class="c"># was 0.1″</span>
-       <span class="k">robust</span>=2.0, ...)                       <span class="c"># as experiment1</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>, <span class="k">imagename</span>=<span class="s">'twhya_cont_experiment1'</span>,
+       <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=[<span class="s">'0.1arcsec'</span>],
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=<span class="em">2.0</span>,          <span class="c"># was 0.5</span>
+       <span class="k">niter</span>=5000, <span class="k">threshold</span>=<span class="s">'15mJy'</span>, <span class="k">interactive</span>=False,
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>, <span class="k">noisethreshold</span>=6.0,
+       <span class="k">sidelobethreshold</span>=2.0, <span class="k">lownoisethreshold</span>=1.5,
+       <span class="k">minbeamfrac</span>=0.3, <span class="k">negativethreshold</span>=0.0)
+
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_calibrated.ms'</span>, <span class="k">imagename</span>=<span class="s">'twhya_cont_experiment2'</span>,
+       <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=[<span class="em">'0.5arcsec'</span>],   <span class="c"># was 0.1″</span>
+       <span class="k">weighting</span>=<span class="s">'briggs'</span>, <span class="k">robust</span>=<span class="em">2.0</span>,          <span class="c"># as experiment1</span>
+       <span class="k">niter</span>=5000, <span class="k">threshold</span>=<span class="s">'15mJy'</span>, <span class="k">interactive</span>=False,
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>, <span class="k">noisethreshold</span>=6.0,
+       <span class="k">sidelobethreshold</span>=2.0, <span class="k">lownoisethreshold</span>=1.5,
+       <span class="k">minbeamfrac</span>=0.3, <span class="k">negativethreshold</span>=0.0)
 
 <span class="c"># compare each with the one before, on one colour scale</span></pre></div>
     <div class="stack">
@@ -530,15 +555,15 @@ cleanup(<span class="s">'twhya_cont'</span>)                         <span class
 <section class="slide" id="fa-export">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>TW Hya notebook</p><h2>Export to FITS and inspect in CARTA</h2></header>
   <div class="cols l3">
-    <div class="stack"><pre class="code tight"><span class="c"># fluxes need the primary-beam correction;</span>
-<span class="c"># uncomment the impbcor cell just above</span>
-<span class="c"># "Optional: export to FITS"</span>
+    <div class="stack"><pre class="code tight">from casatasks import impbcor, exportfits
+
+<span class="c"># fluxes need the primary-beam correction</span>
 <span class="f">impbcor</span>(<span class="k">imagename</span>=<span class="s">'twhya_cont.image'</span>,         <span class="c"># or pbcor=True in tclean</span>
         <span class="k">pbimage</span>=<span class="s">'twhya_cont.pb'</span>,              <span class="c"># (tclean: .image.pbcor)</span>
         <span class="k">outfile</span>=<span class="s">'twhya_cont.pbcor.image'</span>,
         <span class="k">overwrite</span>=True)
 
-<span class="c"># the exportfits cell lists one image: add the pbcor one</span>
+<span class="c"># .image for looking (flat noise), .pbcor.image for fluxes</span>
 for im in [<span class="s">'twhya_cont.image'</span>, <span class="em">'twhya_cont.pbcor.image'</span>]:
     <span class="f">exportfits</span>(<span class="k">imagename</span>=im, <span class="k">fitsimage</span>=im + <span class="s">'.fits'</span>,
                <span class="k">overwrite</span>=True)</pre></div>

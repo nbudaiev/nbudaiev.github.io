@@ -281,15 +281,19 @@ section[id^="fa-"] pre.code.tight { font-size: .86em; }   /* follow-along code: 
 <section class="slide" id="fa-data">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 1 · the data and its spectrum</p><h2>Amplitude vs channel: finding the line</h2></header>
   <div class="cols l3">
-<pre class="code tight"><span class="c"># TW Hya after self-calibration; the target is field 5</span>
-<span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>,
-        <span class="k">listfile</span>=<span class="s">'twhya_selfcal_listobs.txt'</span>)
+<pre class="code tight">from casatasks import listobs
+from casaplotms import plotms
 
-<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>, <span class="k">field</span>=<span class="em">'5'</span>,
-       <span class="k">xaxis</span>=<span class="em">'channel'</span>, <span class="k">yaxis</span>=<span class="em">'amp'</span>,
-       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=<span class="s">True</span>,   <span class="c"># all times</span>
-       <span class="k">avgbaseline</span>=<span class="s">True</span>,              <span class="c"># all baselines</span>
-       <span class="k">avgspw</span>=<span class="s">False</span>)
+<span class="c"># TW Hya after self-calibration; the target is field 5</span>
+<span class="f">listobs</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>,
+        <span class="k">listfile</span>=<span class="s">'twhya_selfcal_listobs.txt'</span>, <span class="k">overwrite</span>=True)
+
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
+       <span class="k">xaxis</span>=<span class="em">'channel'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>,
+       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=True,   <span class="c"># all times</span>
+       <span class="k">avgbaseline</span>=True,              <span class="c"># all baselines</span>
+       <span class="k">avgspw</span>=False, <span class="k">showgui</span>=False,   <span class="c"># save a PNG</span>
+       <span class="k">plotfile</span>=<span class="s">'twhya_spectrum.png'</span>, <span class="k">overwrite</span>=True)
 
 <span class="c"># then xaxis='frequency': the same spectrum in GHz</span></pre>
     <div class="stack">
@@ -301,16 +305,23 @@ section[id^="fa-"] pre.code.tight { font-size: .86em; }   /* follow-along code: 
 <section class="slide" id="fa-contsub">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 2 · subtract the continuum</p><h2>Continuum subtraction and check</h2></header>
   <div class="cols l3">
-<pre class="code tight"><span class="f">uvcontsub</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
+<pre class="code tight">import os
+from casatasks import uvcontsub
+from casaplotms import plotms
+
+<span class="c"># uvcontsub does not overwrite: delete the old output first</span>
+os.system(<span class="s">'rm -rf twhya_selfcal.ms.contsub'</span>)
+<span class="f">uvcontsub</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
           <span class="k">fitspec</span>=<span class="em">'0:0~239;281~383'</span>,  <span class="c"># not 240~280</span>
           <span class="k">fitorder</span>=<span class="em">0</span>,                 <span class="c"># a flat continuum</span>
           <span class="k">outputvis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>)
 
 <span class="c"># check: the same plot on the new MS</span>
-<span class="f">plotms</span>(<span class="k">vis</span>=<span class="em">'twhya_selfcal.ms.contsub'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
+<span class="f">plotms</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>, <span class="k">field</span>=<span class="s">'5'</span>,
        <span class="k">xaxis</span>=<span class="s">'frequency'</span>, <span class="k">yaxis</span>=<span class="s">'amp'</span>,
-       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=<span class="s">True</span>,
-       <span class="k">avgbaseline</span>=<span class="s">True</span>, <span class="k">avgspw</span>=<span class="s">False</span>)</pre>
+       <span class="k">avgtime</span>=<span class="s">'1e9'</span>, <span class="k">avgscan</span>=True,
+       <span class="k">avgbaseline</span>=True, <span class="k">avgspw</span>=False, <span class="k">showgui</span>=False,
+       <span class="k">plotfile</span>=<span class="s">'twhya_contsub.png'</span>, <span class="k">overwrite</span>=True)</pre>
     <div class="stack">
       <div class="card"><h3>What you should see</h3><ul><li>The line-free channels drop to a small level near zero (plotms shows amplitudes, and noise does not average to 0).</li><li>Only the N₂H⁺ line is left, with the same shape as before.</li><li><code>fitorder=0</code> is enough. Across this 234 MHz spw a dust spectrum (S ∝ ν<sup>2.5</sup>) changes by 0.16%.</li><li>CASA ≥ 6.5 uses <code>fitspec</code>. Old scripts use <code>fitspw</code> (now <code>uvcontsub_old</code>). Only <code>uvcontsub_old</code> can fit several spws together.</li></ul></div>
       <p class="try"><b>Demo</b>Part 5 · <a href="#contsub">continuum subtraction</a></p>
@@ -320,19 +331,21 @@ section[id^="fa-"] pre.code.tight { font-size: .86em; }   /* follow-along code: 
 <section class="slide" id="fa-tclean">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 3 · the cube</p><h2>specmode='cube': 15 channels of 0.5 km/s</h2></header>
   <div class="cols l3">
-<pre class="code tight"><span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>,
+<pre class="code tight">from casatasks import tclean
+
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>,
        <span class="k">imagename</span>=<span class="s">'twhya_n2hp'</span>, <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">spw</span>=<span class="s">'0'</span>,
        <span class="k">specmode</span>=<span class="em">'cube'</span>,
        <span class="k">restfreq</span>=<span class="em">'372.67249GHz'</span>, <span class="k">outframe</span>=<span class="s">'LSRK'</span>,
        <span class="k">start</span>=<span class="em">'0.0km/s'</span>, <span class="k">width</span>=<span class="em">'0.5km/s'</span>, <span class="k">nchan</span>=<span class="em">15</span>,
-       <span class="k">perchanweightdensity</span>=<span class="s">True</span>, <span class="k">weighting</span>=<span class="s">'briggsbwtaper'</span>,
-       <span class="k">robust</span>=<span class="s">0.5</span>, <span class="k">imsize</span>=<span class="s">[250, 250]</span>, <span class="k">cell</span>=<span class="s">'0.1arcsec'</span>,
-       <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>, <span class="k">niter</span>=<span class="s">5000</span>,
-       <span class="k">usemask</span>=<span class="em">'auto-multithresh'</span>,      <span class="c"># a mask per channel</span>
-       <span class="k">noisethreshold</span>=<span class="s">4.25</span>, <span class="k">sidelobethreshold</span>=<span class="s">2.0</span>,
-       <span class="k">lownoisethreshold</span>=<span class="s">1.5</span>, <span class="k">minbeamfrac</span>=<span class="s">0.3</span>,
-       <span class="k">negativethreshold</span>=<span class="s">15.0</span>,          <span class="c"># pipeline value</span>
-       <span class="k">restoringbeam</span>=<span class="em">'common'</span>)</pre>
+       <span class="k">perchanweightdensity</span>=True, <span class="k">weighting</span>=<span class="s">'briggsbwtaper'</span>,
+       <span class="k">robust</span>=0.5, <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=<span class="s">'0.1arcsec'</span>,
+       <span class="k">deconvolver</span>=<span class="s">'hogbom'</span>, <span class="k">niter</span>=5000,
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>,      <span class="c"># a mask per channel</span>
+       <span class="k">noisethreshold</span>=4.25, <span class="k">sidelobethreshold</span>=2.0,
+       <span class="k">lownoisethreshold</span>=1.5, <span class="k">minbeamfrac</span>=0.3,
+       <span class="k">negativethreshold</span>=15.0,          <span class="c"># pipeline value</span>
+       <span class="k">restoringbeam</span>=<span class="s">'common'</span>)</pre>
     <div class="stack">
       <div class="card"><h3>What you should see</h3><ul><li>The log lists the grid as centre 3500 m/s, width 500 m/s, 15 channels: 0.0 to 7.0 km/s (LSRK). Check it before cleaning.</li><li>TW Hya is at about 2.8 km/s. The line is in channels 5–7 (2.5–3.5 km/s).</li><li>Seven products: <code>.image</code>, <code>.residual</code>, <code>.model</code>, <code>.mask</code>, <code>.psf</code>, <code>.pb</code>, <code>.sumwt</code> (the notebook plots the first six). One beam for all channels.</li></ul></div>
       <p class="try"><b>Demo</b>Part 5 · <a href="#setonce">set once</a> · <a href="#doppler">restfreq</a> · <a href="#cubemask">masks per channel</a></p>
@@ -342,16 +355,22 @@ section[id^="fa-"] pre.code.tight { font-size: .86em; }   /* follow-along code: 
 <section class="slide" id="fa-chans">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 4 · the channel maps</p><h2>Channels 5, 6 and 7 on one colour scale</h2></header>
   <div class="cols l3">
-<pre class="code tight"><span class="c"># channels 5, 6, 7 = 2.5, 3.0, 3.5 km/s</span>
-vmax = <span class="f">imstat</span>(<span class="s">'twhya_n2hp.image'</span>)[<span class="s">'max'</span>][0]
-<span class="k">for</span> ch <span class="k">in</span> [<span class="em">5</span>, <span class="em">6</span>, <span class="em">7</span>]:
-    <span class="f">quicklook</span>(<span class="s">'twhya_n2hp.image'</span>, <span class="k">chan</span>=ch, <span class="k">zoom</span>=<span class="s">40</span>,
-              <span class="k">vmin</span>=<span class="em">-0.2 * vmax</span>, <span class="k">vmax</span>=<span class="em">vmax</span>)
+<pre class="code tight">import matplotlib.pyplot as plt
+from casatools import image
 
-<span class="c"># and every product of channel 5</span>
-<span class="k">for</span> ext <span class="k">in</span> [<span class="s">'image'</span>, <span class="s">'residual'</span>, <span class="s">'model'</span>,
-            <span class="s">'mask'</span>, <span class="s">'psf'</span>, <span class="s">'pb'</span>]:
-    <span class="f">quicklook</span>(f<span class="s">'twhya_n2hp.{ext}'</span>, <span class="k">chan</span>=<span class="s">5</span>)</pre>
+ia = <span class="f">image</span>(); ia.<span class="f">open</span>(<span class="s">'twhya_n2hp.image'</span>)
+cube = ia.<span class="f">getchunk</span>(<span class="k">dropdeg</span>=True); ia.<span class="f">close</span>()  <span class="c"># x, y, channel</span>
+vmax = cube.max()   <span class="c"># one colour scale for all channels</span>
+<span class="c"># channels 5, 6, 7 = 2.5, 3.0, 3.5 km/s</span>
+fig, axs = plt.subplots(1, 3, <span class="k">figsize</span>=(12, 4))
+for ax, ch in zip(axs, [<span class="em">5</span>, <span class="em">6</span>, <span class="em">7</span>]):
+    ax.imshow(cube[85:165, 85:165, ch].T, <span class="k">origin</span>=<span class="s">'lower'</span>,
+              <span class="k">vmin</span>=-0.2 * vmax, <span class="k">vmax</span>=vmax, <span class="k">cmap</span>=<span class="s">'inferno'</span>)
+    ax.set_title(<span class="s">f'channel {ch}'</span>)
+fig.savefig(<span class="s">'twhya_n2hp_chans.png'</span>)
+
+<span class="c"># every product of channel 5 (.residual, .model,</span>
+<span class="c"># .mask, .psf, .pb): open them in CARTA</span></pre>
     <div class="stack">
       <div class="card"><h3>What you should see</h3><ul><li>One colour scale for the whole cube.</li><li>TW Hya is almost face-on (i ≈ 5–7°). The emission hardly moves between channels (no butterfly as in the 40° demo).</li><li>The mask covers the emission in channels 5 and 7. Channel 6 has none (auto-multithresh pruned it), so it is not cleaned and looks fainter. The residual looks like noise inside and outside it (dirty vs residual: <a href="04_continuum_imaging.html#cleanstep">Part 4 · CLEAN step</a>).</li></ul></div>
       <p class="try"><b>Demo</b>Part 5 · <a href="#chanmaps">channel maps</a> · <a href="#cubemask">masks per channel</a></p>
@@ -361,19 +380,26 @@ vmax = <span class="f">imstat</span>(<span class="s">'twhya_n2hp.image'</span>)[
 <section class="slide" id="fa-export">
   <header class="hd"><p class="eyebrow"><span class="tag check">Follow along</span>notebook step 5 · experiment, export, CARTA</p><h2>Experiments and export to CARTA</h2></header>
   <div class="cols l3">
-<pre class="code tight"><span class="c"># the step-3 call with one change, under a new name</span>
-<span class="f">tclean</span>(... <span class="k">imagename</span>=<span class="s">'twhya_n2hp_experiment1'</span>,
-       <span class="k">deconvolver</span>=<span class="em">'asp'</span>)   <span class="c"># or nchan, width</span>
+<pre class="code tight">from casatasks import tclean, impbcor, exportfits
+<span class="c"># step 3's call with one change, under a new name</span>
+<span class="f">tclean</span>(<span class="k">vis</span>=<span class="s">'twhya_selfcal.ms.contsub'</span>, <span class="k">field</span>=<span class="s">'5'</span>, <span class="k">spw</span>=<span class="s">'0'</span>,
+       <span class="k">imagename</span>=<span class="s">'twhya_n2hp_experiment1'</span>, <span class="k">specmode</span>=<span class="s">'cube'</span>,
+       <span class="k">restfreq</span>=<span class="s">'372.67249GHz'</span>, <span class="k">outframe</span>=<span class="s">'LSRK'</span>,
+       <span class="k">start</span>=<span class="s">'0.0km/s'</span>, <span class="k">width</span>=<span class="s">'0.5km/s'</span>, <span class="k">nchan</span>=15,
+       <span class="k">perchanweightdensity</span>=True, <span class="k">weighting</span>=<span class="s">'briggsbwtaper'</span>,
+       <span class="k">robust</span>=0.5, <span class="k">imsize</span>=[250, 250], <span class="k">cell</span>=<span class="s">'0.1arcsec'</span>,
+       <span class="k">deconvolver</span>=<span class="em">'asp'</span>, <span class="k">niter</span>=5000,     <span class="c"># was 'hogbom'</span>
+       <span class="k">usemask</span>=<span class="s">'auto-multithresh'</span>, <span class="k">noisethreshold</span>=4.25,
+       <span class="k">sidelobethreshold</span>=2.0, <span class="k">lownoisethreshold</span>=1.5,
+       <span class="k">minbeamfrac</span>=0.3, <span class="k">negativethreshold</span>=15.0,
+       <span class="k">restoringbeam</span>=<span class="s">'common'</span>)
 
-<span class="c"># for fluxes: primary beam correction (not in the notebook)</span>
-<span class="f">impbcor</span>(<span class="k">imagename</span>=<span class="s">'twhya_n2hp.image'</span>,
-        <span class="k">pbimage</span>=<span class="s">'twhya_n2hp.pb'</span>,
-        <span class="k">outfile</span>=<span class="s">'twhya_n2hp.pbcor.image'</span>)
-<span class="c"># the notebook exports .image (flat noise, for looking);</span>
-<span class="c"># export .pbcor.image the same way for fluxes</span>
-<span class="f">exportfits</span>(<span class="k">imagename</span>=<span class="s">'twhya_n2hp.image'</span>,
-           <span class="k">fitsimage</span>=<span class="s">'twhya_n2hp.image.fits'</span>,
-           <span class="k">velocity</span>=<span class="em">True</span>, <span class="k">overwrite</span>=<span class="s">True</span>)</pre>
+<span class="c"># fluxes need the primary beam correction; export both images</span>
+<span class="f">impbcor</span>(<span class="k">imagename</span>=<span class="s">'twhya_n2hp.image'</span>, <span class="k">pbimage</span>=<span class="s">'twhya_n2hp.pb'</span>,
+        <span class="k">outfile</span>=<span class="s">'twhya_n2hp.pbcor.image'</span>, <span class="k">overwrite</span>=True)
+for im in [<span class="s">'twhya_n2hp.image'</span>, <span class="em">'twhya_n2hp.pbcor.image'</span>]:
+    <span class="f">exportfits</span>(<span class="k">imagename</span>=im, <span class="k">fitsimage</span>=im + <span class="s">'.fits'</span>,
+               <span class="k">velocity</span>=True, <span class="k">overwrite</span>=True)</pre>
     <div class="stack">
       <div class="card"><h3>What you should see</h3><ul><li>hogbom vs asp, channel 5, same colour scale. The restored maps are close. The differences are in the model and the residual.</li><li>A wider <code>width</code>: less noise per channel (rms ∝ 1/√width), but a coarser line.</li><li>Fewer channels (<code>nchan</code>) at the same width: same noise, less velocity range. Check that the line and some line-free channels still fit.</li><li><code>velocity=True</code> writes the spectral axis as radio velocity (m/s in the FITS header; CARTA shows km/s). In CARTA: step through the channels, draw a region, open the spectral profiler.</li></ul></div>
       <p class="try"><b>Demo</b>Part 5 · <a href="#chanwidth">start, width, nchan</a> · <a href="#chanmaps">spectral profile</a> · <a href="#moments">moments</a></p>
