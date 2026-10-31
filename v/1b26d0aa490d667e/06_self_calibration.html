@@ -467,6 +467,71 @@ ms = <span class="s">'uid___A002_X…_targets.ms'</span>                        
     <li>Why might a weak source "appear" at the phase centre after self-calibrating a blank field?<details><summary>Answer</summary>The solutions fitted the noise to the model, and the corrected data took on the model's phases. It happens when <code>minsnr</code> is too low or the target is too faint for any solint. Estimate the S/N per solution before you start, keep <code>minsnr</code> ≥ 3, and compare with the image made without self-cal.</details></li>
   </ol>
 </section>
+<section class="slide section" id="summary">
+  <p class="num">S</p>
+  <h2>Summary: three kinds of parameters</h2>
+  <p>Set once from the data and the pipeline, change each round, leave the rest at default. One slide each.</p>
+</section>
+<section class="slide" id="sum-setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>summary · gaincal · applycal · tclean</p><h2>Set once: they follow from the data and the pipeline</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td><code>'sc.ms'</code></td><td>an averaged continuum copy of the target (recipe step 1), never the delivered MS</td></tr>
+      <tr><td><code>caltable</code></td><td>a new name each round: <code>'sc_p1.g'</code>, <code>'sc_p2.g'</code> …</td><td>keep every table, so you can go back one round</td></tr>
+      <tr><td><code>field</code></td><td><code>''</code></td><td>the copy holds only your target</td></tr>
+      <tr><td><code>refant</code></td><td>the pipeline's list, e.g. <code>'DA41,DA55'</code></td><td>weblog <code>hif_refant</code>: central antennas present in every scan</td></tr>
+      <tr><td><code>gaintype</code></td><td><code>'T'</code></td><td>averages both polarizations, if the target is unpolarized (default <code>'G'</code>)</td></tr>
+      <tr><td><code>gaintable</code> (applycal)</td><td>the newest phase table (+ the <code>'ap'</code> table)</td><td>each is solved from DATA with the newest model and replaces the one before</td></tr>
+      <tr><td><code>spwmap</code> (applycal)</td><td><code>[0, 0, 0, 0]</code></td><td>with <code>combine='spw'</code> the solution is stored under spw 0 only. One 0 per spw</td></tr>
+      <tr><td><code>savemodel</code> (tclean)</td><td><code>'modelcolumn'</code></td><td>gaincal solves against MODEL_DATA; every round</td></tr>
+      <tr><td><code>cell</code>, <code>imsize</code>, <code>robust</code> (tclean)</td><td>your Part 4 values</td><td>the same in every round, so the images compare</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Set once</h3><p>Write them into the first call and copy them into every later one (as in the recipe).</p></div>
+      <p class="small muted">More: <a href="#setonce">set once</a> · <a href="#recipe">recipe</a> · <a href="#recipe1">detailed recipe</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sum-tune">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>summary · gaincal · tclean</p><h2>Tune: they change from round to round</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Start with</th><th>Then</th></tr>
+      <tr><td><code>solint</code></td><td><code>'inf'</code>: one per scan</td><td>shorter each round, while S/N per solution stays ≥ 3–5 and few solutions are flagged</td></tr>
+      <tr><td><code>calmode</code></td><td><code>'p'</code></td><td>at most one <code>'ap'</code> round at the end, <code>solint='inf'</code>, only if the image improves</td></tr>
+      <tr><td><code>combine</code></td><td><code>'spw'</code> (as in the S/N estimate; <code>spwmap</code> in applycal)</td><td><code>'scan,spw'</code> with <code>'inf'</code>: one per execution, for a faint target. <code>''</code> (per spw) only if the S/N estimate ÷ √N<sub>spw</sub> gives ≥ 3–5</td></tr>
+      <tr><td><code>minsnr</code></td><td><code>3.0</code></td><td>4–5 if the solutions look noisy; never 0</td></tr>
+      <tr><td>the model</td><td>tclean <code>nsigma=5</code></td><td>deeper each round, down to 2.5–3; always <code>savemodel='modelcolumn'</code></td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Each round</h3><p>A new model from tclean, then one shorter <code>solint</code>. Keep every table. If a round makes the image worse, apply the previous table.</p></div>
+      <div class="card"><h3>Stop when</h3><ul><li>Peak S/N improves by less than a few percent per round.</li><li>Solutions become noisy or many fall below <code>minsnr</code>.</li><li>The rms reaches the thermal noise. Remaining artifacts have another cause.</li><li>An amplitude round changes total flux by more than a few percent.</li></ul></div>
+      <p class="small muted">More: <a href="#snr">S/N</a> · <a href="#solint">solint</a> · <a href="#checksol">solutions</a> · <a href="#change">between rounds</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sum-leave">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Leave at default</span>summary · gaincal · applycal · hif_selfcal</p><h2>Leave at default: change only for a known problem</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Default</th><th>When it matters</th></tr>
+      <tr><td><code>interp</code> (applycal)</td><td><code>'linear'</code></td><td>interpolates between solutions</td></tr>
+      <tr><td><code>solnorm</code></td><td><code>False</code></td><td><code>True</code> in <code>'ap'</code> rounds (keeps the flux scale); no effect for <code>'p'</code></td></tr>
+      <tr><td><code>applymode</code></td><td><code>'calflag'</code></td><td>leave it; check in the log how much it flagged</td></tr>
+      <tr><td><code>refantmode</code></td><td><code>'flex'</code></td><td>moves to the next refant in your list when the first drops out</td></tr>
+      <tr><td><code>minblperant</code></td><td><code>4</code></td><td>few antennas (7-m array): fewer baselines per solution</td></tr>
+      <tr><td><code>uvrange</code></td><td><code>''</code></td><td><code>'ap'</code> round, model misses extended flux: exclude short baselines (common issue 2)</td></tr>
+      <tr><td><code>amplitude_selfcal</code> (hif_selfcal)</td><td><code>False</code></td><td><code>True</code> adds an amplitude round (with <code>solnorm=True</code>)</td></tr>
+      <tr><td><code>dividing_factor</code> (hif_selfcal)</td><td>15</td><td>lower: a shallower first clean, if phase errors are large</td></tr>
+      <tr><td><code>minsnr_to_proceed</code> (hif_selfcal)</td><td>3</td><td>lower: tries a fainter target, at the risk of fitting noise</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Note</h3><p>Most problems in self-calibration come from the model or the S/N, not from these parameters. Fix those first.</p></div>
+      <p class="small muted">More: <a href="#change">what changes between rounds</a> · <a href="#manual">when to go manual</a></p>
+    </div>
+  </div>
+</section>
 
 </main>
 <script src="assets/sim.js"></script>

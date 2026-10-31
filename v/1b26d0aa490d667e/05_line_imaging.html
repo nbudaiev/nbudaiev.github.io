@@ -554,6 +554,75 @@ SpectralWindow: 25
     <li>Moment 0 with <code>includepix=[3σ, 1e9]</code> gives 20% less flux than the cube spectrum. Which is right?<details><summary>Answer</summary>The cube spectrum (in a mask or aperture). Clipping removes the faint emission below 3σ in each channel, and that adds up. Make moment 0 without clipping, over the line channels only.</details></li>
   </ol>
 </section>
+<section class="slide section" id="summary">
+  <p class="num">S</p>
+  <h2>Summary: three kinds of parameters</h2>
+  <p>Set once from the data and the line, tune for your science, leave the rest at default. One slide each.</p>
+</section>
+<section class="slide" id="sum-setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>summary · tclean, specmode='cube'</p><h2>Set once: they follow from the data and the line</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td>the continuum-subtracted MS</td><td><code>outputvis</code> of <code>uvcontsub</code></td></tr>
+      <tr><td><code>imagename</code></td><td>line and grid, e.g. <code>'tgt_co21_0.5kms'</code></td><td>one cube per line and setup</td></tr>
+      <tr><td><code>field</code>, <code>spw</code></td><td>the target; the spw with the line</td><td>listobs; <code>cont.dat</code> is per spw</td></tr>
+      <tr><td><code>specmode</code></td><td><code>'cube'</code></td><td>one image per channel</td></tr>
+      <tr><td><code>restfreq</code></td><td>the line's rest frequency, e.g. <code>'230.538GHz'</code></td><td>defines 0 km/s</td></tr>
+      <tr><td><code>outframe</code>, <code>veltype</code></td><td><code>'LSRK'</code>, <code>'radio'</code> (defaults)</td><td>tclean regrids every execution onto one LSRK grid</td></tr>
+      <tr><td><code>cell</code>, <code>imsize</code>, <code>robust</code></td><td>as in Part 4</td><td>the beam barely changes across one spw</td></tr>
+      <tr><td><code>restoringbeam</code></td><td><code>'common'</code></td><td>one beam in every channel</td></tr>
+      <tr><td><code>perchanweightdensity</code>, <code>weighting</code></td><td><code>True</code>, <code>'briggsbwtaper'</code></td><td>even noise from channel to channel (as in the pipeline)</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Rest frequency</h3><p>Copy all digits from Splatalogue. A 1 MHz error at 230 GHz shifts every velocity by 1.3 km/s, but the cube looks normal.</p></div>
+      <div class="card"><h3>Primary beam correction</h3><p><code>pbcor=True</code> also writes <code>.image.pbcor</code> for fluxes. Inspect and clip the <code>.image</code> (flat noise).</p></div>
+      <p class="small muted">More: <a href="#setonce">set once</a> · <a href="#doppler">restfreq, veltype</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sum-tune">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>summary · uvcontsub · tclean · immoments</p><h2>Tune: they depend on your line and science</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Start with</th><th>Change it when</th></tr>
+      <tr><td><code>fitspec</code> (uvcontsub)</td><td>the <code>hif_uvcontsub</code> ranges, or <code>cont.dat</code></td><td>the line has negative dips or leaks into the continuum: move the ranges away from it</td></tr>
+      <tr><td><code>fitorder</code> (uvcontsub)</td><td>1</td><td>0 with few line-free channels</td></tr>
+      <tr><td><code>start</code>, <code>nchan</code></td><td>the line plus ≥ 10 line-free channels on each side</td><td>a test cube: a few channels around the line</td></tr>
+      <tr><td><code>width</code></td><td>the native spacing</td><td>wider for S/N per channel, while ≥ 3 channels cover the FWHM; never below native</td></tr>
+      <tr><td><code>nsigma</code></td><td>3</td><td>each channel stops at 3× its own rms; add <code>threshold</code> for a floor</td></tr>
+      <tr><td><code>usemask</code> and thresholds</td><td><code>'auto-multithresh'</code>, the Part 4 values for your b75</td><td>the mask is made per channel; check it follows the line</td></tr>
+      <tr><td><code>negativethreshold</code></td><td>15 (pipeline; default 0)</td><td>about 5 for real absorption</td></tr>
+      <tr><td><code>moments</code>, <code>includepix</code></td><td>moment 0 unclipped, from <code>.image.pbcor</code></td><td>1 and 2: <code>includepix=[3σ, 1e9]</code> on <code>.image</code>; 8 (peak) for a first look</td></tr>
+      <tr><td><code>chans</code> (immoments)</td><td>the line channels</td><td>never the whole spw</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Done when</h3><p>The rms per channel is close to expected, line-free channels look like noise, and the first and last channels are line-free.</p></div>
+      <div class="card"><h3>Make a test cube first</h3><p>Try a new setting on a few channels around the line (<code>start</code>, <code>nchan</code>), not on the whole spw.</p></div>
+      <p class="small muted">More: <a href="#contsub">uvcontsub</a> · <a href="#chanwidth">width</a> · <a href="#cubemask">masks</a> · <a href="#cubeclean">nsigma</a> · <a href="#moments">moments</a> · <a href="#pv">PV</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sum-leave">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Leave at default</span>summary · tclean, specmode='cube'</p><h2>Leave at default: change only for a known problem</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Default</th><th>When it is worth changing</th></tr>
+      <tr><td><code>interpolation</code></td><td><code>'linear'</code></td><td>Rarely. Sets how channels are regridded to LSRK and your <code>width</code>. <code>'linear'</code> suits most data.</td></tr>
+      <tr><td><code>specmode='cubesource'</code></td><td><code>'cube'</code></td><td>Solar-system targets that move on the sky (ephemeris).</td></tr>
+      <tr><td><code>specmode='cubedata'</code></td><td><code>'cube'</code></td><td>No frame conversion: channels stay in TOPO. For tests, not for science cubes.</td></tr>
+      <tr><td><code>start</code>, <code>width</code> in GHz or channels</td><td><code>''</code> (the native grid)</td><td>We use km/s (needs <code>restfreq</code>). GHz or channels suit spectral scans.</td></tr>
+      <tr><td><code>chanchunks</code></td><td>1 (older CASA; −1 = auto)</td><td>Removed from current tclean, which splits big cubes. Ignore it in old scripts.</td></tr>
+      <tr><td><code>fastnoise</code></td><td><code>True</code></td><td><code>False</code> estimates the rms outside the mask. Slower, better when emission fills a channel.</td></tr>
+      <tr><td><code>fitorder</code> ≥ 2 (uvcontsub)</td><td>0</td><td>We use 1. ≥ 2 only for a curved continuum over a wide spw with many line-free channels.</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Note</h3><p>Change one parameter at a time, only when the cube shows a problem it addresses.</p></div>
+      <div class="card"><h3>Plus Part 4</h3><p>The continuum list (<code>gain</code>, <code>cyclefactor</code>, <code>npixels</code> …) applies to every channel.</p></div>
+      <p class="small muted">More: <a href="#leave">leave at default</a> · <a href="#takeaway">three calls to start from</a></p>
+    </div>
+  </div>
+</section>
 
 </main>
 <script src="assets/sim.js"></script>

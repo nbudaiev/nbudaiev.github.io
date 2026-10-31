@@ -649,6 +649,74 @@ for im in [<span class="s">'twhya_cont.image'</span>, <span class="em">'twhya_co
     <li>After <code>niter=100000</code> without a mask the residual looks flat and the disk flux changed. What happened?<details><summary>Answer</summary>CLEAN modelled the noise. The residual rms is artificially low and the model contains noise components. Clean inside a mask (or auto-multithresh) down to ≈2–3σ.</details></li>
   </ol>
 </section>
+<section class="slide section" id="summary">
+  <p class="num">S</p>
+  <h2>Summary: three kinds of parameters</h2>
+  <p>Set once from the data and the weblog, tune for your science, leave the rest at default. One slide each.</p>
+</section>
+<section class="slide" id="sum-setonce">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Set once</span>summary · tclean</p><h2>Set once: they follow from the data</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Set it to</th><th>Why</th></tr>
+      <tr><td><code>vis</code></td><td>the calibrated MS, or a list of them</td><td>after <code>scriptForPI.py</code>; a list images several executions together</td></tr>
+      <tr><td><code>imagename</code></td><td>a prefix that names your choices, e.g. <code>'twhya_cont_r0.5'</code></td><td>tclean writes <code>.image .residual .model .psf .pb .mask</code>; if they exist it continues from them</td></tr>
+      <tr><td><code>field</code></td><td>the target name from listobs</td><td>calibrators are in the same MS</td></tr>
+      <tr><td><code>spw</code></td><td>line-free channels</td><td><code>cont.dat</code> (LSRK) converted to channels; check plotms amplitude vs channel</td></tr>
+      <tr><td><code>specmode</code></td><td><code>'mfs'</code></td><td>one image from all selected channels</td></tr>
+      <tr><td><code>gridder</code></td><td><code>'standard'</code>, or <code>'mosaic'</code></td><td><span class="tag fixed">Fixed by the observation</span> single pointing or mosaic</td></tr>
+      <tr><td><code>cell</code></td><td>beam / 5</td><td>beam from the weblog (<code>hifa_imageprecheck</code>)</td></tr>
+      <tr><td><code>imsize</code></td><td>≥ 1.5 × PB FWHM / cell</td><td>cover the primary beam: PB FWHM ≈ 58″ (B3), 25″ (B6), 17″ (B7)</td></tr>
+      <tr><td><code>pbcor</code>, <code>pblimit</code></td><td><code>True</code>, 0.2 (default)</td><td>writes <code>.image.pbcor</code>: fluxes there, noise on <code>.image</code></td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Once per dataset</h3><p>Write them into the first tclean call of your script and copy them into every later call. They change only with a new dataset, target or spw.</p></div>
+      <div class="card"><h3>imagename</h3><p>tclean restarts from images that already carry the same <code>imagename</code>. Change the name, or delete the old products, whenever you change a parameter.</p></div>
+      <p class="small muted">More: <a href="#setonce">set once</a> · <a href="#mfsprep">spw</a> · <a href="#cell">cell</a> · <a href="#imsize">imsize</a> · <a href="#pbcor">pbcor</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sum-tune">
+  <header class="hd"><p class="eyebrow"><span class="tag choice">Your choice</span>summary · tclean</p><h2>Tune: they depend on your science</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Start with</th><th>Change it when</th></tr>
+      <tr><td><code>weighting</code>, <code>robust</code></td><td><code>'briggs'</code>, 0.5</td><td>toward 2 for faint or extended emission; toward −1 for resolution (noise ×1.5–2.5)</td></tr>
+      <tr><td><code>uvtaper</code></td><td>none</td><td>faint extended emission: e.g. <code>['1arcsec']</code>, the FWHM of an image-plane Gaussian</td></tr>
+      <tr><td><code>niter</code></td><td>100000</td><td>keep it large, so that <code>nsigma</code> stops CLEAN</td></tr>
+      <tr><td><code>nsigma</code></td><td>2.5</td><td>2–3; or <code>threshold</code> in Jy from the weblog rms</td></tr>
+      <tr><td><code>usemask</code></td><td><code>'auto-multithresh'</code></td><td>it misses emission: <code>'user'</code> with a region file, or <code>iclean</code></td></tr>
+      <tr><td>the four automask thresholds</td><td>the column for your b75</td><td>mask on noise: raise <code>noisethreshold</code>; misses faint emission: lower <code>lownoisethreshold</code></td></tr>
+      <tr><td><code>deconvolver</code></td><td><code>'hogbom'</code></td><td><code>'multiscale'</code> for extended emission; <code>'mtmfs'</code>, <code>nterms=2</code> if Δν/ν ≳ 10%</td></tr>
+      <tr><td><code>scales</code></td><td><code>[0, 5, 15]</code> pixels</td><td>with multiscale: point, ~1 and ~3 beams; largest &lt; MRS</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Done when</h3><p>The residual looks like noise, inside and outside the mask, and the rms is close to the weblog's expected value.</p></div>
+      <div class="card"><h3>One at a time</h3><p>Change one parameter per run, with an <code>imagename</code> that names the change.</p></div>
+      <p class="small muted">More: <a href="#weighting">weighting</a> · <a href="#taper">uvtaper</a> · <a href="#depth">niter, nsigma</a> · <a href="#automask">automask</a> · <a href="#msclean">multiscale</a> · <a href="#mtmfs">mtmfs</a></p>
+    </div>
+  </div>
+</section>
+<section class="slide" id="sum-leave">
+  <header class="hd"><p class="eyebrow"><span class="tag fixed">Leave at default</span>summary · tclean</p><h2>Leave at default: change only for a known problem</h2></header>
+  <div class="cols wide">
+    <div class="tscroll"><table class="t">
+      <tr><th>Parameter</th><th>Default</th><th>When it is worth changing</th></tr>
+      <tr><td><code>datacolumn</code></td><td><code>'corrected'</code></td><td>Never. Falls back to <code>DATA</code> if the MS has been <code>split</code>.</td></tr>
+      <tr><td><code>gain</code></td><td>0.1</td><td>Almost never. Smaller is slower and rarely better.</td></tr>
+      <tr><td><code>cyclefactor</code></td><td>1.0</td><td>Try 2–3 if CLEAN diverges with a poor PSF (7-m, few antennas).</td></tr>
+      <tr><td><code>smallscalebias</code></td><td>0.0</td><td>Multiscale uses too large or too small scales.</td></tr>
+      <tr><td><code>restoringbeam</code></td><td>fitted</td><td><code>'common'</code> for cubes (Part 5). Forcing a beam changes what Jy/beam means.</td></tr>
+      <tr><td><code>savemodel</code></td><td><code>'none'</code></td><td><code>'modelcolumn'</code> before self-calibration (Part 6).</td></tr>
+      <tr><td><code>npixels</code>, <code>psfcutoff</code></td><td>0, 0.35</td><td>Expert tuning of Briggs weighting and the beam fit.</td></tr>
+      <tr><td><code>gridder='awproject'</code>, <code>wprojplanes</code></td><td></td><td>Wide-field corrections; not needed for ALMA single pointings.</td></tr>
+    </table></div>
+    <div class="stack">
+      <div class="card"><h3>Note</h3><p>Change one parameter at a time, and only when an image shows a problem that parameter addresses. These defaults work for almost all ALMA data.</p></div>
+      <p class="small muted">More: <a href="#leave">leave at default</a> · <a href="#takeaway">a tclean call to start from</a></p>
+    </div>
+  </div>
+</section>
 
 </main>
 <script src="assets/sim.js"></script>
